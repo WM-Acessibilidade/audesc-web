@@ -1,0 +1,23 @@
+{
+  "categories": [
+    {
+      "name": "Memoriais e museus",
+      "repositories": [
+        {
+          "id": "memorial-mpf",
+          "title": "Memorial MPF",
+          "description": "Repositório do Memorial do Ministério Público Federal com página principal listando os itens audiodescritos.",
+          "url": "https://wm-acessibilidade.github.io/memorial-mpf/index.html"
+        }
+      ]
+    },
+    {
+      "name": "Exposições artísticas",
+      "repositories": []
+    },
+    {
+      "name": "Livros e periódicos",
+      "repositories": []
+    }
+  ]
+}
