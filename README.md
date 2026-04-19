@@ -1,41 +1,36 @@
-# Audesc Web — catálogo de repositórios com QR de itens
+# Audesc Web — catálogo com módulo visual de ao vivo
 
-Esta versão do Audesc foi adaptada para funcionar como catálogo web de repositórios de audiodescrição.
+Esta versão do Audesc reúne:
+
+- catálogo web de repositórios de audiodescrição;
+- módulo visual separado para transmissão e recepção ao vivo;
+- remoção do recurso de QR code na versão web.
+
+## Estrutura principal
+
+- `index.html`
+- `style.css`
+- `app.js`
+- `manifest.webmanifest`
+- `data/repositories.json`
+- `live/transmitir.html`
+- `live/receber.html`
+- `live/live.css`
+- `live/live.js`
 
 ## Como funciona
 
-O aplicativo lê o arquivo:
+### Catálogo
+O aplicativo lê:
+- `data/repositories.json`
 
-```text
-data/repositories.json
-```
+E mostra apenas as categorias que possuem resultados.
 
-Nesse arquivo ficam:
-- os nomes das categorias;
-- os links dos repositórios;
-- a descrição de cada repositório.
+### Módulo ao vivo
+As páginas em `live/` foram criadas como protótipo visual do fluxo de:
+- transmitir
+- receber
+- enviar feedback
+- pedir ajuda
 
-## Regras desta versão
-
-- apenas categorias com resultados aparecem;
-- o Audesc não usa player próprio;
-- ao abrir um resultado do catálogo, o usuário é levado à página principal do repositório;
-- a leitura de QR code abre diretamente o link específico do item identificado;
-- esta versão foi pensada para repositórios no formato do Memorial MPF.
-
-## Como testar no iPhone
-
-### Opção 1 — GitHub Pages
-1. envie os arquivos desta pasta para um repositório público no GitHub;
-2. ative o GitHub Pages;
-3. abra o link no Safari do iPhone.
-
-### Opção 2 — Servidor local
-```bash
-python3 -m http.server 8080
-```
-
-Depois abra:
-```text
-http://localhost:8080
-```
+A transmissão real do áudio ainda depende de integração posterior com serviço específico de tempo real.

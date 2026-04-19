@@ -19,8 +19,8 @@
 </header>
 
 <main id="main" class="main">
-  <section id="screen-explorar" class="screen active" aria-labelledby="heading-explorar">
-    <h2 id="heading-explorar">Explorar repositórios</h2>
+  <section id="screen-explorar" class="screen active">
+    <h2>Explorar repositórios</h2>
 
     <label class="field">
       <span>Buscar repositórios</span>
@@ -35,23 +35,38 @@
     <section class="panel">
       <div class="results-header">
         <h3>Repositórios encontrados</h3>
-        <div class="actions">
-          <button id="qrBtn" class="secondary" type="button">Ler QR code</button>
-          <button id="reloadBtn" class="secondary" type="button">Atualizar catálogo</button>
-        </div>
+        <button id="reloadBtn" class="secondary" type="button">Atualizar catálogo</button>
       </div>
       <p class="hint">O Audesc lê os repositórios cadastrados no arquivo de catálogo e mostra apenas as categorias que possuem resultados.</p>
       <div id="repoList" class="list"></div>
     </section>
   </section>
 
-  <section id="screen-config" class="screen" aria-labelledby="heading-config">
-    <h2 id="heading-config">Configurações</h2>
+  <section id="screen-live" class="screen">
+    <h2>Módulo ao vivo</h2>
+
+    <div class="panel">
+      <h3>Teste de transmissão e recepção</h3>
+      <p>Este módulo foi separado do catálogo principal para permitir testes do fluxo ao vivo no mesmo repositório.</p>
+      <div class="actions">
+        <a class="button-link" href="live/transmitir.html">Abrir página de transmitir</a>
+        <a class="button-link secondary-link" href="live/receber.html">Abrir página de receber</a>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Observação importante</h3>
+      <p>Estas páginas são um protótipo visual do módulo ao vivo. A transmissão real do áudio ainda depende de integração posterior com um serviço de tempo real, como LiveKit, e de um backend mínimo para controle de sala.</p>
+    </div>
+  </section>
+
+  <section id="screen-config" class="screen">
+    <h2>Configurações</h2>
 
     <div class="panel">
       <h3>Sobre esta versão</h3>
       <p>Esta versão do Audesc foi simplificada para funcionar como catálogo web de repositórios no formato do Memorial MPF.</p>
-      <p>Os links do catálogo abrem a página principal do repositório. Já a leitura de QR code abre diretamente o link específico do item identificado.</p>
+      <p>Os links do catálogo abrem a página principal do repositório. O recurso de QR code foi removido da versão web por limitação prática de funcionamento no Safari/iPhone.</p>
     </div>
 
     <div class="panel">
@@ -60,36 +75,11 @@
       <p>Somente categorias com pelo menos um repositório aparecem para o usuário.</p>
     </div>
   </section>
-
-  <section id="qrModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="qrTitle">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h2 id="qrTitle">Ler QR code</h2>
-        <button id="closeQrBtn" class="icon-btn" aria-label="Fechar" type="button">✕</button>
-      </div>
-      <div class="modal-body">
-        <p>Nesta versão, os links do catálogo abrem a página principal do repositório. Já o QR code abre diretamente o link específico do item identificado.</p>
-        <p class="hint">No iPhone, a câmera do navegador funciona melhor quando o site está publicado em HTTPS, como no GitHub Pages.</p>
-        <div class="actions">
-          <button id="startQrBtn" type="button">Iniciar câmera</button>
-          <button id="stopQrBtn" class="secondary" type="button">Parar câmera</button>
-        </div>
-        <video id="qrVideo" playsinline class="qr-video hidden"></video>
-        <label class="field">
-          <span>Ou cole manualmente o link do item</span>
-          <input id="qrManualInput" type="url" placeholder="https://...">
-        </label>
-        <div class="actions">
-          <button id="openQrManualBtn" type="button">Abrir item</button>
-        </div>
-        <p id="qrStatus" class="hint"></p>
-      </div>
-    </div>
-  </section>
 </main>
 
 <nav class="bottom-nav" aria-label="Navegação principal">
   <button data-screen="explorar" class="nav-btn active" type="button">Explorar</button>
+  <button data-screen="live" class="nav-btn" type="button">Ao vivo</button>
   <button data-screen="config" class="nav-btn" type="button">Configurações</button>
 </nav>
 
