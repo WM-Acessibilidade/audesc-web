@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Audesc Ao Vivo — Receber</title>
+  <link rel="stylesheet" href="live.css">
+</head>
+<body>
+<header class="topbar">
+  <h1>Audesc Ao Vivo</h1>
+  <p class="subtitle">Página de recepção — protótipo visual</p>
+</header>
+
+<main class="main">
+  <div class="actions">
+    <a class="button-link secondary" href="../index.html">Voltar ao Audesc</a>
+    <a class="button-link secondary" href="transmitir.html">Ir para Transmitir</a>
+  </div>
+
+  <section class="panel">
+    <h2>Receber audiodescrição</h2>
+    <p>Esta página foi preparada para testar o fluxo do receptor dentro do mesmo repositório.</p>
+
+    <div class="grid two">
+      <label class="field">
+        <span>Código da sala</span>
+        <input id="roomCode" type="text" placeholder="Ex.: teatro-01">
+      </label>
+
+      <label class="field">
+        <span>Nome do receptor</span>
+        <input id="receiverName" type="text" placeholder="Ex.: Leonardo">
+      </label>
+    </div>
+
+    <div class="actions">
+      <button id="joinBtn" type="button">Entrar na sala</button>
+      <button id="leaveBtn" class="secondary" type="button">Sair da sala</button>
+    </div>
+
+    <div id="receiverStatus" class="status">Status: aguardando entrada na sala.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Feedback rápido</h2>
+    <div class="actions">
+      <button id="audioNormalBtn" type="button">Áudio normal</button>
+      <button id="audioLowBtn" class="secondary" type="button">Áudio baixo</button>
+      <button id="audioFailBtn" class="secondary" type="button">Áudio com falha</button>
+      <button id="noAudioBtn" class="secondary" type="button">Sem áudio</button>
+    </div>
+    <div id="feedbackStatus" class="status">Nenhum feedback enviado ainda.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Assistência</h2>
+    <div class="actions">
+      <button id="helpBtn" type="button">Pedir ajuda</button>
+    </div>
+    <div id="helpStatus" class="status">Nenhum pedido de ajuda enviado.</div>
+  </section>
+</main>
+
+<script src="live.js"></script>
+<script>
+document.getElementById('joinBtn').addEventListener('click', () => {
+  const room = readField('roomCode') || 'sala-sem-codigo';
+  const name = readField('receiverName') || 'receptor';
+  showMessage('receiverStatus', `Status: entrada realizada às ${formatTime()} | sala: ${room} | receptor: ${name}.`);
+});
+
+document.getElementById('leaveBtn').addEventListener('click', () => {
+  showMessage('receiverStatus', `Status: saída da sala às ${formatTime()}.`);
+});
+
+document.getElementById('audioNormalBtn').addEventListener('click', () => {
+  showMessage('feedbackStatus', `Feedback enviado às ${formatTime()}: áudio normal.`);
+});
+
+document.getElementById('audioLowBtn').addEventListener('click', () => {
+  showMessage('feedbackStatus', `Feedback enviado às ${formatTime()}: áudio baixo.`);
+});
+
+document.getElementById('audioFailBtn').addEventListener('click', () => {
+  showMessage('feedbackStatus', `Feedback enviado às ${formatTime()}: áudio com falha.`);
+});
+
+document.getElementById('noAudioBtn').addEventListener('click', () => {
+  showMessage('feedbackStatus', `Feedback enviado às ${formatTime()}: sem áudio.`);
+});
+
+document.getElementById('helpBtn').addEventListener('click', () => {
+  showMessage('helpStatus', `Pedido de ajuda enviado às ${formatTime()}.`);
+});
+</script>
+</body>
+</html>
