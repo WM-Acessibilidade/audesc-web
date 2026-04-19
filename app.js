@@ -1,4 +1,4 @@
-const state = { repositories: [], selectedCategory: 'Todas', activeScreen: 'explorar' };
+const state = { repositories: [], selectedCategory: 'Todas', activeScreen: 'explorar', stream: null, detectorLoop: null };
 
 const els = {
   searchInput: document.getElementById('searchInput'),
@@ -7,6 +7,15 @@ const els = {
   toast: document.getElementById('toast'),
   navBtns: Array.from(document.querySelectorAll('.nav-btn')),
   reloadBtn: document.getElementById('reloadBtn'),
+  qrBtn: document.getElementById('qrBtn'),
+  qrModal: document.getElementById('qrModal'),
+  closeQrBtn: document.getElementById('closeQrBtn'),
+  startQrBtn: document.getElementById('startQrBtn'),
+  stopQrBtn: document.getElementById('stopQrBtn'),
+  qrVideo: document.getElementById('qrVideo'),
+  qrManualInput: document.getElementById('qrManualInput'),
+  openQrManualBtn: document.getElementById('openQrManualBtn'),
+  qrStatus: document.getElementById('qrStatus'),
   screens: {
     explorar: document.getElementById('screen-explorar'),
     config: document.getElementById('screen-config')
@@ -134,6 +143,66 @@ function renderRepositories() {
   });
 }
 
+function openQr() {
+  els.qrModal.classList.remove('hidden');
+}
+
+async function closeQr() {
+  await stopQr();
+  els.qrModal.classList.add('hidden');
+}
+
+async function startQr() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    els.qrStatus.textContent = 'A câmera não está disponível neste navegador.';
+    return;
+  }
+
+  try {
+    state.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    els.qrVideo.srcObject = state.stream;
+    els.qrVideo.classList.remove('hidden');
+    await els.qrVideo.play();
+    els.qrStatus.textContent = 'Câmera iniciada. Aponte para o QR code do item.';
+
+    if ('BarcodeDetector' in window) {
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      state.detectorLoop = setInterval(async () => {
+        try {
+          const codes = await detector.detect(els.qrVideo);
+          if (codes.length) {
+            const raw = codes[0].rawValue || '';
+            if (raw) {
+              await stopQr();
+              window.open(raw, '_blank');
+            }
+          }
+        } catch (error) {}
+      }, 900);
+    } else {
+      els.qrStatus.textContent = 'A câmera foi iniciada, mas a leitura automática de QR code pode não estar disponível neste navegador. Use o campo de link manual, se necessário.';
+    }
+  } catch (error) {
+    els.qrStatus.textContent = 'Não foi possível acessar a câmera.';
+  }
+}
+
+async function stopQr() {
+  if (state.detectorLoop) {
+    clearInterval(state.detectorLoop);
+    state.detectorLoop = null;
+  }
+  if (state.stream) {
+    state.stream.getTracks().forEach(track => track.stop());
+    state.stream = null;
+  }
+  if (els.qrVideo) {
+    els.qrVideo.pause();
+    els.qrVideo.srcObject = null;
+    els.qrVideo.classList.add('hidden');
+  }
+}
+
 function escapeHtml(str) {
   return String(str).replace(/[&<>"]/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[s]));
 }
@@ -141,6 +210,14 @@ function escapeHtml(str) {
 function bindEvents() {
   els.navBtns.forEach(btn => btn.addEventListener('click', () => switchScreen(btn.dataset.screen)));
   els.searchInput.addEventListener('input', renderRepositories);
+  els.qrBtn.addEventListener('click', openQr);
+  els.closeQrBtn.addEventListener('click', closeQr);
+  els.startQrBtn.addEventListener('click', startQr);
+  els.stopQrBtn.addEventListener('click', stopQr);
+  els.openQrManualBtn.addEventListener('click', () => {
+    const url = els.qrManualInput.value.trim();
+    if (url) window.open(url, '_blank');
+  });
   els.reloadBtn.addEventListener('click', async () => {
     await loadRepositories();
     showToast('Catálogo atualizado.');

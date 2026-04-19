@@ -1,4 +1,4 @@
-# Audesc Web — catálogo de repositórios
+# Audesc Web — catálogo de repositórios com QR de itens
 
 Esta versão do Audesc foi adaptada para funcionar como catálogo web de repositórios de audiodescrição.
 
@@ -19,8 +19,8 @@ Nesse arquivo ficam:
 
 - apenas categorias com resultados aparecem;
 - o Audesc não usa player próprio;
-- ao abrir um repositório, o usuário é levado diretamente à página principal desse repositório;
-- o recurso de downloads foi removido;
+- ao abrir um resultado do catálogo, o usuário é levado à página principal do repositório;
+- a leitura de QR code abre diretamente o link específico do item identificado;
 - esta versão foi pensada para repositórios no formato do Memorial MPF.
 
 ## Como testar no iPhone

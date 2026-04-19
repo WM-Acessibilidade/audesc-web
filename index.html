@@ -35,7 +35,10 @@
     <section class="panel">
       <div class="results-header">
         <h3>Repositórios encontrados</h3>
-        <button id="reloadBtn" class="secondary" type="button">Atualizar catálogo</button>
+        <div class="actions">
+          <button id="qrBtn" class="secondary" type="button">Ler QR code</button>
+          <button id="reloadBtn" class="secondary" type="button">Atualizar catálogo</button>
+        </div>
       </div>
       <p class="hint">O Audesc lê os repositórios cadastrados no arquivo de catálogo e mostra apenas as categorias que possuem resultados.</p>
       <div id="repoList" class="list"></div>
@@ -48,13 +51,39 @@
     <div class="panel">
       <h3>Sobre esta versão</h3>
       <p>Esta versão do Audesc foi simplificada para funcionar como catálogo web de repositórios no formato do Memorial MPF.</p>
-      <p>O aplicativo lê um arquivo específico com as categorias e os links dos repositórios. Ao abrir um repositório, o usuário é levado diretamente à página principal desse repositório, que já contém seu próprio player e a lista de itens.</p>
+      <p>Os links do catálogo abrem a página principal do repositório. Já a leitura de QR code abre diretamente o link específico do item identificado.</p>
     </div>
 
     <div class="panel">
       <h3>Arquivo de catálogo</h3>
       <p>Os repositórios são lidos de <code>data/repositories.json</code>.</p>
       <p>Somente categorias com pelo menos um repositório aparecem para o usuário.</p>
+    </div>
+  </section>
+
+  <section id="qrModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="qrTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="qrTitle">Ler QR code</h2>
+        <button id="closeQrBtn" class="icon-btn" aria-label="Fechar" type="button">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>Nesta versão, os links do catálogo abrem a página principal do repositório. Já o QR code abre diretamente o link específico do item identificado.</p>
+        <p class="hint">No iPhone, a câmera do navegador funciona melhor quando o site está publicado em HTTPS, como no GitHub Pages.</p>
+        <div class="actions">
+          <button id="startQrBtn" type="button">Iniciar câmera</button>
+          <button id="stopQrBtn" class="secondary" type="button">Parar câmera</button>
+        </div>
+        <video id="qrVideo" playsinline class="qr-video hidden"></video>
+        <label class="field">
+          <span>Ou cole manualmente o link do item</span>
+          <input id="qrManualInput" type="url" placeholder="https://...">
+        </label>
+        <div class="actions">
+          <button id="openQrManualBtn" type="button">Abrir item</button>
+        </div>
+        <p id="qrStatus" class="hint"></p>
+      </div>
     </div>
   </section>
 </main>

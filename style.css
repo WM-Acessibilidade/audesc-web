@@ -12,10 +12,10 @@ body{padding-bottom:84px}
 .subtitle{margin:.25rem 0 0;color:var(--muted)}
 .main{padding:0 16px 24px}
 .screen{display:none}.screen.active{display:block}
-.panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin:16px 0}
+.panel,.modal-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin:16px 0}
 .field{display:flex;flex-direction:column;gap:8px;margin:12px 0}
 .field input{min-height:48px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;font-size:16px;background:#fff}
-.results-header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.results-header,.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
 button{min-height:48px;padding:12px 16px;border:none;border-radius:12px;background:var(--primary);color:var(--primary-contrast);font-size:16px;font-weight:600}
 button.secondary{background:var(--secondary);color:var(--fg)}
 .list{display:grid;gap:12px}
@@ -31,5 +31,14 @@ button.secondary{background:var(--secondary);color:var(--fg)}
 .nav-btn{background:#fff;color:var(--fg);border:1px solid var(--border)}
 .nav-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;background:#111;color:#fff;padding:12px 16px;border-radius:999px;box-shadow:var(--shadow)}
-.toast.hidden{display:none}
+.toast.hidden,.modal.hidden,.qr-video.hidden{display:none}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center}
+.modal-card{width:min(100%,760px);max-height:92vh;overflow:auto;border-bottom-left-radius:0;border-bottom-right-radius:0}
+.modal-header,.modal-footer{padding:16px;border-bottom:1px solid var(--border)}
+.modal-footer{border-bottom:none;border-top:1px solid var(--border)}
+.modal-body{padding:16px}
+.modal-header{display:flex;align-items:center;justify-content:space-between}
+.icon-btn{min-height:auto;padding:8px 12px;background:transparent;color:var(--fg);border:1px solid var(--border)}
+.qr-video{width:100%;background:#000;border-radius:12px}
 code{background:#eef2fa;padding:2px 6px;border-radius:6px}
+@media (min-width:720px){.modal{align-items:center;padding:20px}.modal-card{border-radius:20px}}
