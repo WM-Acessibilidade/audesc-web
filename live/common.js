@@ -3,6 +3,7 @@
   const livekitUrl = cfg.livekitUrl;
   const tokenEndpoint = cfg.tokenEndpoint;
   const bundleUrl = cfg.bundleUrl;
+  const STORAGE_PREFIX = 'audesc-live';
 
   function setText(id, value) {
     const el = document.getElementById(id);
@@ -17,6 +18,10 @@
   function readValue(id) {
     const el = document.getElementById(id);
     return el ? el.value.trim() : '';
+  }
+  function writeValue(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.value = value || '';
   }
   function normalizarSala(nome) {
     return (nome || '').toLowerCase().trim().replace(/\s+/g, '-').replace(/[^a-z0-9_-]/g, '');
@@ -69,9 +74,33 @@
     if (typeof LK.Room === 'function') return new LK.Room();
     throw new Error('Classe Room não encontrada na biblioteca do LiveKit.');
   }
+  function saveState(key, data) {
+    try { localStorage.setItem(STORAGE_PREFIX + ':' + key, JSON.stringify(data)); } catch (e) {}
+  }
+  function loadState(key) {
+    try {
+      const raw = localStorage.getItem(STORAGE_PREFIX + ':' + key);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function clearState(key) {
+    try { localStorage.removeItem(STORAGE_PREFIX + ':' + key); } catch (e) {}
+  }
+  function switchStep(stepId) {
+    document.querySelectorAll('.screen-step').forEach(el => el.classList.remove('active'));
+    const target = document.getElementById(stepId);
+    if (target) target.classList.add('active');
+  }
+  function encodePayload(obj) {
+    return new TextEncoder().encode(JSON.stringify(obj));
+  }
+  function decodePayload(data) {
+    try { return JSON.parse(new TextDecoder().decode(data)); } catch (e) { return null; }
+  }
   window.AudescLiveCommon = {
-    livekitUrl, tokenEndpoint, setText, setStatus, readValue, normalizarSala,
-    gerarSalaAutomatica, obterSalaDaUrl, montarLinkReceptor, copiarTexto,
-    pedirToken, carregarLiveKit, criarRoom
+    livekitUrl, tokenEndpoint, setText, setStatus, readValue, writeValue,
+    normalizarSala, gerarSalaAutomatica, obterSalaDaUrl, montarLinkReceptor,
+    copiarTexto, pedirToken, carregarLiveKit, criarRoom, saveState, loadState,
+    clearState, switchStep, encodePayload, decodePayload
   };
 })();
