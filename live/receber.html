@@ -1,0 +1,51 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Audesc Ao Vivo — Receber</title><link rel="stylesheet" href="live.css"></head><body>
+<a class="button-link secondary" href="../index.html" style="margin:16px 16px 0 16px;">Voltar ao Audesc</a>
+<header class="topbar"><h1>Audesc Ao Vivo</h1><p class="subtitle">Recepção de audiodescrição</p></header>
+<main class="main">
+<section id="step-form" class="screen-step active"><section class="panel"><h2>Entrar como receptor</h2>
+<div class="grid two"><label class="field"><span>Código da sala</span><input id="roomCode" type="text" placeholder="Ex.: audesc-abc12"></label><label class="field"><span>Nome do receptor</span><input id="receiverName" type="text" placeholder="Ex.: Leonardo"></label></div>
+<div class="actions"><button id="joinBtn" type="button">Entrar</button></div><div id="receiverStatus" class="status">Status: aguardando entrada na sala.</div></section></section>
+<section id="step-room" class="screen-step">
+<section class="panel"><h2>Conexão ativa</h2>
+<div class="meta-line"><span class="badge" id="eventBadge">Evento</span><span class="badge" id="transmitterBadge">Transmissor</span><span class="badge" id="roomBadge">Sala</span></div>
+<div class="actions"><button id="feedbackNormalBtn" class="ghost" type="button">Áudio normal</button><button id="feedbackLowBtn" class="ghost" type="button">Áudio baixo</button><button id="feedbackFailBtn" class="ghost" type="button">Áudio com falha</button><button id="helpBtn" class="secondary" type="button">Pedir ajuda</button><button id="leaveBtn" class="secondary" type="button">Sair</button></div>
+<div id="receiverStatus2" class="status">Status: conectado e ouvindo automaticamente.</div><div id="diagnosticBox" class="status">Biblioteca do LiveKit ainda não carregada.</div></section>
+<section class="panel"><h2>Controle do áudio</h2><p class="hint">O áudio deve começar automaticamente ao entrar. Use apenas o volume do dispositivo ou a opção mudo do navegador, se necessário.</p><audio id="remoteAudio" autoplay playsinline class="hidden-audio"></audio></section>
+<section class="panel"><h2>Mensagens</h2><div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div></section>
+</section></main>
+<script src="common.js"></script>
+<script>
+(function(){
+const C=window.AudescLiveCommon; let LK=null, room=null, roomCode='', receiverName='', transmitterName='Aguardando transmissor', eventName='Evento ao vivo', messages=[], active=false;
+const audioEl=document.getElementById('remoteAudio');
+C.attachBeforeUnload(()=>active);
+function addMessage(from,text){ messages.unshift({from,text}); messages=messages.slice(0,30); const box=document.getElementById('messagesBox'); box.innerHTML=messages.length ? messages.map(item=>`<div class="message-item"><div><strong>${item.from||'Sistema'}</strong></div><div>${item.text}</div></div>`).join('') : 'Nenhuma mensagem recebida ainda.'; }
+function updateBadges(){ document.getElementById('eventBadge').textContent='Evento: '+eventName; document.getElementById('transmitterBadge').textContent='Transmissor: '+transmitterName; document.getElementById('roomBadge').textContent='Sala: '+roomCode; }
+function persist(){ C.saveState('receiver',{roomCode,receiverName,transmitterName,eventName,step:document.getElementById('step-room').classList.contains('active')?'room':'form'}); }
+async function sendMessage(payload){ if(!room || !room.localParticipant) return; try{ await room.localParticipant.publishData(C.encodePayload(payload), {reliable:true}); }catch(e){} }
+async function connectRoom(reconnect=false){
+  LK=await C.carregarLiveKit();
+  const tokenData=await C.pedirToken(roomCode, receiverName, 'receiver');
+  if(room){ room.disconnect(); room=null; }
+  room=C.criarRoom(LK);
+  room.on('trackSubscribed', async (track)=>{ if(track.kind==='audio'){ try{ const attached=track.attach(); if(attached.srcObject) audioEl.srcObject=attached.srcObject; else if(attached.src) audioEl.src=attached.src; audioEl.muted=false; audioEl.volume=1; if(typeof room.startAudio==='function'){ try{ await room.startAudio(); }catch(e){} } await audioEl.play().catch(()=>{}); C.setStatus('receiverStatus2','Status: conectado e ouvindo automaticamente.','success'); }catch(e){ C.setStatus('receiverStatus2','Status: áudio chegou, mas o navegador bloqueou a reprodução automática.','warning'); } }});
+  room.on('dataReceived',(payload)=>{ const msg=C.decodePayload(payload); if(!msg) return; if(msg.type==='transmitter-info'){ transmitterName=msg.transmitterName||transmitterName; eventName=msg.eventName||eventName; updateBadges(); persist(); } if(msg.type==='request-feedback') addMessage('Transmissor', msg.text||'Solicitação de feedback.'); if(msg.type==='help-response') addMessage('Transmissor', msg.text||'Resposta sobre o pedido de ajuda.'); });
+  room.on('reconnected', async ()=>{ C.setStatus('receiverStatus2','Status: reconectado à sala com sucesso.','success'); if(typeof room.startAudio==='function'){ try{ await room.startAudio(); }catch(e){} } sendMessage({type:'receiver-hello',name:receiverName}); });
+  room.on('disconnected', ()=>{ C.setStatus('receiverStatus2','Status: conexão encerrada.','warning'); });
+  await room.connect(C.livekitUrl, tokenData.token);
+  if(typeof room.startAudio==='function'){ try{ await room.startAudio(); }catch(e){} }
+  C.switchStep('step-room'); updateBadges(); active=true;
+  C.setStatus('receiverStatus', reconnect?'Status: sala restaurada e reconectada.':'Status: entrada realizada com sucesso.','success');
+  C.setStatus('receiverStatus2','Status: conectado. Aguardando ou recebendo o áudio do transmissor.','success');
+  sendMessage({type:'receiver-hello',name:receiverName}); persist();
+}
+document.getElementById('joinBtn').addEventListener('click', async ()=>{ try{ roomCode=C.normalizarSala(C.readValue('roomCode'))||'audesc'; receiverName=C.readValue('receiverName')||'receptor'; await connectRoom(false);}catch(error){ C.setStatus('receiverStatus','Status: erro ao entrar. '+(error&&error.message?error.message:'Falha desconhecida.'),'warning'); C.setStatus('diagnosticBox','Diagnóstico: '+(error&&error.message?error.message:'Falha desconhecida.'),'warning'); }});
+document.getElementById('feedbackNormalBtn').addEventListener('click', ()=>{ sendMessage({type:'feedback',text:'Áudio normal.'}); addMessage('Você','Feedback enviado: áudio normal.'); });
+document.getElementById('feedbackLowBtn').addEventListener('click', ()=>{ sendMessage({type:'feedback',text:'Áudio baixo.'}); addMessage('Você','Feedback enviado: áudio baixo.'); });
+document.getElementById('feedbackFailBtn').addEventListener('click', ()=>{ sendMessage({type:'feedback',text:'Áudio com falha.'}); addMessage('Você','Feedback enviado: áudio com falha.'); });
+document.getElementById('helpBtn').addEventListener('click', ()=>{ sendMessage({type:'help-request',text:'Preciso de ajuda.'}); addMessage('Você','Pedido de ajuda enviado.'); });
+document.getElementById('leaveBtn').addEventListener('click', ()=>{ const ok=window.confirm('Deseja sair da sala agora?'); if(!ok) return; if(room) room.disconnect(); room=null; active=false; audioEl.pause(); audioEl.removeAttribute('src'); audioEl.srcObject=null; C.clearState('receiver'); C.switchStep('step-form'); C.setStatus('receiverStatus','Status: saída da sala.','warning'); });
+const incomingRoom=C.obterSalaDaUrl(); const saved=C.loadState('receiver'); if(incomingRoom) C.writeValue('roomCode', incomingRoom);
+if(saved){ roomCode=incomingRoom||saved.roomCode||''; receiverName=saved.receiverName||''; transmitterName=saved.transmitterName||transmitterName; eventName=saved.eventName||eventName; C.writeValue('roomCode',roomCode); C.writeValue('receiverName',receiverName); updateBadges(); if(saved.step==='room'&&roomCode&&receiverName){ connectRoom(true).catch(error=>{ C.setStatus('diagnosticBox','Diagnóstico: '+(error&&error.message?error.message:'Falha ao restaurar a sala.'),'warning'); }); } }
+})();
+</script></body></html>
