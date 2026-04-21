@@ -1,11 +1,6 @@
-# Audesc — versão pronta para upload
+# Audesc — versão corrigida para upload
 
-Esta versão já está preparada para uso com:
-
-- LiveKit Cloud
-- backend de token online
-- catálogo de repositórios
-- módulo ao vivo com sala criada automaticamente pelo transmissor
+Esta versão corrige o carregamento do LiveKit no navegador e adiciona mensagens de diagnóstico visíveis na tela.
 
 ## URLs já configuradas
 
@@ -14,7 +9,7 @@ Esta versão já está preparada para uso com:
 - Token server:
   - `https://audesc-livekit-server.onrender.com/token`
 
-## Estrutura principal
+## Arquivos principais
 
 - `index.html`
 - `style.css`
@@ -24,8 +19,4 @@ Esta versão já está preparada para uso com:
 - `live/transmitir.html`
 - `live/receber.html`
 - `live/live.css`
-- `live/livekit.js`
-
-## Como publicar
-
-Suba todos os arquivos desta pasta para o seu repositório do GitHub Pages, mantendo exatamente a estrutura.
+- `live/livekit-config.js`
