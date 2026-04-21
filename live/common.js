@@ -65,9 +65,13 @@
       document.head.appendChild(script);
     });
   }
+  function criarRoom(LK) {
+    if (typeof LK.Room === 'function') return new LK.Room();
+    throw new Error('Classe Room não encontrada na biblioteca do LiveKit.');
+  }
   window.AudescLiveCommon = {
     livekitUrl, tokenEndpoint, setText, setStatus, readValue, normalizarSala,
     gerarSalaAutomatica, obterSalaDaUrl, montarLinkReceptor, copiarTexto,
-    pedirToken, carregarLiveKit
+    pedirToken, carregarLiveKit, criarRoom
   };
 })();
