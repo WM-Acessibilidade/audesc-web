@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Audesc Ao Vivo — Transmitir</title>
+  <link rel="stylesheet" href="live.css">
+</head>
+<body>
+<a class="button-link secondary" href="../index.html" style="margin:16px 16px 0 16px;">Voltar ao Audesc</a>
+<header class="topbar">
+  <h1>Audesc Ao Vivo</h1>
+  <p class="subtitle">Transmissão de audiodescrição</p>
+</header>
+
+<main class="main">
+  <section class="panel">
+    <h2>Criar e iniciar transmissão</h2>
+    <div class="grid two">
+      <label class="field">
+        <span>Nome do evento</span>
+        <input id="eventName" type="text" placeholder="Ex.: Peça com audiodescrição">
+      </label>
+      <label class="field">
+        <span>Nome do transmissor</span>
+        <input id="transmitterName" type="text" placeholder="Ex.: Audiodescritor">
+      </label>
+    </div>
+    <div class="actions">
+      <button id="startBtn" type="button">Criar sala e iniciar</button>
+      <button id="stopBtn" class="secondary" type="button">Encerrar transmissão</button>
+    </div>
+    <div id="transmitterStatus" class="status">Status: aguardando início da transmissão.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Dados da transmissão</h2>
+    <div class="kv">
+      <div>
+        <strong>Código da sala</strong>
+        <div id="roomCodeBox" class="codebox">Ainda não gerado.</div>
+      </div>
+      <div>
+        <strong>Link para receptores</strong>
+        <div id="receiverLinkBox" class="codebox">Ainda não gerado.</div>
+      </div>
+    </div>
+    <div class="copy-row">
+      <button id="copyCodeBtn" class="ghost" type="button">Copiar código</button>
+      <button id="copyLinkBtn" class="ghost" type="button">Copiar link</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Orientação</h2>
+    <p class="hint">Depois de iniciar, compartilhe o link gerado. O receptor pode abrir o link no iPhone e entrar diretamente na sala.</p>
+  </section>
+</main>
+
+<script src="livekit.js"></script>
+<script type="module">
+import { connect, createLocalAudioTrack } from 'https://cdn.skypack.dev/livekit-client';
+
+let roomInstance = null;
+let currentRoom = '';
+let currentLink = '';
+
+document.getElementById('startBtn').addEventListener('click', async () => {
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus('transmitterStatus', 'Status: este navegador não oferece acesso ao microfone.', 'warning');
+      return;
+    }
+
+    if (roomInstance) {
+      roomInstance.disconnect();
+      roomInstance = null;
+    }
+
+    const transmitterName = readValue('transmitterName') || 'transmissor';
+    const eventName = readValue('eventName') || 'Evento ao vivo';
+    currentRoom = gerarSalaAutomatica();
+
+    setStatus('transmitterStatus', 'Status: obtendo autorização e preparando a sala...', 'warning');
+
+    const tokenData = await pedirToken(currentRoom, transmitterName, 'transmitter');
+    roomInstance = await connect(LIVEKIT_URL, tokenData.token);
+
+    const localTrack = await createLocalAudioTrack();
+    await roomInstance.localParticipant.publishTrack(localTrack);
+
+    currentLink = montarLinkReceptor(currentRoom);
+    setText('roomCodeBox', currentRoom);
+    setText('receiverLinkBox', currentLink);
+
+    setStatus('transmitterStatus', `Status: transmissão iniciada. Evento: ${eventName}. Sala: ${currentRoom}. Compartilhe o link com os receptores.`, 'success');
+  } catch (error) {
+    setStatus('transmitterStatus', 'Status: não foi possível iniciar a transmissão. Verifique a permissão do microfone e tente novamente.', 'warning');
+  }
+});
+
+document.getElementById('stopBtn').addEventListener('click', () => {
+  if (roomInstance) {
+    roomInstance.disconnect();
+    roomInstance = null;
+  }
+  setStatus('transmitterStatus', 'Status: transmissão encerrada.', 'warning');
+});
+
+document.getElementById('copyCodeBtn').addEventListener('click', async () => {
+  if (!currentRoom) return;
+  const ok = await copiarTexto(currentRoom);
+  setStatus('transmitterStatus', ok ? 'Status: código da sala copiado.' : 'Status: não foi possível copiar o código automaticamente.', ok ? 'success' : 'warning');
+});
+
+document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+  if (!currentLink) return;
+  const ok = await copiarTexto(currentLink);
+  setStatus('transmitterStatus', ok ? 'Status: link do receptor copiado.' : 'Status: não foi possível copiar o link automaticamente.', ok ? 'success' : 'warning');
+});
+</script>
+</body>
+</html>

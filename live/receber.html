@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Audesc Ao Vivo — Receber</title>
+  <link rel="stylesheet" href="live.css">
+</head>
+<body>
+<a class="button-link secondary" href="../index.html" style="margin:16px 16px 0 16px;">Voltar ao Audesc</a>
+<header class="topbar">
+  <h1>Audesc Ao Vivo</h1>
+  <p class="subtitle">Recepção de audiodescrição</p>
+</header>
+
+<main class="main">
+  <section class="panel">
+    <h2>Entrar na sala</h2>
+    <div class="grid two">
+      <label class="field">
+        <span>Código da sala</span>
+        <input id="roomCode" type="text" placeholder="Ex.: audesc-abc12">
+      </label>
+      <label class="field">
+        <span>Nome do receptor</span>
+        <input id="receiverName" type="text" placeholder="Ex.: Leonardo">
+      </label>
+    </div>
+    <div class="actions">
+      <button id="joinBtn" type="button">Entrar</button>
+      <button id="leaveBtn" class="secondary" type="button">Sair</button>
+    </div>
+    <div id="receiverStatus" class="status">Status: aguardando entrada na sala.</div>
+  </section>
+
+  <section class="panel">
+    <h2>Áudio recebido</h2>
+    <audio id="remoteAudio" controls autoplay playsinline></audio>
+    <p class="hint">Se o áudio não começar automaticamente, toque em reproduzir.</p>
+  </section>
+
+  <section class="panel">
+    <h2>Acessibilidade</h2>
+    <p class="hint">Se você abriu esta página por um link compartilhado, o código da sala já vem preenchido automaticamente.</p>
+  </section>
+</main>
+
+<script src="livekit.js"></script>
+<script type="module">
+import { connect } from 'https://cdn.skypack.dev/livekit-client';
+
+let roomInstance = null;
+const audioEl = document.getElementById('remoteAudio');
+const incomingRoom = obterSalaDaUrl();
+if (incomingRoom) {
+  document.getElementById('roomCode').value = incomingRoom;
+}
+
+document.getElementById('joinBtn').addEventListener('click', async () => {
+  try {
+    if (roomInstance) {
+      roomInstance.disconnect();
+      roomInstance = null;
+    }
+
+    const roomCode = normalizarSala(readValue('roomCode')) || 'audesc';
+    const receiverName = readValue('receiverName') || 'receptor';
+
+    setStatus('receiverStatus', `Status: entrando na sala ${roomCode}...`, 'warning');
+
+    const tokenData = await pedirToken(roomCode, receiverName, 'receiver');
+    roomInstance = await connect(LIVEKIT_URL, tokenData.token);
+
+    roomInstance.on('trackSubscribed', (track) => {
+      if (track.kind === 'audio') {
+        const el = track.attach();
+        if (el.srcObject) {
+          audioEl.srcObject = el.srcObject;
+        }
+        audioEl.play().catch(() => {});
+        setStatus('receiverStatus', `Status: conectado à sala ${roomCode}. Áudio recebido.`, 'success');
+      }
+    });
+
+    roomInstance.on('disconnected', () => {
+      setStatus('receiverStatus', 'Status: conexão encerrada.', 'warning');
+    });
+
+    setStatus('receiverStatus', `Status: conectado à sala ${roomCode}. Aguardando áudio...`, 'success');
+  } catch (error) {
+    setStatus('receiverStatus', 'Status: não foi possível entrar na sala. Verifique sua conexão e tente novamente.', 'warning');
+  }
+});
+
+document.getElementById('leaveBtn').addEventListener('click', () => {
+  if (roomInstance) {
+    roomInstance.disconnect();
+    roomInstance = null;
+  }
+  audioEl.pause();
+  audioEl.srcObject = null;
+  setStatus('receiverStatus', 'Status: saída da sala.', 'warning');
+});
+</script>
+</body>
+</html>
