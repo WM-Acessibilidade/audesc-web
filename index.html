@@ -4,24 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#1f3c88">
-  <title>Audesc Web</title>
+  <title>Audesc</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <a class="skip-link" href="#main">Pular para o conteúdo principal</a>
-
 <header class="topbar">
   <div>
     <h1>Audesc</h1>
-    <p class="subtitle">Catálogo web de repositórios de audiodescrição</p>
+    <p class="subtitle">Catálogo web de repositórios de audiodescrição e módulo ao vivo</p>
   </div>
 </header>
 
 <main id="main" class="main">
   <section id="screen-explorar" class="screen active">
     <h2>Explorar repositórios</h2>
-
     <label class="field">
       <span>Buscar repositórios</span>
       <input id="searchInput" type="search" placeholder="Digite nome do repositório ou palavra-chave">
@@ -43,32 +41,28 @@
   </section>
 
   <section id="screen-live" class="screen">
-    <h2>Módulo ao vivo</h2>
-
+    <h2>Ao vivo</h2>
     <div class="panel">
-      <h3>Teste de transmissão e recepção</h3>
-      <p>Este módulo foi separado do catálogo principal para permitir testes do fluxo ao vivo no mesmo repositório.</p>
+      <h3>Transmissão de audiodescrição</h3>
+      <p>O transmissor cria automaticamente uma sala. O sistema gera um código curto e um link pronto para compartilhamento.</p>
       <div class="actions">
         <a class="button-link" href="live/transmitir.html">Abrir página de transmitir</a>
         <a class="button-link secondary-link" href="live/receber.html">Abrir página de receber</a>
       </div>
     </div>
-
     <div class="panel">
-      <h3>Observação importante</h3>
-      <p>Estas páginas são um protótipo visual do módulo ao vivo. A transmissão real do áudio ainda depende de integração posterior com um serviço de tempo real, como LiveKit, e de um backend mínimo para controle de sala.</p>
+      <h3>Como funciona</h3>
+      <p>Na página de transmitir, o microfone é ativado e uma sala nova é criada. Na página de receber, o receptor pode entrar pelo link compartilhado ou informar o código da sala manualmente.</p>
     </div>
   </section>
 
   <section id="screen-config" class="screen">
     <h2>Configurações</h2>
-
     <div class="panel">
       <h3>Sobre esta versão</h3>
-      <p>Esta versão do Audesc foi simplificada para funcionar como catálogo web de repositórios no formato do Memorial MPF.</p>
-      <p>Os links do catálogo abrem a página principal do repositório. O recurso de QR code foi removido da versão web por limitação prática de funcionamento no Safari/iPhone.</p>
+      <p>Esta versão do Audesc já está preparada para uso com LiveKit e backend de token publicado online.</p>
+      <p>O recurso de QR code foi removido da versão web por limitação prática de funcionamento no Safari do iPhone.</p>
     </div>
-
     <div class="panel">
       <h3>Arquivo de catálogo</h3>
       <p>Os repositórios são lidos de <code>data/repositories.json</code>.</p>
@@ -84,7 +78,6 @@
 </nav>
 
 <div id="toast" class="toast hidden" aria-live="polite"></div>
-
 <script src="app.js"></script>
 </body>
 </html>
