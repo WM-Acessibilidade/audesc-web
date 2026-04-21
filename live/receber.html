@@ -71,7 +71,8 @@
         roomInstance = null;
       }
 
-      roomInstance = await LK.connect(C.livekitUrl, tokenData.token);
+      roomInstance = C.criarRoom(LK);
+      await roomInstance.connect(C.livekitUrl, tokenData.token);
 
       roomInstance.on('trackSubscribed', (track) => {
         if (track.kind === 'audio') {

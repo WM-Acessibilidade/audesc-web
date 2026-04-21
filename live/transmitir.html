@@ -64,6 +64,7 @@
   let roomInstance = null;
   let currentRoom = '';
   let currentLink = '';
+  let localTrack = null;
   const C = window.AudescLiveCommon;
 
   document.getElementById('startBtn').addEventListener('click', async () => {
@@ -88,8 +89,10 @@
         roomInstance = null;
       }
 
-      roomInstance = await LK.connect(C.livekitUrl, tokenData.token);
-      const localTrack = await LK.createLocalAudioTrack();
+      roomInstance = C.criarRoom(LK);
+      await roomInstance.connect(C.livekitUrl, tokenData.token);
+
+      localTrack = await LK.createLocalAudioTrack();
       await roomInstance.localParticipant.publishTrack(localTrack);
 
       currentLink = C.montarLinkReceptor(currentRoom);
@@ -104,6 +107,10 @@
   });
 
   document.getElementById('stopBtn').addEventListener('click', () => {
+    if (localTrack) {
+      try { localTrack.stop(); } catch (e) {}
+      localTrack = null;
+    }
     if (roomInstance) {
       roomInstance.disconnect();
       roomInstance = null;
