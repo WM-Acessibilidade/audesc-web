@@ -4,7 +4,5 @@
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#f5f7fb",
-  "theme_color": "#1f3c88",
-  "description": "Catálogo web de repositórios de audiodescrição com módulo ao vivo via LiveKit.",
-  "icons": []
+  "theme_color": "#1f3c88"
 }
