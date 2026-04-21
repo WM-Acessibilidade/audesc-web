@@ -58,114 +58,48 @@
 </main>
 
 <script src="livekit-config.js"></script>
+<script src="common.js"></script>
 <script>
 (function() {
-  const cfg = window.AUDESC_CONFIG || {};
-  const livekitUrl = cfg.livekitUrl;
-  const tokenEndpoint = cfg.tokenEndpoint;
-  const bundleUrl = cfg.bundleUrl;
-
   let roomInstance = null;
   let currentRoom = '';
   let currentLink = '';
-
-  function setText(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
-  }
-
-  function setStatus(id, text, tone) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.textContent = text;
-    el.className = 'status' + (tone ? ' ' + tone : '');
-  }
-
-  function readValue(id) {
-    const el = document.getElementById(id);
-    return el ? el.value.trim() : '';
-  }
-
-  function gerarCodigoCurto() {
-    return Math.random().toString(36).substring(2, 7);
-  }
-
-  function gerarSalaAutomatica() {
-    return 'audesc-' + gerarCodigoCurto();
-  }
-
-  function montarLinkReceptor(sala) {
-    return window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/') + 'receber.html?sala=' + encodeURIComponent(sala);
-  }
-
-  async function copiarTexto(texto) {
-    try {
-      await navigator.clipboard.writeText(texto);
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  async function pedirToken(room, identity, role) {
-    const url = tokenEndpoint + '?room=' + encodeURIComponent(room) + '&identity=' + encodeURIComponent(identity) + '&role=' + encodeURIComponent(role);
-    const response = await fetch(url);
-    if (!response.ok) throw new Error('Falha ao obter token');
-    return response.json();
-  }
-
-  function carregarLiveKit() {
-    return new Promise((resolve, reject) => {
-      if (window.livekit) return resolve(window.livekit);
-      const script = document.createElement('script');
-      script.src = bundleUrl;
-      script.onload = () => {
-        if (window.livekit) {
-          setStatus('diagnosticBox', 'Biblioteca do LiveKit carregada com sucesso.', 'success');
-          resolve(window.livekit);
-        } else {
-          reject(new Error('Biblioteca carregada sem objeto global'));
-        }
-      };
-      script.onerror = () => reject(new Error('Falha ao carregar biblioteca do LiveKit'));
-      document.head.appendChild(script);
-    });
-  }
+  const C = window.AudescLiveCommon;
 
   document.getElementById('startBtn').addEventListener('click', async () => {
     try {
-      setStatus('transmitterStatus', 'Status: iniciando processo...', 'warning');
+      C.setStatus('transmitterStatus', 'Status: iniciando processo...', 'warning');
 
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        setStatus('transmitterStatus', 'Status: este navegador não oferece acesso ao microfone.', 'warning');
+        C.setStatus('transmitterStatus', 'Status: este navegador não oferece acesso ao microfone.', 'warning');
         return;
       }
 
-      const LK = await carregarLiveKit();
-      const transmitterName = readValue('transmitterName') || 'transmissor';
-      const eventName = readValue('eventName') || 'Evento ao vivo';
-      currentRoom = gerarSalaAutomatica();
+      const LK = await C.carregarLiveKit();
+      const transmitterName = C.readValue('transmitterName') || 'transmissor';
+      const eventName = C.readValue('eventName') || 'Evento ao vivo';
+      currentRoom = C.gerarSalaAutomatica();
 
-      setStatus('transmitterStatus', 'Status: obtendo token e conectando à sala...', 'warning');
-      const tokenData = await pedirToken(currentRoom, transmitterName, 'transmitter');
+      C.setStatus('transmitterStatus', 'Status: obtendo token e conectando à sala...', 'warning');
+      const tokenData = await C.pedirToken(currentRoom, transmitterName, 'transmitter');
 
       if (roomInstance) {
         roomInstance.disconnect();
         roomInstance = null;
       }
 
-      roomInstance = await LK.connect(livekitUrl, tokenData.token);
+      roomInstance = await LK.connect(C.livekitUrl, tokenData.token);
       const localTrack = await LK.createLocalAudioTrack();
       await roomInstance.localParticipant.publishTrack(localTrack);
 
-      currentLink = montarLinkReceptor(currentRoom);
-      setText('roomCodeBox', currentRoom);
-      setText('receiverLinkBox', currentLink);
+      currentLink = C.montarLinkReceptor(currentRoom);
+      C.setText('roomCodeBox', currentRoom);
+      C.setText('receiverLinkBox', currentLink);
 
-      setStatus('transmitterStatus', 'Status: transmissão iniciada. Evento: ' + eventName + '. Sala: ' + currentRoom + '. Compartilhe o link com os receptores.', 'success');
+      C.setStatus('transmitterStatus', 'Status: transmissão iniciada. Evento: ' + eventName + '. Sala: ' + currentRoom + '. Compartilhe o link com os receptores.', 'success');
     } catch (error) {
-      setStatus('transmitterStatus', 'Status: erro ao iniciar. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
-      setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
+      C.setStatus('transmitterStatus', 'Status: erro ao iniciar. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
+      C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
     }
   });
 
@@ -174,19 +108,19 @@
       roomInstance.disconnect();
       roomInstance = null;
     }
-    setStatus('transmitterStatus', 'Status: transmissão encerrada.', 'warning');
+    C.setStatus('transmitterStatus', 'Status: transmissão encerrada.', 'warning');
   });
 
   document.getElementById('copyCodeBtn').addEventListener('click', async () => {
     if (!currentRoom) return;
-    const ok = await copiarTexto(currentRoom);
-    setStatus('transmitterStatus', ok ? 'Status: código da sala copiado.' : 'Status: não foi possível copiar o código automaticamente.', ok ? 'success' : 'warning');
+    const ok = await C.copiarTexto(currentRoom);
+    C.setStatus('transmitterStatus', ok ? 'Status: código da sala copiado.' : 'Status: não foi possível copiar o código automaticamente.', ok ? 'success' : 'warning');
   });
 
   document.getElementById('copyLinkBtn').addEventListener('click', async () => {
     if (!currentLink) return;
-    const ok = await copiarTexto(currentLink);
-    setStatus('transmitterStatus', ok ? 'Status: link do receptor copiado.' : 'Status: não foi possível copiar o link automaticamente.', ok ? 'success' : 'warning');
+    const ok = await C.copiarTexto(currentLink);
+    C.setStatus('transmitterStatus', ok ? 'Status: link do receptor copiado.' : 'Status: não foi possível copiar o link automaticamente.', ok ? 'success' : 'warning');
   });
 })();
 </script>
