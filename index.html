@@ -3,22 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Audesc</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Audesc ao vivo</title>
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;margin:0;padding:24px;background:#f5f7fb;color:#1d2433}
+    .panel{max-width:900px;margin:0 auto;background:#fff;border:1px solid #d8deea;border-radius:16px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.08)}
+    .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
+    a{display:inline-flex;min-height:48px;align-items:center;justify-content:center;padding:12px 16px;border-radius:12px;text-decoration:none;font-weight:600;background:#1f3c88;color:#fff}
+    a.secondary{background:#e9eef9;color:#1d2433}
+  </style>
 </head>
 <body>
-<header class="topbar">
-  <h1>Audesc</h1>
-  <p class="subtitle">Módulo ao vivo</p>
-</header>
-<main class="main">
-  <section class="panel">
-    <h2>Ao vivo</h2>
+  <main class="panel">
+    <h1>Audesc ao vivo</h1>
+    <p>Escolha uma das opções abaixo para acessar o módulo.</p>
     <div class="actions">
-      <a class="button-link" href="live/transmitir.html">Abrir página de transmitir</a>
-      <a class="button-link secondary-link" href="live/receber.html">Abrir página de receber</a>
+      <a href="live/transmitir.html">Abrir tela do transmissor</a>
+      <a class="secondary" href="live/receber.html">Abrir tela do receptor</a>
     </div>
-  </section>
-</main>
+  </main>
 </body>
 </html>
