@@ -16,14 +16,14 @@
 <main class="main">
   <section id="step-form" class="screen-step active">
     <section class="panel">
-      <h2>Entrar como transmissor</h2>
+      <h2>Entrar como audiodescritor(a)</h2>
       <div class="grid two">
         <label class="field">
           <span>Nome do evento</span>
           <input id="eventName" type="text" placeholder="Ex.: Peça com audiodescrição">
         </label>
         <label class="field">
-          <span>Nome do transmissor</span>
+          <span>Nome do audiodescritor(a)</span>
           <input id="transmitterName" type="text" placeholder="Ex.: Audiodescritor">
         </label>
       </div>
@@ -43,7 +43,7 @@
       </div>
       <div class="kv" style="margin-top:12px;">
         <div><strong>Código da sala</strong><div id="roomCodeBox" class="codebox">-</div></div>
-        <div><strong>Link para receptores</strong><div id="receiverLinkBox" class="codebox">-</div></div>
+        <div><strong>Link para ouvintes</strong><div id="receiverLinkBox" class="codebox">-</div></div>
       </div>
       <div class="copy-row">
         <button id="copyCodeBtn" class="ghost" type="button">Copiar código</button>
@@ -70,16 +70,16 @@
     </section>
 
     <details class="collapse" id="participantsDetails">
-      <summary id="participantsSummary">Receptores na sala (0)</summary>
+      <summary id="participantsSummary">Ouvintes na sala (0)</summary>
       <div class="collapse-body">
-        <div id="participantsBox" class="listbox">Nenhum receptor conectado no momento.</div>
+        <div id="participantsBox" class="listbox">Nenhum ouvinte conectado no momento.</div>
       </div>
     </details>
 
     <details class="collapse" id="sentMessagesDetails">
       <summary id="sentMessagesSummary">Mensagens encaminhadas (0)</summary>
       <div class="collapse-body">
-        <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
+        <div id="messagesBox" class="listbox">Nenhuma mensagem encaminhada ainda.</div>
       </div>
     </details>
   </section>
@@ -101,8 +101,8 @@
   function renderParticipants() {
     const box = document.getElementById('participantsBox');
     const summary = document.getElementById('participantsSummary');
-    if (summary) summary.textContent = 'Receptores na sala (' + receiverList.length + ')';
-    if (!receiverList.length) { box.textContent = 'Nenhum receptor conectado no momento.'; selectedReceiver = []; return; }
+    if (summary) summary.textContent = 'Ouvintes na sala (' + receiverList.length + ')';
+    if (!receiverList.length) { box.textContent = 'Nenhum ouvinte conectado no momento.'; selectedReceiver = []; return; }
     if (!Array.isArray(selectedReceiver)) selectedReceiver = [];
     selectedReceiver = selectedReceiver.filter(name => receiverList.includes(name));
     box.innerHTML = receiverList.map(name => `<div class="participant-item"><button type="button" class="ghost participant-select" data-name="${name}" style="width:100%;justify-content:space-between;"><span>${name}</span><span>${selectedReceiver.includes(name)?'Marcado':'Desmarcado'}</span></button></div>`).join('');
@@ -118,7 +118,7 @@
   }
   function renderMessages() {
     const box = document.getElementById('messagesBox');
-    if (!messages.length) { box.textContent = 'Nenhuma mensagem recebida ainda.'; return; }
+    if (!messages.length) { box.textContent = 'Nenhuma mensagem encaminhada ainda.'; return; }
     box.innerHTML = messages.map(item => `<div class="message-item"><div><strong>${item.from||'Sistema'}</strong></div><div>${item.text}</div></div>`).join('');
   }
   function addMessage(from, text) { messages.unshift({from, text}); messages = messages.slice(0, 30); renderMessages(); }
@@ -164,7 +164,7 @@
     updateReceiverList();
     broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode });
     document.getElementById('eventBadge').textContent = 'Evento: ' + eventName;
-    document.getElementById('transmitterBadge').textContent = 'Transmissor: ' + transmitterName;
+    document.getElementById('transmitterBadge').textContent = 'Audiodescritor(a): ' + transmitterName;
     C.setText('roomCodeBox', roomCode);
     C.setText('receiverLinkBox', C.montarLinkReceptor(roomCode));
     C.switchStep('step-room');
@@ -189,23 +189,23 @@
   });
   document.getElementById('copyLinkBtn').addEventListener('click', async () => {
     const ok = await C.copiarTexto(C.montarLinkReceptor(roomCode));
-    C.setStatus('transmitterStatus', ok?'Status: link do receptor copiado.':'Status: não foi possível copiar o link automaticamente.', ok?'success':'warning');
+    C.setStatus('transmitterStatus', ok?'Status: link do ouvinte copiado.':'Status: não foi possível copiar o link automaticamente.', ok?'success':'warning');
   });
   document.getElementById('msgHowAudioBtn').addEventListener('click', async () => {
     await broadcastPayload({ type:'request-feedback', text:'Como está o áudio?' }, selectedReceiver.length ? selectedReceiver : undefined);
-    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos receptores marcados' : 'a todos os receptores') + ': Como está o áudio?');
+    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos ouvintes marcados' : 'a todos os ouvintes') + ': Como está o áudio?');
   });
   document.getElementById('msgAdjustingBtn').addEventListener('click', async () => {
     await broadcastPayload({ type:'help-response', text:'Estamos ajustando o áudio.' }, selectedReceiver.length ? selectedReceiver : undefined);
-    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos receptores marcados' : 'a todos os receptores') + ': Estamos ajustando o áudio.');
+    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos ouvintes marcados' : 'a todos os ouvintes') + ': Estamos ajustando o áudio.');
   });
   document.getElementById('msgHelpProvidedBtn').addEventListener('click', async () => {
     await broadcastPayload({ type:'help-response', text:'Auxílio providenciado.' }, selectedReceiver.length ? selectedReceiver : undefined);
-    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos receptores marcados' : 'a todos os receptores') + ': Auxílio providenciado.');
+    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos ouvintes marcados' : 'a todos os ouvintes') + ': Auxílio providenciado.');
   });
   document.getElementById('msgHelpUnavailableBtn').addEventListener('click', async () => {
     await broadcastPayload({ type:'help-response', text:'Impossibilidade de auxílio no momento.' }, selectedReceiver.length ? selectedReceiver : undefined);
-    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos receptores marcados' : 'a todos os receptores') + ': Impossibilidade de auxílio no momento.');
+    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos ouvintes marcados' : 'a todos os ouvintes') + ': Impossibilidade de auxílio no momento.');
   });
   document.getElementById('muteBtn').addEventListener('click', async () => {
     if (!localTrack) return;

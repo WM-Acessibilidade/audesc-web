@@ -16,14 +16,14 @@
 <main class="main">
   <section id="step-form" class="screen-step active">
     <section class="panel">
-      <h2>Entrar como receptor</h2>
+      <h2>Entrar como ouvinte</h2>
       <div class="grid two">
         <label class="field">
           <span>Código da sala</span>
           <input id="roomCode" type="text" placeholder="Ex.: audesc-abc12">
         </label>
         <label class="field">
-          <span>Nome do receptor</span>
+          <span>Nome do ouvinte</span>
           <input id="receiverName" type="text" placeholder="Ex.: Leonardo">
         </label>
       </div>
@@ -69,10 +69,12 @@
       <audio id="remoteAudio" autoplay playsinline></audio>
     </section>
 
-    <section class="panel">
-      <h2>Mensagens</h2>
-      <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
-    </section>
+    <details class="collapse" id="receiverSentMessagesDetails">
+      <summary>Mensagens encaminhadas</summary>
+      <div class="collapse-body">
+        <div id="messagesBox" class="listbox">Nenhuma mensagem encaminhada ainda.</div>
+      </div>
+    </details>
   </section>
 </main>
 
@@ -81,7 +83,7 @@
 <script>
 (function() {
   const C = window.AudescLiveCommon;
-  let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando transmissor', eventName = 'Evento ao vivo', messages = [], activeSession = false;
+  let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false;
   const audioEl = document.getElementById('remoteAudio');
 
   C.attachBeforeUnload(() => activeSession);
@@ -94,7 +96,7 @@
   }
   function updateBadges() {
     document.getElementById('eventBadge').textContent = 'Evento: ' + eventName;
-    document.getElementById('transmitterBadge').textContent = 'Transmissor: ' + transmitterName;
+    document.getElementById('transmitterBadge').textContent = 'Audiodescritor(a): ' + transmitterName;
     document.getElementById('roomBadge').textContent = 'Código da sala: ' + roomCode;
   }
   function persist() {
@@ -142,8 +144,8 @@
         eventName = msg.eventName || eventName;
         updateBadges(); persist();
       }
-      if (msg.type === 'request-feedback') addMessage('Transmissor', msg.text || 'Solicitação de feedback.');
-      if (msg.type === 'help-response') addMessage('Transmissor', msg.text || 'Resposta sobre o pedido de ajuda.');
+      if (msg.type === 'request-feedback') addMessage('Audiodescritor(a)', msg.text || 'Solicitação de feedback.');
+      if (msg.type === 'help-response') addMessage('Audiodescritor(a)', msg.text || 'Resposta sobre o pedido de ajuda.');
     });
     room.on('reconnected', async () => {
       C.setStatus('receiverStatus2', 'Status: reconectado à sala com sucesso.', 'success');
@@ -161,7 +163,7 @@
     C.switchStep('step-room');
     updateBadges();
     C.setStatus('receiverStatus', reconnect ? 'Status: sala restaurada e reconectada.' : 'Status: entrada realizada com sucesso.', 'success');
-    C.setStatus('receiverStatus2', 'Status: conectado. Aguardando ou recebendo o áudio do transmissor.', 'success');
+    C.setStatus('receiverStatus2', 'Status: conectado. Aguardando ou recebendo o áudio do audiodescritor(a).', 'success');
     sendMessage({ type:'receiver-hello', name: receiverName });
     persist();
   }
