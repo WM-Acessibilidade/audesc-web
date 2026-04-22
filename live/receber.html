@@ -71,8 +71,10 @@
 <script>
 (function() {
   const C = window.AudescLiveCommon;
-  let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando transmissor', eventName = 'Evento ao vivo', messages = [];
+  let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando transmissor', eventName = 'Evento ao vivo', messages = [], activeSession = false;
   const audioEl = document.getElementById('remoteAudio');
+
+  C.attachBeforeUnload(() => activeSession);
 
   function addMessage(from, text) {
     messages.unshift({ from, text });
@@ -97,13 +99,22 @@
     const tokenData = await C.pedirToken(roomCode, receiverName, 'receiver');
     if (room) { room.disconnect(); room = null; }
     room = C.criarRoom(LK);
-    room.on('trackSubscribed', (track) => {
+    room.on('trackSubscribed', async (track) => {
       if (track.kind === 'audio') {
         const attached = track.attach();
         if (attached.srcObject) audioEl.srcObject = attached.srcObject;
         else if (attached.src) audioEl.src = attached.src;
-        audioEl.play().catch(() => {});
-        C.setStatus('receiverStatus2', 'Status: conectado e ouvindo automaticamente.', 'success');
+        audioEl.muted = false;
+        audioEl.volume = 1;
+        try {
+          if (typeof room.startAudio === 'function') {
+            try { await room.startAudio(); } catch (e) {}
+          }
+          await audioEl.play();
+          C.setStatus('receiverStatus2', 'Status: conectado e ouvindo automaticamente.', 'success');
+        } catch (e) {
+          C.setStatus('receiverStatus2', 'Status: áudio chegou, mas o navegador bloqueou a reprodução automática.', 'warning');
+        }
       }
     });
     room.on('dataReceived', (payload, participant) => {
@@ -116,12 +127,19 @@
       if (msg.type === 'request-feedback') addMessage('Transmissor', msg.text || 'Solicitação de feedback.');
       if (msg.type === 'help-response') addMessage('Transmissor', msg.text || 'Resposta sobre o pedido de ajuda.');
     });
-    room.on('reconnected', () => {
+    room.on('reconnected', async () => {
       C.setStatus('receiverStatus2', 'Status: reconectado à sala com sucesso.', 'success');
+      if (typeof room.startAudio === 'function') {
+        try { await room.startAudio(); } catch (e) {}
+      }
       sendMessage({ type:'receiver-hello', name: receiverName });
     });
     room.on('disconnected', () => { C.setStatus('receiverStatus2', 'Status: conexão encerrada.', 'warning'); });
     await room.connect(C.livekitUrl, tokenData.token);
+    if (typeof room.startAudio === 'function') {
+      try { await room.startAudio(); } catch (e) {}
+    }
+    activeSession = true;
     C.switchStep('step-room');
     updateBadges();
     C.setStatus('receiverStatus', reconnect ? 'Status: sala restaurada e reconectada.' : 'Status: entrada realizada com sucesso.', 'success');
@@ -145,8 +163,11 @@
   document.getElementById('feedbackFailBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio com falha.' }); addMessage('Você', 'Feedback enviado: áudio com falha.'); });
   document.getElementById('helpBtn').addEventListener('click', () => { sendMessage({ type:'help-request', text:'Preciso de ajuda.' }); addMessage('Você', 'Pedido de ajuda enviado.'); });
   document.getElementById('leaveBtn').addEventListener('click', () => {
+    const ok = window.confirm('Deseja sair da sala agora?');
+    if (!ok) return;
     if (room) room.disconnect();
     room = null;
+    activeSession = false;
     audioEl.pause(); audioEl.removeAttribute('src'); audioEl.srcObject = null;
     C.clearState('receiver');
     C.switchStep('step-form');

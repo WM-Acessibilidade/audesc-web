@@ -80,7 +80,9 @@
 (function() {
   const C = window.AudescLiveCommon;
   let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '';
-  let receiverList = [], messages = [], selectedReceiver = null;
+  let receiverList = [], messages = [], selectedReceiver = null, activeSession = false;
+
+  C.attachBeforeUnload(() => activeSession);
 
   function persist() {
     C.saveState('transmitter', { roomCode, eventName, transmitterName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
@@ -197,6 +199,8 @@
     }
   });
   document.getElementById('endBtn').addEventListener('click', () => {
+    const ok = window.confirm('Deseja encerrar a transmissão e fechar a sala?');
+    if (!ok) return;
     try { if (localTrack) localTrack.stop(); } catch (e) {}
     localTrack = null;
     if (room) room.disconnect();

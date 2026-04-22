@@ -97,10 +97,17 @@
   function decodePayload(data) {
     try { return JSON.parse(new TextDecoder().decode(data)); } catch (e) { return null; }
   }
+  function attachBeforeUnload(shouldWarnFn) {
+    window.addEventListener('beforeunload', function(event) {
+      if (!shouldWarnFn()) return;
+      event.preventDefault();
+      event.returnValue = '';
+    });
+  }
   window.AudescLiveCommon = {
     livekitUrl, tokenEndpoint, setText, setStatus, readValue, writeValue,
     normalizarSala, gerarSalaAutomatica, obterSalaDaUrl, montarLinkReceptor,
     copiarTexto, pedirToken, carregarLiveKit, criarRoom, saveState, loadState,
-    clearState, switchStep, encodePayload, decodePayload
+    clearState, switchStep, encodePayload, decodePayload, attachBeforeUnload
   };
 })();
