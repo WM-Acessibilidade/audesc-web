@@ -47,6 +47,7 @@
         <button id="feedbackLowBtn" class="ghost" type="button">Áudio baixo</button>
         <button id="feedbackFailBtn" class="ghost" type="button">Áudio com falha</button>
         <button id="helpBtn" class="secondary" type="button">Pedir ajuda</button>
+        <button id="resumeAudioBtn" class="ghost" type="button">Retomar áudio</button>
         <button id="leaveBtn" class="secondary" type="button">Sair</button>
       </div>
       <div id="receiverStatus2" class="status">Status: conectado e ouvindo automaticamente.</div>
@@ -91,12 +92,18 @@
     C.saveState('receiver', { roomCode, receiverName, transmitterName, eventName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
   }
   async function sendMessage(payload) {
-    if (!room || !room.localParticipant) return;
-    try { await room.localParticipant.publishData(C.encodePayload(payload), { reliable: true }); } catch (e) {}
+    if (!room || !room.localParticipant) return false;
+    try {
+      await room.localParticipant.publishData(C.encodePayload(payload), { reliable: true });
+      return true;
+    } catch (e) {
+      addMessage('Sistema', 'Não foi possível enviar a mensagem agora.');
+      return false;
+    }
   }
   async function connectRoom(reconnect=false) {
     LK = await C.carregarLiveKit();
-    const tokenData = await C.pedirToken(roomCode, receiverName, 'receiver');
+    const tokenData = await C.pedirToken(roomCode, receiverName, 'transmitter');
     if (room) { room.disconnect(); room = null; }
     room = C.criarRoom(LK);
     room.on('trackSubscribed', async (track) => {
@@ -111,9 +118,11 @@
             try { await room.startAudio(); } catch (e) {}
           }
           await audioEl.play();
+          document.getElementById('resumeAudioBtn').classList.remove('visible');
           C.setStatus('receiverStatus2', 'Status: conectado e ouvindo automaticamente.', 'success');
         } catch (e) {
-          C.setStatus('receiverStatus2', 'Status: áudio chegou, mas o navegador bloqueou a reprodução automática.', 'warning');
+          document.getElementById('resumeAudioBtn').classList.add('visible');
+          C.setStatus('receiverStatus2', 'Status: áudio chegou, mas o navegador bloqueou a reprodução automática. Toque em Retomar áudio.', 'warning');
         }
       }
     });
@@ -162,6 +171,19 @@
   document.getElementById('feedbackLowBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio baixo.' }); addMessage('Você', 'Feedback enviado: áudio baixo.'); });
   document.getElementById('feedbackFailBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio com falha.' }); addMessage('Você', 'Feedback enviado: áudio com falha.'); });
   document.getElementById('helpBtn').addEventListener('click', () => { sendMessage({ type:'help-request', text:'Preciso de ajuda.' }); addMessage('Você', 'Pedido de ajuda enviado.'); });
+  document.getElementById('resumeAudioBtn').addEventListener('click', async () => {
+    try {
+      if (room && typeof room.startAudio === 'function') {
+        try { await room.startAudio(); } catch (e) {}
+      }
+      await audioEl.play();
+      document.getElementById('resumeAudioBtn').classList.remove('visible');
+      C.setStatus('receiverStatus2', 'Status: áudio retomado com sucesso.', 'success');
+    } catch (e) {
+      C.setStatus('receiverStatus2', 'Status: não foi possível retomar o áudio ainda.', 'warning');
+    }
+  });
+
   document.getElementById('leaveBtn').addEventListener('click', () => {
     const ok = window.confirm('Deseja sair da sala agora?');
     if (!ok) return;
