@@ -118,8 +118,19 @@
   }
   function renderMessages() {
     const box = document.getElementById('messagesBox');
-    if (!messages.length) { box.textContent = 'Nenhuma mensagem encaminhada ainda.'; return; }
-    box.innerHTML = messages.map(item => `<div class="message-item"><div><strong>${item.from||'Sistema'}</strong></div><div>${item.text}</div></div>`).join('');
+    const summary = document.getElementById('sentMessagesSummary');
+    const sentCount = messages.filter(item => (item.from || '') === 'Você').length;
+    if (summary) summary.textContent = 'Mensagens encaminhadas (' + sentCount + ')';
+    if (!messages.length) {
+      box.textContent = 'Nenhuma mensagem encaminhada ainda.';
+      return;
+    }
+    box.innerHTML = messages.map(item => `
+      <div class="message-item">
+        <div><strong>${item.from || 'Você'}</strong></div>
+        <div>${item.text}</div>
+      </div>
+    `).join('');
   }
   function addMessage(from, text) { messages.unshift({from, text}); messages = messages.slice(0, 30); renderMessages(); }
   function updateReceiverList() {
@@ -170,6 +181,7 @@
     C.switchStep('step-room');
     C.setStatus('transmitterStatus', reconnect ? 'Status: sala restaurada e transmissão reconectada.' : 'Status: transmissão iniciada com sucesso.', 'success');
     persist();
+    updateSentSummary();
   }
 
   document.getElementById('startBtn').addEventListener('click', async () => {
@@ -230,7 +242,7 @@
     localTrack = null;
     if (room) room.disconnect();
     room = null; receiverList=[]; messages=[]; selectedReceiver=null;
-    renderParticipants(); renderMessages();
+    renderParticipants(); renderMessages(); updateSentSummary();
     C.clearState('transmitter');
     C.switchStep('step-form');
     C.setStatus('transmitterStatus', 'Status: transmissão encerrada.', 'warning');
@@ -249,6 +261,7 @@
       });
     }
   }
+updateSentSummary();
 })();
 </script>
 </body>
