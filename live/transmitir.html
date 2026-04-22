@@ -77,7 +77,7 @@
     </details>
 
     <details class="collapse" id="sentMessagesDetails">
-      <summary>Mensagens encaminhadas</summary>
+      <summary id="sentMessagesSummary">Mensagens encaminhadas (0)</summary>
       <div class="collapse-body">
         <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
       </div>
@@ -102,9 +102,19 @@
     const box = document.getElementById('participantsBox');
     const summary = document.getElementById('participantsSummary');
     if (summary) summary.textContent = 'Receptores na sala (' + receiverList.length + ')';
-    if (!receiverList.length) { box.textContent = 'Nenhum receptor conectado no momento.'; selectedReceiver = null; return; }
-    box.innerHTML = receiverList.map(name => `<div class="participant-item"><button type="button" class="ghost participant-select" data-name="${name}" style="width:100%;justify-content:space-between;"><span>${name}</span><span>${selectedReceiver===name?'Selecionado':'Selecionar'}</span></button></div>`).join('');
-    box.querySelectorAll('.participant-select').forEach(btn => btn.addEventListener('click', () => { selectedReceiver = btn.dataset.name; renderParticipants(); }));
+    if (!receiverList.length) { box.textContent = 'Nenhum receptor conectado no momento.'; selectedReceiver = []; return; }
+    if (!Array.isArray(selectedReceiver)) selectedReceiver = [];
+    selectedReceiver = selectedReceiver.filter(name => receiverList.includes(name));
+    box.innerHTML = receiverList.map(name => `<div class="participant-item"><button type="button" class="ghost participant-select" data-name="${name}" style="width:100%;justify-content:space-between;"><span>${name}</span><span>${selectedReceiver.includes(name)?'Marcado':'Desmarcado'}</span></button></div>`).join('');
+    box.querySelectorAll('.participant-select').forEach(btn => btn.addEventListener('click', () => {
+      const name = btn.dataset.name;
+      if (selectedReceiver.includes(name)) {
+        selectedReceiver = selectedReceiver.filter(item => item !== name);
+      } else {
+        selectedReceiver = [...selectedReceiver, name];
+      }
+      renderParticipants();
+    }));
   }
   function renderMessages() {
     const box = document.getElementById('messagesBox');
@@ -182,20 +192,20 @@
     C.setStatus('transmitterStatus', ok?'Status: link do receptor copiado.':'Status: não foi possível copiar o link automaticamente.', ok?'success':'warning');
   });
   document.getElementById('msgHowAudioBtn').addEventListener('click', async () => {
-    await broadcastPayload({ type:'request-feedback', text:'Como está o áudio?' });
-    addMessage('Você', 'Mensagem enviada aos receptores: Como está o áudio?');
+    await broadcastPayload({ type:'request-feedback', text:'Como está o áudio?' }, selectedReceiver.length ? selectedReceiver : undefined);
+    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos receptores marcados' : 'a todos os receptores') + ': Como está o áudio?');
   });
   document.getElementById('msgAdjustingBtn').addEventListener('click', async () => {
-    await broadcastPayload({ type:'help-response', text:'Estamos ajustando o áudio.' });
-    addMessage('Você', 'Mensagem enviada aos receptores: Estamos ajustando o áudio.');
+    await broadcastPayload({ type:'help-response', text:'Estamos ajustando o áudio.' }, selectedReceiver.length ? selectedReceiver : undefined);
+    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos receptores marcados' : 'a todos os receptores') + ': Estamos ajustando o áudio.');
   });
   document.getElementById('msgHelpProvidedBtn').addEventListener('click', async () => {
-    await broadcastPayload({ type:'help-response', text:'Auxílio providenciado.' });
-    addMessage('Você', 'Mensagem enviada aos receptores: Auxílio providenciado.');
+    await broadcastPayload({ type:'help-response', text:'Auxílio providenciado.' }, selectedReceiver.length ? selectedReceiver : undefined);
+    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos receptores marcados' : 'a todos os receptores') + ': Auxílio providenciado.');
   });
   document.getElementById('msgHelpUnavailableBtn').addEventListener('click', async () => {
-    await broadcastPayload({ type:'help-response', text:'Impossibilidade de auxílio no momento.' });
-    addMessage('Você', 'Mensagem enviada aos receptores: Impossibilidade de auxílio no momento.');
+    await broadcastPayload({ type:'help-response', text:'Impossibilidade de auxílio no momento.' }, selectedReceiver.length ? selectedReceiver : undefined);
+    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos receptores marcados' : 'a todos os receptores') + ': Impossibilidade de auxílio no momento.');
   });
   document.getElementById('muteBtn').addEventListener('click', async () => {
     if (!localTrack) return;
