@@ -4,22 +4,111 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Audesc ao vivo</title>
+
   <style>
-    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;margin:0;padding:24px;background:#f5f7fb;color:#1d2433}
-    .panel{max-width:900px;margin:0 auto;background:#fff;border:1px solid #d8deea;border-radius:16px;padding:20px;box-shadow:0 8px 24px rgba(0,0,0,.08)}
-    .actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}
-    a{display:inline-flex;min-height:48px;align-items:center;justify-content:center;padding:12px 16px;border-radius:12px;text-decoration:none;font-weight:600;background:#1f3c88;color:#fff}
-    a.secondary{background:#e9eef9;color:#1d2433}
+    :root{
+      --bg:#f5f7fb;
+      --fg:#1d2433;
+      --primary:#1f3c88;
+      --secondary:#e9eef9;
+      --border:#d8deea;
+    }
+
+    body{
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+      background:var(--bg);
+      color:var(--fg);
+    }
+
+    .container{
+      max-width:900px;
+      margin:0 auto;
+      padding:24px 16px;
+    }
+
+    .card{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:16px;
+      padding:24px;
+      box-shadow:0 8px 24px rgba(0,0,0,.08);
+    }
+
+    h1{
+      margin-top:0;
+      font-size:1.6rem;
+    }
+
+    p{
+      line-height:1.5;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-top:20px;
+    }
+
+    a.button{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:52px;
+      padding:12px 16px;
+      border-radius:12px;
+      text-decoration:none;
+      font-weight:600;
+      font-size:16px;
+      flex:1;
+      text-align:center;
+    }
+
+    .primary{
+      background:var(--primary);
+      color:#fff;
+    }
+
+    .secondary{
+      background:var(--secondary);
+      color:var(--fg);
+    }
+
+    @media (max-width:600px){
+      .actions{
+        flex-direction:column;
+      }
+    }
   </style>
 </head>
+
 <body>
-  <main class="panel">
-    <h1>Audesc ao vivo</h1>
-    <p>Escolha uma das opções abaixo para acessar o módulo.</p>
-    <div class="actions">
-      <a href="live/transmitir.html">Abrir tela do transmissor</a>
-      <a class="secondary" href="live/receber.html">Abrir tela do receptor</a>
-    </div>
+
+  <main class="container">
+
+    <section class="card">
+
+      <h1>Audesc ao vivo</h1>
+
+      <p>
+        Este módulo permite a transmissão de audiodescrição em tempo real.
+        Escolha abaixo como deseja acessar:
+      </p>
+
+      <div class="actions">
+        <a href="live/transmitir.html" class="button primary">
+          Abrir tela do transmissor
+        </a>
+
+        <a href="live/receber.html" class="button secondary">
+          Abrir tela do receptor
+        </a>
+      </div>
+
+    </section>
+
   </main>
+
 </body>
 </html>
