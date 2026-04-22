@@ -33,3 +33,39 @@ audio{width:100%}.hint,small{color:var(--muted)}
 .badge{display:inline-block;padding:6px 10px;border-radius:999px;background:#eef2fa;color:#1f3c88;font-weight:700;font-size:.9rem}
 .meta-line{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 @media (min-width:720px){.grid.two{grid-template-columns:1fr 1fr}.grid.three{grid-template-columns:1fr 1fr 1fr}}
+
+
+details.collapse {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  margin: 16px 0;
+  overflow: hidden;
+}
+details.collapse > summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+details.collapse > summary::-webkit-details-marker {
+  display: none;
+}
+details.collapse .collapse-body {
+  padding: 0 16px 16px 16px;
+  border-top: 1px solid var(--border);
+}
+.stack-actions {
+  display: grid;
+  gap: 12px;
+}
+.stack-actions button {
+  width: 100%;
+  justify-content: center;
+}
+.top-link-wrap {
+  margin: 16px 16px 0 16px;
+}

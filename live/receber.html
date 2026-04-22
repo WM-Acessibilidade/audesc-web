@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="live.css">
 </head>
 <body>
-<a class="button-link secondary" href="../index.html" style="margin:16px 16px 0 16px;">Voltar ao Audesc</a>
+<a class="button-link secondary" href="../index.html" style="margin:16px 16px 0 16px;">Voltar</a>
 <header class="topbar">
   <h1>Audesc Ao Vivo</h1>
   <p class="subtitle">Recepção de audiodescrição</p>
@@ -43,13 +43,22 @@
         <span class="badge" id="roomBadge">Sala</span>
       </div>
       <div class="actions">
-        <button id="feedbackNormalBtn" class="ghost" type="button">Áudio normal</button>
-        <button id="feedbackLowBtn" class="ghost" type="button">Áudio baixo</button>
-        <button id="feedbackFailBtn" class="ghost" type="button">Áudio com falha</button>
-        <button id="helpBtn" class="secondary" type="button">Pedir ajuda</button>
         <button id="resumeAudioBtn" class="ghost" type="button">Retomar áudio</button>
         <button id="leaveBtn" class="secondary" type="button">Sair</button>
       </div>
+
+      <details class="collapse" id="receiverInstantMessagesDetails">
+        <summary>Mensagens instantâneas</summary>
+        <div class="collapse-body">
+          <div class="stack-actions">
+            <button id="feedbackNormalBtn" class="secondary" type="button">Áudio normal.</button>
+            <button id="feedbackLowBtn" class="secondary" type="button">Áudio baixo.</button>
+            <button id="feedbackFailBtn" class="secondary" type="button">Áudio falhando.</button>
+            <button id="feedbackNoAudioBtn" class="secondary" type="button">Sem áudio.</button>
+            <button id="helpBtn" class="secondary" type="button">Preciso de auxílio presencial.</button>
+          </div>
+        </div>
+      </details>
       <div id="receiverStatus2" class="status">Status: conectado e ouvindo automaticamente.</div>
       <div id="diagnosticBox" class="status">Biblioteca do LiveKit ainda não carregada.</div>
     </section>
@@ -86,7 +95,7 @@
   function updateBadges() {
     document.getElementById('eventBadge').textContent = 'Evento: ' + eventName;
     document.getElementById('transmitterBadge').textContent = 'Transmissor: ' + transmitterName;
-    document.getElementById('roomBadge').textContent = 'Sala: ' + roomCode;
+    document.getElementById('roomBadge').textContent = 'Código da sala: ' + roomCode;
   }
   function persist() {
     C.saveState('receiver', { roomCode, receiverName, transmitterName, eventName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
@@ -167,10 +176,12 @@
       C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
     }
   });
-  document.getElementById('feedbackNormalBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio normal.' }); addMessage('Você', 'Feedback enviado: áudio normal.'); });
-  document.getElementById('feedbackLowBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio baixo.' }); addMessage('Você', 'Feedback enviado: áudio baixo.'); });
-  document.getElementById('feedbackFailBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio com falha.' }); addMessage('Você', 'Feedback enviado: áudio com falha.'); });
-  document.getElementById('helpBtn').addEventListener('click', () => { sendMessage({ type:'help-request', text:'Preciso de ajuda.' }); addMessage('Você', 'Pedido de ajuda enviado.'); });
+  document.getElementById('feedbackNormalBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio normal.' }); addMessage('Você', 'Mensagem enviada: áudio normal.'); });
+  document.getElementById('feedbackLowBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio baixo.' }); addMessage('Você', 'Mensagem enviada: áudio baixo.'); });
+  document.getElementById('feedbackFailBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio falhando.' }); addMessage('Você', 'Mensagem enviada: áudio falhando.'); });
+  document.getElementById('helpBtn').addEventListener('click', () => { sendMessage({ type:'help-request', text:'Preciso de auxílio presencial.' }); addMessage('Você', 'Mensagem enviada: preciso de auxílio presencial.'); });
+  document.getElementById('feedbackNoAudioBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Sem áudio.' }); addMessage('Você', 'Mensagem enviada: sem áudio.'); });
+
   document.getElementById('resumeAudioBtn').addEventListener('click', async () => {
     try {
       if (room && typeof room.startAudio === 'function') {

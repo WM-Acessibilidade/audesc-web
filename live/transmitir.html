@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="live.css">
 </head>
 <body>
-<a class="button-link secondary" href="../index.html" style="margin:16px 16px 0 16px;">Voltar ao Audesc</a>
+<a class="button-link secondary" href="../index.html" style="margin:16px 16px 0 16px;">Voltar</a>
 <header class="topbar">
   <h1>Audesc Ao Vivo</h1>
   <p class="subtitle">Transmissão de audiodescrição</p>
@@ -51,26 +51,37 @@
       </div>
       <div class="actions">
         <button id="muteBtn" class="danger" type="button">Silenciar microfone</button>
-        <button id="requestFeedbackBtn" class="secondary" type="button">Solicitar feedback</button>
         <button id="endBtn" class="secondary" type="button">Encerrar transmissão</button>
       </div>
+
+      <details class="collapse" id="instantMessagesDetails">
+        <summary>Mensagens instantâneas</summary>
+        <div class="collapse-body">
+          <div class="stack-actions">
+            <button id="msgHowAudioBtn" class="secondary" type="button">Como está o áudio?</button>
+            <button id="msgAdjustingBtn" class="secondary" type="button">Estamos ajustando o áudio.</button>
+            <button id="msgHelpProvidedBtn" class="secondary" type="button">Auxílio providenciado.</button>
+            <button id="msgHelpUnavailableBtn" class="secondary" type="button">Impossibilidade de auxílio no momento.</button>
+          </div>
+        </div>
+      </details>
       <div id="muteStatus" class="status warning">Microfone ativo.</div>
       <div id="diagnosticBox" class="status">Biblioteca do LiveKit ainda não carregada.</div>
     </section>
 
-    <section class="panel">
-      <h2>Receptores na sala</h2>
-      <div id="participantsBox" class="listbox">Nenhum receptor conectado no momento.</div>
-    </section>
-
-    <section class="panel">
-      <h2>Mensagens e comunicação</h2>
-      <div class="actions">
-        <button id="helpProvidedBtn" class="ghost" type="button">Auxílio providenciado</button>
-        <button id="helpUnavailableBtn" class="ghost" type="button">Impossibilidade de auxílio</button>
+    <details class="collapse" id="participantsDetails">
+      <summary id="participantsSummary">Receptores na sala (0)</summary>
+      <div class="collapse-body">
+        <div id="participantsBox" class="listbox">Nenhum receptor conectado no momento.</div>
       </div>
-      <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
-    </section>
+    </details>
+
+    <details class="collapse" id="sentMessagesDetails">
+      <summary>Mensagens encaminhadas</summary>
+      <div class="collapse-body">
+        <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
+      </div>
+    </details>
   </section>
 </main>
 
@@ -89,6 +100,8 @@
   }
   function renderParticipants() {
     const box = document.getElementById('participantsBox');
+    const summary = document.getElementById('participantsSummary');
+    if (summary) summary.textContent = 'Receptores na sala (' + receiverList.length + ')';
     if (!receiverList.length) { box.textContent = 'Nenhum receptor conectado no momento.'; selectedReceiver = null; return; }
     box.innerHTML = receiverList.map(name => `<div class="participant-item"><button type="button" class="ghost participant-select" data-name="${name}" style="width:100%;justify-content:space-between;"><span>${name}</span><span>${selectedReceiver===name?'Selecionado':'Selecionar'}</span></button></div>`).join('');
     box.querySelectorAll('.participant-select').forEach(btn => btn.addEventListener('click', () => { selectedReceiver = btn.dataset.name; renderParticipants(); }));
@@ -168,19 +181,21 @@
     const ok = await C.copiarTexto(C.montarLinkReceptor(roomCode));
     C.setStatus('transmitterStatus', ok?'Status: link do receptor copiado.':'Status: não foi possível copiar o link automaticamente.', ok?'success':'warning');
   });
-  document.getElementById('requestFeedbackBtn').addEventListener('click', async () => {
-    await broadcastPayload({ type:'request-feedback', text:'O transmissor solicitou feedback do áudio.' });
-    addMessage('Sistema', 'Solicitação de feedback enviada aos receptores.');
+  document.getElementById('msgHowAudioBtn').addEventListener('click', async () => {
+    await broadcastPayload({ type:'request-feedback', text:'Como está o áudio?' });
+    addMessage('Você', 'Mensagem enviada aos receptores: Como está o áudio?');
   });
-  document.getElementById('helpProvidedBtn').addEventListener('click', async () => {
-    if (!selectedReceiver) { addMessage('Sistema', 'Selecione um receptor na lista para responder ao pedido de ajuda.'); return; }
-    await broadcastPayload({ type:'help-response', text:'Auxílio providenciado.' }, [selectedReceiver]);
-    addMessage('Sistema', 'Resposta enviada para ' + selectedReceiver + ': auxílio providenciado.');
+  document.getElementById('msgAdjustingBtn').addEventListener('click', async () => {
+    await broadcastPayload({ type:'help-response', text:'Estamos ajustando o áudio.' });
+    addMessage('Você', 'Mensagem enviada aos receptores: Estamos ajustando o áudio.');
   });
-  document.getElementById('helpUnavailableBtn').addEventListener('click', async () => {
-    if (!selectedReceiver) { addMessage('Sistema', 'Selecione um receptor na lista para responder ao pedido de ajuda.'); return; }
-    await broadcastPayload({ type:'help-response', text:'Impossibilidade de auxílio.' }, [selectedReceiver]);
-    addMessage('Sistema', 'Resposta enviada para ' + selectedReceiver + ': impossibilidade de auxílio.');
+  document.getElementById('msgHelpProvidedBtn').addEventListener('click', async () => {
+    await broadcastPayload({ type:'help-response', text:'Auxílio providenciado.' });
+    addMessage('Você', 'Mensagem enviada aos receptores: Auxílio providenciado.');
+  });
+  document.getElementById('msgHelpUnavailableBtn').addEventListener('click', async () => {
+    await broadcastPayload({ type:'help-response', text:'Impossibilidade de auxílio no momento.' });
+    addMessage('Você', 'Mensagem enviada aos receptores: Impossibilidade de auxílio no momento.');
   });
   document.getElementById('muteBtn').addEventListener('click', async () => {
     if (!localTrack) return;
