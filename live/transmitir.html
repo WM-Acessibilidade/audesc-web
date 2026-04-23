@@ -54,17 +54,7 @@
         <button id="endBtn" class="secondary" type="button">Encerrar transmissão</button>
       </div>
 
-      <details class="collapse" id="instantMessagesDetails">
-        <summary>Mensagens instantâneas</summary>
-        <div class="collapse-body">
-          <div class="stack-actions">
-            <button id="msgHowAudioBtn" class="secondary" type="button">Como está o áudio?</button>
-            <button id="msgAdjustingBtn" class="secondary" type="button">Estamos ajustando o áudio.</button>
-            <button id="msgHelpProvidedBtn" class="secondary" type="button">Auxílio providenciado.</button>
-            <button id="msgHelpUnavailableBtn" class="secondary" type="button">Impossibilidade de auxílio no momento.</button>
-          </div>
-        </div>
-      </details>
+      
       <div id="muteStatus" class="status warning">Microfone ativo.</div>
       <div id="diagnosticBox" class="status">Biblioteca do LiveKit ainda não carregada.</div>
     </section>
@@ -75,6 +65,17 @@
         <div id="participantsBox" class="listbox">Nenhum ouvinte conectado no momento.</div>
       </div>
     </details>
+<details class="collapse" id="instantMessagesDetails">
+        <summary>Mensagens instantâneas</summary>
+        <div class="collapse-body">
+          <div class="stack-actions">
+            <button id="msgHowAudioBtn" class="secondary" type="button">Como está o áudio?</button>
+            <button id="msgAdjustingBtn" class="secondary" type="button">Estamos ajustando o áudio.</button>
+            <button id="msgHelpProvidedBtn" class="secondary" type="button">Auxílio providenciado.</button>
+            <button id="msgHelpUnavailableBtn" class="secondary" type="button">Impossibilidade de auxílio no momento.</button>
+          </div>
+        </div>
+      </details>
 
     <details class="collapse" id="sentMessagesDetails">
       <summary id="sentMessagesSummary">Mensagens recebidas (0)</summary>
