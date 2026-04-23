@@ -86,13 +86,23 @@
   let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false;
   const audioEl = document.getElementById('remoteAudio');
 
+  function resetMessages() {
+    messages = [];
+    const box = document.getElementById('messagesBox');
+    const summary = document.getElementById('receiverMessagesSummary');
+    if (summary) summary.textContent = 'Mensagens recebidas (0)';
+    if (box) box.textContent = 'Nenhuma mensagem recebida ainda.';
+  }
+
   C.attachBeforeUnload(() => activeSession);
 
   function addMessage(from, text) {
     messages.unshift({ from, text });
     messages = messages.slice(0, 30);
     const box = document.getElementById('messagesBox');
-    box.innerHTML = messages.length ? messages.map(item => `<div class="message-item"><div><strong>${item.from||'Sistema'}</strong></div><div>${item.text}</div></div>`).join('') : 'Nenhuma mensagem recebida ainda.';
+    const summary = document.getElementById('receiverMessagesSummary');
+    if (summary) summary.textContent = 'Mensagens recebidas (' + messages.length + ')';
+    box.innerHTML = messages.length ? messages.map(item => `<div class="message-item"><div><strong>${item.from||'Audiodescritor(a)'}</strong></div><div>${item.text}</div></div>`).join('') : 'Nenhuma mensagem recebida ainda.';
   }
   function updateBadges() {
     document.getElementById('eventBadge').textContent = 'Evento: ' + eventName;
