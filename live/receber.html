@@ -101,7 +101,8 @@
     messages = messages.slice(0, 30);
     const box = document.getElementById('messagesBox');
     const summary = document.getElementById('receiverMessagesSummary');
-    if (summary) summary.textContent = 'Mensagens recebidas (' + messages.length + ')';
+    const receivedCount = messages.filter(item => (item.from || '') !== 'Você').length;
+    if (summary) summary.textContent = 'Mensagens recebidas (' + receivedCount + ')';
     box.innerHTML = messages.length ? messages.map(item => `<div class="message-item"><div><strong>${item.from||'Audiodescritor(a)'}</strong></div><div>${item.text}</div></div>`).join('') : 'Nenhuma mensagem recebida ainda.';
   }
   function updateBadges() {
@@ -123,8 +124,9 @@
     }
   }
   async function connectRoom(reconnect=false) {
+    if (!reconnect) resetMessages();
     LK = await C.carregarLiveKit();
-    const tokenData = await C.pedirToken(roomCode, receiverName, 'transmitter');
+    const tokenData = await C.pedirToken(roomCode, receiverName, 'receiver');
     if (room) { room.disconnect(); room = null; }
     room = C.criarRoom(LK);
     room.on('trackSubscribed', async (track) => {
@@ -213,6 +215,7 @@
     if (room) room.disconnect();
     room = null;
     activeSession = false;
+    resetMessages();
     audioEl.pause(); audioEl.removeAttribute('src'); audioEl.srcObject = null;
     C.clearState('receiver');
     C.switchStep('step-form');
