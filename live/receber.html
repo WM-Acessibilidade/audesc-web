@@ -126,7 +126,7 @@
   async function connectRoom(reconnect=false) {
     if (!reconnect) resetMessages();
     LK = await C.carregarLiveKit();
-    const tokenData = await C.pedirToken(roomCode, receiverName, 'receiver');
+    const tokenData = await C.pedirToken(roomCode, receiverName, 'transmitter');
     if (room) { room.disconnect(); room = null; }
     room = C.criarRoom(LK);
     room.on('trackSubscribed', async (track) => {
