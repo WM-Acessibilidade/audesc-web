@@ -70,9 +70,9 @@
     </section>
 
     <details class="collapse" id="receiverSentMessagesDetails">
-      <summary id="receiverSentMessagesSummary">Mensagens encaminhadas (0)</summary>
+      <summary id="receiverMessagesSummary">Mensagens recebidas (0)</summary>
       <div class="collapse-body">
-        <div id="messagesBox" class="listbox">Nenhuma mensagem encaminhada ainda.</div>
+        <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
       </div>
     </details>
   </section>
@@ -92,7 +92,7 @@
     messages.unshift({ from, text });
     messages = messages.slice(0, 30);
     const box = document.getElementById('messagesBox');
-    box.innerHTML = messages.length ? messages.map(item => `<div class="message-item"><div><strong>${item.from||'Sistema'}</strong></div><div>${item.text}</div></div>`).join('') : 'Nenhuma mensagem encaminhada ainda.';
+    box.innerHTML = messages.length ? messages.map(item => `<div class="message-item"><div><strong>${item.from||'Sistema'}</strong></div><div>${item.text}</div></div>`).join('') : 'Nenhuma mensagem recebida ainda.';
   }
   function updateBadges() {
     document.getElementById('eventBadge').textContent = 'Evento: ' + eventName;
@@ -144,10 +144,8 @@
         eventName = msg.eventName || eventName;
         updateBadges(); persist();
       }
-      if (msg.type === 'request-feedback') updateMessageSummary();
-  addMessage('Audiodescritor(a)', msg.text || 'Solicitação de feedback.');
-      if (msg.type === 'help-response') updateMessageSummary();
-  addMessage('Audiodescritor(a)', msg.text || 'Resposta sobre o pedido de ajuda.');
+      if (msg.type === 'request-feedback') addMessage('Audiodescritor(a)', msg.text || 'Como está o áudio?');
+      if (msg.type === 'help-response') addMessage('Audiodescritor(a)', msg.text || 'Resposta sobre o pedido de ajuda.');
     });
     room.on('reconnected', async () => {
       C.setStatus('receiverStatus2', 'Status: reconectado à sala com sucesso.', 'success');

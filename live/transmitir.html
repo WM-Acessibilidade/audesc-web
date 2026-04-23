@@ -77,9 +77,9 @@
     </details>
 
     <details class="collapse" id="sentMessagesDetails">
-      <summary id="sentMessagesSummary">Mensagens encaminhadas (0)</summary>
+      <summary id="sentMessagesSummary">Mensagens recebidas (0)</summary>
       <div class="collapse-body">
-        <div id="messagesBox" class="listbox">Nenhuma mensagem encaminhada ainda.</div>
+        <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
       </div>
     </details>
   </section>
@@ -119,10 +119,10 @@
   function renderMessages() {
     const box = document.getElementById('messagesBox');
     const summary = document.getElementById('sentMessagesSummary');
-    const sentCount = messages.filter(item => (item.from || '') === 'Você').length;
-    if (summary) summary.textContent = 'Mensagens encaminhadas (' + sentCount + ')';
+    const receivedCount = messages.filter(item => (item.from || '') !== 'Você').length;
+    if (summary) summary.textContent = 'Mensagens recebidas (' + receivedCount + ')';
     if (!messages.length) {
-      box.textContent = 'Nenhuma mensagem encaminhada ainda.';
+      box.textContent = 'Nenhuma mensagem recebida ainda.';
       return;
     }
     box.innerHTML = messages.map(item => `
@@ -181,7 +181,6 @@
     C.switchStep('step-room');
     C.setStatus('transmitterStatus', reconnect ? 'Status: sala restaurada e transmissão reconectada.' : 'Status: transmissão iniciada com sucesso.', 'success');
     persist();
-    updateSentSummary();
   }
 
   document.getElementById('startBtn').addEventListener('click', async () => {
@@ -242,7 +241,7 @@
     localTrack = null;
     if (room) room.disconnect();
     room = null; receiverList=[]; messages=[]; selectedReceiver=null;
-    renderParticipants(); renderMessages(); updateSentSummary();
+    renderParticipants(); renderMessages();
     C.clearState('transmitter');
     C.switchStep('step-form');
     C.setStatus('transmitterStatus', 'Status: transmissão encerrada.', 'warning');
@@ -261,7 +260,6 @@
       });
     }
   }
-updateSentSummary();
 })();
 </script>
 </body>
