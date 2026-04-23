@@ -46,9 +46,7 @@
         <button id="resumeAudioBtn" class="ghost" type="button">Retomar áudio</button>
         <button id="leaveBtn" class="secondary" type="button">Sair</button>
       </div>
-
-      
-      <div id="receiverStatus2" class="status">Status: conectado e ouvindo automaticamente.</div>
+<div id="receiverStatus2" class="status">Status: conectado e ouvindo automaticamente.</div>
       <div id="diagnosticBox" class="status">Biblioteca do LiveKit ainda não carregada.</div>
     </section>
 
@@ -58,7 +56,20 @@
       <audio id="remoteAudio" autoplay playsinline></audio>
     </section>
 
-    <details class="collapse" id="receiverSentMessagesDetails">
+    <details class="collapse" id="receiverInstantMessagesDetails">
+        <summary>Mensagens instantâneas</summary>
+        <div class="collapse-body">
+          <div class="stack-actions">
+            <button id="feedbackNormalBtn" class="secondary" type="button">Áudio normal.</button>
+            <button id="feedbackLowBtn" class="secondary" type="button">Áudio baixo.</button>
+            <button id="feedbackFailBtn" class="secondary" type="button">Áudio falhando.</button>
+            <button id="feedbackNoAudioBtn" class="secondary" type="button">Sem áudio.</button>
+            <button id="helpBtn" class="secondary" type="button">Preciso de auxílio presencial.</button>
+          </div>
+        </div>
+      </details>
+
+<details class="collapse" id="receiverSentMessagesDetails">
       <summary id="receiverMessagesSummary">Mensagens recebidas (0)</summary>
       <div class="collapse-body">
         <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
