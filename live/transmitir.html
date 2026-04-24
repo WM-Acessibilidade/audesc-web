@@ -26,9 +26,14 @@
           <span>Nome do audiodescritor(a)</span>
           <input id="transmitterName" type="text" placeholder="Ex.: Audiodescritor">
         </label>
+        <label class="field">
+          <span>Código da sala existente</span>
+          <input id="existingRoomCode" type="text" placeholder="Opcional. Preencha para retornar a uma sala já criada">
+        </label>
       </div>
       <div class="actions">
         <button id="startBtn" type="button">Criar sala e iniciar</button>
+        <button id="resumeLastRoomBtn" class="secondary" type="button">Retomar última sala</button>
       </div>
       <div id="transmitterStatus" class="status">Status: aguardando início da transmissão.</div>
     </section>
@@ -209,6 +214,14 @@
   function persist() {
     C.saveState('transmitter', { roomCode, eventName, transmitterName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
   }
+  function saveLastTransmitterRoom() {
+    C.saveState('last-transmitter-room', { roomCode, eventName, transmitterName });
+  }
+
+  function loadLastTransmitterRoom() {
+    return C.loadState('last-transmitter-room');
+  }
+
   function renderParticipants() {
     const box = document.getElementById('participantsBox');
     const summary = document.getElementById('participantsSummary');
@@ -300,19 +313,41 @@
     C.switchStep('step-room');
     C.setStatus('transmitterStatus', reconnect ? 'Status: sala restaurada e transmissão reconectada.' : 'Status: transmissão iniciada com sucesso.', 'success');
     persist();
+    saveLastTransmitterRoom();
   }
 
   document.getElementById('startBtn').addEventListener('click', async () => {
     try {
       eventName = C.readValue('eventName') || 'Evento ao vivo';
       transmitterName = C.readValue('transmitterName') || 'transmissor';
-      roomCode = C.gerarSalaAutomatica();
+      const existingRoom = C.normalizarSala(C.readValue('existingRoomCode'));
+      roomCode = existingRoom || C.gerarSalaAutomatica();
       await setupRoomConnection(false);
     } catch (error) {
       C.setStatus('transmitterStatus', 'Status: erro ao iniciar. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
       C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
     }
   });
+  document.getElementById('resumeLastRoomBtn').addEventListener('click', async () => {
+    try {
+      const last = loadLastTransmitterRoom();
+      if (!last || !last.roomCode) {
+        C.setStatus('transmitterStatus', 'Status: nenhuma sala anterior foi encontrada neste navegador.', 'warning');
+        return;
+      }
+      eventName = last.eventName || C.readValue('eventName') || 'Evento ao vivo';
+      transmitterName = last.transmitterName || C.readValue('transmitterName') || 'transmissor';
+      roomCode = last.roomCode;
+      C.writeValue('eventName', eventName);
+      C.writeValue('transmitterName', transmitterName);
+      C.writeValue('existingRoomCode', roomCode);
+      await setupRoomConnection(true);
+    } catch (error) {
+      C.setStatus('transmitterStatus', 'Status: erro ao retomar a última sala. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
+      C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
+    }
+  });
+
   document.getElementById('copyCodeBtn').addEventListener('click', async () => {
     const ok = await C.copiarTexto(roomCode);
     C.setStatus('transmitterStatus', ok?'Status: código da sala copiado.':'Status: não foi possível copiar o código automaticamente.', ok?'success':'warning');
@@ -367,6 +402,13 @@
   });
 
   setupSoundAlertControls();
+
+  const lastRoomForForm = loadLastTransmitterRoom();
+  if (lastRoomForForm && lastRoomForForm.roomCode) {
+    C.writeValue('existingRoomCode', lastRoomForForm.roomCode);
+    if (lastRoomForForm.eventName) C.writeValue('eventName', lastRoomForForm.eventName);
+    if (lastRoomForForm.transmitterName) C.writeValue('transmitterName', lastRoomForForm.transmitterName);
+  }
 
   const saved = C.loadState('transmitter');
   if (saved) {
