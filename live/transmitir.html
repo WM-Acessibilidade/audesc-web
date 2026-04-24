@@ -82,6 +82,20 @@
         <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
       </div>
     </details>
+
+    <details class="collapse" id="settingsDetails">
+      <summary>Configurações</summary>
+      <div class="collapse-body">
+        <label class="field">
+          <span>
+            <input id="soundAlertEnabled" type="checkbox">
+            Ativar alerta sonoro para mensagens recebidas
+          </span>
+        </label>
+        <p class="hint">Por padrão, o alerta sonoro fica desativado para o audiodescritor(a), pois podem chegar mensagens de vários ouvintes.</p>
+      </div>
+    </details>
+
   </section>
 </main>
 
@@ -94,6 +108,37 @@
   let receiverList = [], messages = [], selectedReceiver = null, activeSession = false;
 
   C.attachBeforeUnload(() => activeSession);
+
+
+  function isSoundAlertEnabled() {
+    const checkbox = document.getElementById('soundAlertEnabled');
+    return !!(checkbox && checkbox.checked);
+  }
+
+  function playMessageBeep() {
+    if (!isSoundAlertEnabled()) return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0.05, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.12);
+      oscillator.onended = () => {
+        try { ctx.close(); } catch (e) {}
+      };
+    } catch (e) {}
+  }
 
   function persist() {
     C.saveState('transmitter', { roomCode, eventName, transmitterName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });

@@ -75,6 +75,20 @@
         <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
       </div>
     </details>
+
+    <details class="collapse" id="settingsDetails">
+      <summary>Configurações</summary>
+      <div class="collapse-body">
+        <label class="field">
+          <span>
+            <input id="soundAlertEnabled" type="checkbox" checked>
+            Ativar alerta sonoro para mensagens recebidas
+          </span>
+        </label>
+        <p class="hint">Por padrão, o alerta sonoro fica ativado para ouvintes, para avisar quando chegar mensagem do audiodescritor(a).</p>
+      </div>
+    </details>
+
   </section>
 </main>
 
@@ -96,9 +110,41 @@
 
   C.attachBeforeUnload(() => activeSession);
 
+
+  function isSoundAlertEnabled() {
+    const checkbox = document.getElementById('soundAlertEnabled');
+    return !!(checkbox && checkbox.checked);
+  }
+
+  function playMessageBeep() {
+    if (!isSoundAlertEnabled()) return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      const ctx = new AudioContextClass();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0.05, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.12);
+      oscillator.onended = () => {
+        try { ctx.close(); } catch (e) {}
+      };
+    } catch (e) {}
+  }
+
   function addMessage(from, text) {
     messages.unshift({ from, text });
     messages = messages.slice(0, 30);
+    if ((from || '') !== 'Você') playMessageBeep();
     const box = document.getElementById('messagesBox');
     const summary = document.getElementById('receiverMessagesSummary');
     const receivedCount = messages.filter(item => (item.from || '') !== 'Você').length;
