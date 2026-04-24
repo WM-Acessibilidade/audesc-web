@@ -93,6 +93,14 @@
           </span>
         </label>
         <button id="testSoundAlertBtn" class="ghost" type="button">Testar alerta sonoro</button>
+
+        <label class="field">
+          <span>
+            <input id="blockMessagesEnabled" type="checkbox">
+            Bloquear mensagens
+          </span>
+        </label>
+        <p class="hint">Ao marcar esta opção, os ouvintes serão avisados da indisponibilidade do audiodescritor(a) para interagir com mensagens no momento.</p>
         <p class="hint">Por padrão, o alerta sonoro fica desativado para o audiodescritor(a), pois podem chegar mensagens de vários ouvintes.</p>
       </div>
     </details>
@@ -105,8 +113,8 @@
 <script>
 (function() {
   const C = window.AudescLiveCommon;
-  let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '';
-  let receiverList = [], messages = [], selectedReceiver = null, activeSession = false;
+  let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '', messagesBlocked = false;
+  let receiverList = [], messages = [], selectedReceiver = null, activeSession = false; messagesBlocked = false;
 
   C.attachBeforeUnload(() => activeSession);
   let messageAudioContext = null;
@@ -171,6 +179,28 @@
       testButton.addEventListener('click', () => {
         ensureMessageAudioContext();
         playMessageBeep(true);
+      });
+    }
+
+    const blockCheckbox = document.getElementById('blockMessagesEnabled');
+    if (blockCheckbox) {
+      blockCheckbox.addEventListener('change', async () => {
+        messagesBlocked = blockCheckbox.checked;
+        if (messagesBlocked) {
+          await broadcastPayload({
+            type: 'messages-blocked-state',
+            blocked: true,
+            text: 'Audiodescritor(a) está indisponível para mensagens nesse momento.'
+          });
+          addMessage('Você', 'Aviso enviado aos ouvintes: Audiodescritor(a) está indisponível para mensagens nesse momento.');
+        } else {
+          await broadcastPayload({
+            type: 'messages-blocked-state',
+            blocked: false,
+            text: 'Audiodescritor(a) disponível para mensagens.'
+          });
+          addMessage('Você', 'Aviso enviado aos ouvintes: Audiodescritor(a) disponível para mensagens.');
+        }
       });
     }
   }
@@ -239,22 +269,30 @@
     const tokenData = await C.pedirToken(roomCode, transmitterName, 'transmitter');
     if (room) { room.disconnect(); room = null; }
     room = C.criarRoom(LK);
-    room.on('participantConnected', () => { updateReceiverList(); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode }); });
+    room.on('participantConnected', () => { updateReceiverList(); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }); });
     room.on('participantDisconnected', () => { updateReceiverList(); });
-    room.on('reconnected', () => { C.setStatus('transmitterStatus', 'Status: reconectado à sala com sucesso.', 'success'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode }); });
+    room.on('reconnected', () => { C.setStatus('transmitterStatus', 'Status: reconectado à sala com sucesso.', 'success'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }); });
     room.on('disconnected', () => { updateReceiverList(); });
     room.on('dataReceived', (payload, participant) => {
       const msg = C.decodePayload(payload); if (!msg) return;
       const from = participant ? participant.identity : 'Sistema';
+      if (messagesBlocked && (msg.type === 'feedback' || msg.type === 'help-request')) {
+        broadcastPayload({
+          type: 'messages-blocked-state',
+          blocked: true,
+          text: 'Audiodescritor(a) está indisponível para mensagens nesse momento.'
+        }, [from]);
+        return;
+      }
       if (msg.type === 'feedback') addMessage(from, 'Feedback: ' + msg.text);
       if (msg.type === 'help-request') addMessage(from, 'Pedido de ajuda recebido.');
-      if (msg.type === 'receiver-hello') { addMessage(from, 'Entrou na sala.'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode }, [from]); }
+      if (msg.type === 'receiver-hello') { addMessage(from, 'Entrou na sala.'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }, [from]); }
     });
     await room.connect(C.livekitUrl, tokenData.token);
     localTrack = await LK.createLocalAudioTrack();
     await room.localParticipant.publishTrack(localTrack);
     updateReceiverList();
-    broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode });
+    broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked });
     document.getElementById('eventBadge').textContent = 'Evento: ' + eventName;
     document.getElementById('transmitterBadge').textContent = 'Audiodescritor(a): ' + transmitterName;
     C.setText('roomCodeBox', roomCode);

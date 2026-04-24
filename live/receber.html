@@ -98,7 +98,7 @@
 <script>
 (function() {
   const C = window.AudescLiveCommon;
-  let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false;
+  let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false, messagesBlocked = false;
   const audioEl = document.getElementById('remoteAudio');
 
   function resetMessages() {
@@ -195,6 +195,19 @@
   function persist() {
     C.saveState('receiver', { roomCode, receiverName, transmitterName, eventName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
   }
+  function notifyMessagesBlocked() {
+    addMessage('Audiodescritor(a)', 'Audiodescritor(a) está indisponível para mensagens nesse momento.');
+  }
+
+  function trySendListenerMessage(payload, localText) {
+    if (messagesBlocked) {
+      notifyMessagesBlocked();
+      return;
+    }
+    sendMessage(payload);
+    if (localText) addMessage('Você', localText);
+  }
+
   async function sendMessage(payload) {
     if (!room || !room.localParticipant) return false;
     try {
@@ -206,7 +219,7 @@
     }
   }
   async function connectRoom(reconnect=false) {
-    if (!reconnect) resetMessages();
+    if (!reconnect) { resetMessages(); messagesBlocked = false; }
     LK = await C.carregarLiveKit();
     const tokenData = await C.pedirToken(roomCode, receiverName, 'transmitter');
     if (room) { room.disconnect(); room = null; }
@@ -237,6 +250,10 @@
         transmitterName = msg.transmitterName || transmitterName;
         eventName = msg.eventName || eventName;
         updateBadges(); persist();
+      }
+      if (msg.type === 'messages-blocked-state') {
+        messagesBlocked = !!msg.blocked;
+        addMessage('Audiodescritor(a)', msg.text || (messagesBlocked ? 'Audiodescritor(a) está indisponível para mensagens nesse momento.' : 'Audiodescritor(a) disponível para mensagens.'));
       }
       if (msg.type === 'request-feedback') addMessage('Audiodescritor(a)', msg.text || 'Como está o áudio?');
       if (msg.type === 'help-response') addMessage('Audiodescritor(a)', msg.text || 'Resposta sobre o pedido de ajuda.');
@@ -272,11 +289,11 @@
       C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
     }
   });
-  document.getElementById('feedbackNormalBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio normal.' }); addMessage('Você', 'Mensagem enviada: áudio normal.'); });
-  document.getElementById('feedbackLowBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio baixo.' }); addMessage('Você', 'Mensagem enviada: áudio baixo.'); });
-  document.getElementById('feedbackFailBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Áudio falhando.' }); addMessage('Você', 'Mensagem enviada: áudio falhando.'); });
-  document.getElementById('helpBtn').addEventListener('click', () => { sendMessage({ type:'help-request', text:'Preciso de auxílio presencial.' }); addMessage('Você', 'Mensagem enviada: preciso de auxílio presencial.'); });
-  document.getElementById('feedbackNoAudioBtn').addEventListener('click', () => { sendMessage({ type:'feedback', text:'Sem áudio.' }); addMessage('Você', 'Mensagem enviada: sem áudio.'); });
+  document.getElementById('feedbackNormalBtn').addEventListener('click', () => { trySendListenerMessage({ type:'feedback', text:'Áudio normal.' }, 'Mensagem enviada: áudio normal.'); });
+  document.getElementById('feedbackLowBtn').addEventListener('click', () => { trySendListenerMessage({ type:'feedback', text:'Áudio baixo.' }, 'Mensagem enviada: áudio baixo.'); });
+  document.getElementById('feedbackFailBtn').addEventListener('click', () => { trySendListenerMessage({ type:'feedback', text:'Áudio falhando.' }, 'Mensagem enviada: áudio falhando.'); });
+  document.getElementById('helpBtn').addEventListener('click', () => { trySendListenerMessage({ type:'help-request', text:'Preciso de auxílio presencial.' }, 'Mensagem enviada: preciso de auxílio presencial.'); });
+  document.getElementById('feedbackNoAudioBtn').addEventListener('click', () => { trySendListenerMessage({ type:'feedback', text:'Sem áudio.' }, 'Mensagem enviada: sem áudio.'); });
 
   document.getElementById('resumeAudioBtn').addEventListener('click', async () => {
     try {
@@ -296,7 +313,7 @@
     if (!ok) return;
     if (room) room.disconnect();
     room = null;
-    activeSession = false;
+    activeSession = false; messagesBlocked = false;
     resetMessages();
     audioEl.pause(); audioEl.removeAttribute('src'); audioEl.srcObject = null;
     C.clearState('receiver');
