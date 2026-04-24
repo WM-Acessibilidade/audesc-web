@@ -92,6 +92,7 @@
             Ativar alerta sonoro para mensagens recebidas
           </span>
         </label>
+        <button id="testSoundAlertBtn" class="ghost" type="button">Testar alerta sonoro</button>
         <p class="hint">Por padrão, o alerta sonoro fica desativado para o audiodescritor(a), pois podem chegar mensagens de vários ouvintes.</p>
       </div>
     </details>
@@ -108,37 +109,72 @@
   let receiverList = [], messages = [], selectedReceiver = null, activeSession = false;
 
   C.attachBeforeUnload(() => activeSession);
-
+  let messageAudioContext = null;
 
   function isSoundAlertEnabled() {
     const checkbox = document.getElementById('soundAlertEnabled');
     return !!(checkbox && checkbox.checked);
   }
 
-  function playMessageBeep() {
-    if (!isSoundAlertEnabled()) return;
+  function ensureMessageAudioContext() {
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (!AudioContextClass) return;
-      const ctx = new AudioContextClass();
+      if (!AudioContextClass) return null;
+      if (!messageAudioContext) messageAudioContext = new AudioContextClass();
+      if (messageAudioContext.state === 'suspended') {
+        messageAudioContext.resume().catch(() => {});
+      }
+      return messageAudioContext;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function playMessageBeep(force = false) {
+    if (!force && !isSoundAlertEnabled()) return;
+    try {
+      const ctx = ensureMessageAudioContext();
+      if (!ctx) return;
+
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
 
       oscillator.type = 'sine';
       oscillator.frequency.setValueAtTime(800, ctx.currentTime);
-      gainNode.gain.setValueAtTime(0.05, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+      gainNode.gain.setValueAtTime(0.001, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.015);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.13);
 
       oscillator.connect(gainNode);
       gainNode.connect(ctx.destination);
 
       oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.12);
-      oscillator.onended = () => {
-        try { ctx.close(); } catch (e) {}
-      };
+      oscillator.stop(ctx.currentTime + 0.14);
     } catch (e) {}
   }
+
+  function setupSoundAlertControls() {
+    const checkbox = document.getElementById('soundAlertEnabled');
+    const testButton = document.getElementById('testSoundAlertBtn');
+
+    document.addEventListener('click', () => {
+      if (checkbox && checkbox.checked) ensureMessageAudioContext();
+    }, { once: true });
+
+    if (checkbox) {
+      checkbox.addEventListener('change', () => {
+        if (checkbox.checked) ensureMessageAudioContext();
+      });
+    }
+
+    if (testButton) {
+      testButton.addEventListener('click', () => {
+        ensureMessageAudioContext();
+        playMessageBeep(true);
+      });
+    }
+  }
+
 
   function persist() {
     C.saveState('transmitter', { roomCode, eventName, transmitterName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
@@ -177,7 +213,7 @@
       </div>
     `).join('');
   }
-  function addMessage(from, text) { messages.unshift({from, text}); messages = messages.slice(0, 30); renderMessages(); }
+  function addMessage(from, text) { messages.unshift({from, text}); messages = messages.slice(0, 30); if ((from || '') !== 'Você') playMessageBeep(); renderMessages(); }
   function updateReceiverList() {
     if (!room) return;
     const list = [];
@@ -291,6 +327,8 @@
     C.switchStep('step-form');
     C.setStatus('transmitterStatus', 'Status: transmissão encerrada.', 'warning');
   });
+
+  setupSoundAlertControls();
 
   const saved = C.loadState('transmitter');
   if (saved) {
