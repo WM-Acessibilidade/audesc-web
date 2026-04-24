@@ -140,16 +140,16 @@
       const gainNode = ctx.createGain();
 
       oscillator.type = 'sine';
-      oscillator.frequency.setValueAtTime(800, ctx.currentTime);
+      oscillator.frequency.setValueAtTime(900, ctx.currentTime);
       gainNode.gain.setValueAtTime(0.001, ctx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.05, ctx.currentTime + 0.015);
+      gainNode.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.01);
       gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.13);
 
       oscillator.connect(gainNode);
       gainNode.connect(ctx.destination);
 
       oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.14);
+      oscillator.stop(ctx.currentTime + 0.15);
     } catch (e) {}
   }
 
