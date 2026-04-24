@@ -118,8 +118,8 @@
 <script>
 (function() {
   const C = window.AudescLiveCommon;
-  let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '', messagesBlocked = false;
-  let receiverList = [], messages = [], selectedReceiver = null, activeSession = false; messagesBlocked = false;
+  let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '', messagesBlocked = false, anotherTransmitterDetected = false, checkingTransmitterPresence = false;
+  let receiverList = [], messages = [], selectedReceiver = null, activeSession = false; anotherTransmitterDetected = false; checkingTransmitterPresence = false; messagesBlocked = false;
 
   C.attachBeforeUnload(() => activeSession);
   let messageAudioContext = null;
@@ -265,6 +265,10 @@
     if (selectedReceiver && !receiverList.includes(selectedReceiver)) selectedReceiver = null;
     renderParticipants();
   }
+  function waitForTransmitterCheck(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   async function broadcastPayload(payload, targetNames) {
     if (!room || !room.localParticipant) return;
     try {
@@ -297,11 +301,45 @@
         }, [from]);
         return;
       }
+      if (msg.type === 'transmitter-presence-check') {
+        if (!checkingTransmitterPresence) {
+          broadcastPayload({
+            type: 'transmitter-present',
+            transmitterName
+          }, [from]);
+        }
+        return;
+      }
+      if (msg.type === 'transmitter-present') {
+        if (checkingTransmitterPresence) {
+          anotherTransmitterDetected = true;
+        }
+        return;
+      }
       if (msg.type === 'feedback') addMessage(from, 'Feedback: ' + msg.text);
       if (msg.type === 'help-request') addMessage(from, 'Pedido de ajuda recebido.');
       if (msg.type === 'receiver-hello') { addMessage(from, 'Entrou na sala.'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }, [from]); }
     });
     await room.connect(C.livekitUrl, tokenData.token);
+
+    anotherTransmitterDetected = false;
+    checkingTransmitterPresence = true;
+    await broadcastPayload({
+      type: 'transmitter-presence-check',
+      requester: transmitterName
+    });
+    await waitForTransmitterCheck(1200);
+    checkingTransmitterPresence = false;
+
+    if (anotherTransmitterDetected) {
+      activeSession = false;
+      try { room.disconnect(); } catch (e) {}
+      room = null;
+      C.setStatus('transmitterStatus', 'Status: já existe um audiodescritor(a) ativo nesta sala. Para assumir a transmissão, é necessário que o audiodescritor(a) atual encerre a própria transmissão.', 'warning');
+      C.setStatus('diagnosticBox', 'Diagnóstico: entrada bloqueada para evitar dois transmissores na mesma sala.', 'warning');
+      return;
+    }
+
     localTrack = await LK.createLocalAudioTrack();
     await room.localParticipant.publishTrack(localTrack);
     updateReceiverList();
