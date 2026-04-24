@@ -101,6 +101,11 @@
   let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false, messagesBlocked = false;
   const audioEl = document.getElementById('remoteAudio');
 
+  function gerarNomeOuvintePadrao() {
+    const numero = Math.floor(Math.random() * 9000) + 1000;
+    return 'Ouvinte' + numero;
+  }
+
   function resetMessages() {
     messages = [];
     const box = document.getElementById('messagesBox');
@@ -282,7 +287,8 @@
   document.getElementById('joinBtn').addEventListener('click', async () => {
     try {
       roomCode = C.normalizarSala(C.readValue('roomCode')) || 'audesc';
-      receiverName = C.readValue('receiverName') || 'receptor';
+      receiverName = C.readValue('receiverName') || gerarNomeOuvintePadrao();
+      C.writeValue('receiverName', receiverName);
       await connectRoom(false);
     } catch (error) {
       C.setStatus('receiverStatus', 'Status: erro ao entrar. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
