@@ -36,16 +36,25 @@
     const url = new URL(window.location.href);
     return url.searchParams.get('sala') || '';
   }
+  function obterSenhaDaUrl() {
+    const url = new URL(window.location.href);
+    return url.searchParams.get('senha') || url.searchParams.get('password') || '';
+  }
   function montarLinkReceptor(sala) {
     return window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '/') + 'receber.html?sala=' + encodeURIComponent(sala);
   }
   async function copiarTexto(texto) {
     try { await navigator.clipboard.writeText(texto); return true; } catch (e) { return false; }
   }
-  async function pedirToken(room, identity, role) {
-    const url = tokenEndpoint + '?room=' + encodeURIComponent(room) + '&identity=' + encodeURIComponent(identity) + '&role=' + encodeURIComponent(role);
+  async function pedirToken(room, identity, role, password = '') {
+    let url = tokenEndpoint + '?room=' + encodeURIComponent(room) + '&identity=' + encodeURIComponent(identity) + '&role=' + encodeURIComponent(role);
+    if (password) url += '&password=' + encodeURIComponent(password);
     const response = await fetch(url);
-    if (!response.ok) throw new Error('Falha ao obter token');
+    if (!response.ok) {
+      let message = 'Falha ao obter token';
+      try { const data = await response.json(); if (data && data.error) message = data.error; } catch(e) {}
+      throw new Error(message);
+    }
     return response.json();
   }
   function getLiveKitGlobal() {
@@ -106,7 +115,7 @@
   }
   window.AudescLiveCommon = {
     livekitUrl, tokenEndpoint, setText, setStatus, readValue, writeValue,
-    normalizarSala, gerarSalaAutomatica, obterSalaDaUrl, montarLinkReceptor,
+    normalizarSala, gerarSalaAutomatica, obterSalaDaUrl, obterSenhaDaUrl, montarLinkReceptor,
     copiarTexto, pedirToken, carregarLiveKit, criarRoom, saveState, loadState,
     clearState, switchStep, encodePayload, decodePayload, attachBeforeUnload
   };

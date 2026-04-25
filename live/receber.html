@@ -26,6 +26,10 @@
           <span>Nome do ouvinte</span>
           <input id="receiverName" type="text" placeholder="Ex.: Leonardo">
         </label>
+        <label class="field">
+          <span>Senha do evento</span>
+          <input id="eventPassword" type="password" placeholder="Opcional enquanto o backend permitir acesso sem senha">
+        </label>
       </div>
       <div class="actions">
         <button id="joinBtn" type="button">Entrar</button>
@@ -98,7 +102,7 @@
 <script>
 (function() {
   const C = window.AudescLiveCommon;
-  let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false, messagesBlocked = false;
+  let LK = null, room = null, roomCode = '', receiverName = '', eventPassword = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false, messagesBlocked = false;
   const audioEl = document.getElementById('remoteAudio');
 
   function gerarNomeOuvintePadrao() {
@@ -198,7 +202,7 @@
     document.getElementById('roomBadge').textContent = 'Código da sala: ' + roomCode;
   }
   function persist() {
-    C.saveState('receiver', { roomCode, receiverName, transmitterName, eventName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
+    C.saveState('receiver', { roomCode, receiverName, eventPassword, transmitterName, eventName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
   }
   function notifyMessagesBlocked() {
     addMessage('Audiodescritor(a)', 'Audiodescritor(a) está indisponível para mensagens nesse momento.');
@@ -226,7 +230,9 @@
   async function connectRoom(reconnect=false) {
     if (!reconnect) { resetMessages(); messagesBlocked = false; }
     LK = await C.carregarLiveKit();
-    const tokenData = await C.pedirToken(roomCode, receiverName, 'transmitter');
+    const tokenData = await C.pedirToken(roomCode, receiverName, 'transmitter', eventPassword);
+    if (tokenData.room) roomCode = tokenData.room;
+    if (tokenData.evento && (!eventName || eventName === 'Evento ao vivo')) eventName = tokenData.evento;
     if (room) { room.disconnect(); room = null; }
     room = C.criarRoom(LK);
     room.on('trackSubscribed', async (track) => {
@@ -288,7 +294,9 @@
     try {
       roomCode = C.normalizarSala(C.readValue('roomCode')) || 'audesc';
       receiverName = C.readValue('receiverName') || gerarNomeOuvintePadrao();
+      eventPassword = C.readValue('eventPassword');
       C.writeValue('receiverName', receiverName);
+    C.writeValue('eventPassword', eventPassword);
       await connectRoom(false);
     } catch (error) {
       C.setStatus('receiverStatus', 'Status: erro ao entrar. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
@@ -337,10 +345,12 @@
   if (saved) {
     roomCode = incomingRoom || saved.roomCode || '';
     receiverName = saved.receiverName || '';
+    eventPassword = saved.eventPassword || '';
     transmitterName = saved.transmitterName || transmitterName;
     eventName = saved.eventName || eventName;
     C.writeValue('roomCode', roomCode);
     C.writeValue('receiverName', receiverName);
+    C.writeValue('eventPassword', eventPassword);
     updateBadges();
     if (saved.step === 'room' && roomCode && receiverName) {
       connectRoom(true).catch(error => {

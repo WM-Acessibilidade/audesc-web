@@ -30,6 +30,10 @@
           <span>Código da sala existente</span>
           <input id="existingRoomCode" type="text" placeholder="Opcional. Preencha para retornar a uma sala já criada">
         </label>
+        <label class="field">
+          <span>Senha do evento</span>
+          <input id="eventPassword" type="password" placeholder="Opcional enquanto o backend permitir acesso sem senha">
+        </label>
       </div>
       <div class="actions">
         <button id="startBtn" type="button">Criar sala e iniciar</button>
@@ -118,7 +122,7 @@
 <script>
 (function() {
   const C = window.AudescLiveCommon;
-  let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '', messagesBlocked = false, anotherTransmitterDetected = false, checkingTransmitterPresence = false;
+  let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '', eventPassword = '', messagesBlocked = false, anotherTransmitterDetected = false, checkingTransmitterPresence = false;
   let receiverList = [], messages = [], selectedReceiver = null, activeSession = false; anotherTransmitterDetected = false; checkingTransmitterPresence = false; messagesBlocked = false;
 
   C.attachBeforeUnload(() => activeSession);
@@ -212,10 +216,10 @@
 
 
   function persist() {
-    C.saveState('transmitter', { roomCode, eventName, transmitterName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
+    C.saveState('transmitter', { roomCode, eventName, transmitterName, eventPassword, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
   }
   function saveLastTransmitterRoom() {
-    C.saveState('last-transmitter-room', { roomCode, eventName, transmitterName });
+    C.saveState('last-transmitter-room', { roomCode, eventName, transmitterName, eventPassword });
   }
 
   function loadLastTransmitterRoom() {
@@ -283,7 +287,9 @@
       return;
     }
     LK = await C.carregarLiveKit();
-    const tokenData = await C.pedirToken(roomCode, transmitterName, 'transmitter');
+    const tokenData = await C.pedirToken(roomCode, transmitterName, 'transmitter', eventPassword);
+    if (tokenData.room) roomCode = tokenData.room;
+    if (tokenData.evento && (!eventName || eventName === 'Evento ao vivo')) eventName = tokenData.evento;
     if (room) { room.disconnect(); room = null; }
     room = C.criarRoom(LK);
     room.on('participantConnected', () => { updateReceiverList(); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }); });
@@ -358,6 +364,7 @@
     try {
       eventName = C.readValue('eventName') || 'Evento ao vivo';
       transmitterName = C.readValue('transmitterName') || 'transmissor';
+      eventPassword = C.readValue('eventPassword');
       const existingRoom = C.normalizarSala(C.readValue('existingRoomCode'));
       roomCode = existingRoom || C.gerarSalaAutomatica();
       await setupRoomConnection(false);
@@ -375,10 +382,12 @@
       }
       eventName = last.eventName || C.readValue('eventName') || 'Evento ao vivo';
       transmitterName = last.transmitterName || C.readValue('transmitterName') || 'transmissor';
+      eventPassword = last.eventPassword || C.readValue('eventPassword') || '';
       roomCode = last.roomCode;
       C.writeValue('eventName', eventName);
       C.writeValue('transmitterName', transmitterName);
       C.writeValue('existingRoomCode', roomCode);
+      C.writeValue('eventPassword', eventPassword);
       await setupRoomConnection(true);
     } catch (error) {
       C.setStatus('transmitterStatus', 'Status: erro ao retomar a última sala. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
@@ -446,15 +455,18 @@
     C.writeValue('existingRoomCode', lastRoomForForm.roomCode);
     if (lastRoomForForm.eventName) C.writeValue('eventName', lastRoomForForm.eventName);
     if (lastRoomForForm.transmitterName) C.writeValue('transmitterName', lastRoomForForm.transmitterName);
+    if (lastRoomForForm.eventPassword) C.writeValue('eventPassword', lastRoomForForm.eventPassword);
   }
 
   const saved = C.loadState('transmitter');
   if (saved) {
     eventName = saved.eventName || '';
     transmitterName = saved.transmitterName || '';
+    eventPassword = saved.eventPassword || '';
     roomCode = saved.roomCode || '';
     C.writeValue('eventName', eventName);
     C.writeValue('transmitterName', transmitterName);
+    C.writeValue('eventPassword', eventPassword);
     if (saved.step === 'room' && roomCode && transmitterName) {
       setupRoomConnection(true).catch(error => {
         C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao restaurar a sala.'), 'warning');
