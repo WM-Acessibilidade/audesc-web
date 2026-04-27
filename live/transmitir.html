@@ -288,6 +288,7 @@
     }
     LK = await C.carregarLiveKit();
     const tokenData = await C.pedirToken(roomCode, transmitterName, 'transmitter', eventPassword);
+    const isAdminAccess = tokenData && tokenData.acesso === 'admin';
     if (tokenData.room) roomCode = tokenData.room;
     if (tokenData.evento && (!eventName || eventName === 'Evento ao vivo')) eventName = tokenData.evento;
     if (room) { room.disconnect(); room = null; }
@@ -338,12 +339,25 @@
     checkingTransmitterPresence = false;
 
     if (anotherTransmitterDetected) {
-      activeSession = false;
-      try { room.disconnect(); } catch (e) {}
-      room = null;
-      C.setStatus('transmitterStatus', 'Status: já existe um audiodescritor(a) ativo nesta sala. Para assumir a transmissão, é necessário que o audiodescritor(a) atual encerre a própria transmissão.', 'warning');
-      C.setStatus('diagnosticBox', 'Diagnóstico: entrada bloqueada para evitar dois transmissores na mesma sala.', 'warning');
-      return;
+      if (isAdminAccess) {
+        const assumir = window.confirm('Já existe um audiodescritor(a) ativo nesta sala. Deseja assumir a transmissão como administrador? O transmissor atual poderá ser desconectado.');
+        if (!assumir) {
+          activeSession = false;
+          try { room.disconnect(); } catch (e) {}
+          room = null;
+          C.setStatus('transmitterStatus', 'Status: entrada cancelada pelo administrador.', 'warning');
+          C.setStatus('diagnosticBox', 'Diagnóstico: o administrador cancelou a assunção da transmissão.', 'warning');
+          return;
+        }
+        C.setStatus('transmitterStatus', 'Status: assumindo a transmissão como administrador.', 'warning');
+      } else {
+        activeSession = false;
+        try { room.disconnect(); } catch (e) {}
+        room = null;
+        C.setStatus('transmitterStatus', 'Status: já existe um audiodescritor(a) ativo nesta sala. Para assumir a transmissão, é necessário que o audiodescritor(a) atual encerre a própria transmissão.', 'warning');
+        C.setStatus('diagnosticBox', 'Diagnóstico: entrada bloqueada para evitar dois transmissores na mesma sala.', 'warning');
+        return;
+      }
     }
 
     localTrack = await LK.createLocalAudioTrack();
