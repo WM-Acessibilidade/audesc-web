@@ -110,7 +110,7 @@ function renderEvent(ev){
       <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
       <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
-      <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div>
+      <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div><div><strong>UF:</strong> ${ev.uf||''}</div>
     </div>
     <label>Título publicado</label>
     <input data-field="titulo_publicado" value="${attr(ev.titulo_publicado||ev.titulo_original||'')}">
@@ -127,6 +127,10 @@ function renderEvent(ev){
         ${opt('audesc_transmissao',ev.tipo_servico)}${opt('divulgacao_gratuita',ev.tipo_servico)}
       </select></div>
     </div>
+    <div class="grid">
+<div><label>País</label><select data-field="pais">${opt('Brasil',ev.pais)}${opt('Portugal',ev.pais)}${opt('Estados Unidos',ev.pais)}${opt('Argentina',ev.pais)}${opt('Espanha',ev.pais)}${opt('Outro',ev.pais)}</select></div>
+<div><label>UF</label><select data-field="uf">${opt('',ev.uf)}${opt('AC',ev.uf)}${opt('AL',ev.uf)}${opt('AP',ev.uf)}${opt('AM',ev.uf)}${opt('BA',ev.uf)}${opt('CE',ev.uf)}${opt('DF',ev.uf)}${opt('ES',ev.uf)}${opt('GO',ev.uf)}${opt('MA',ev.uf)}${opt('MT',ev.uf)}${opt('MS',ev.uf)}${opt('MG',ev.uf)}${opt('PA',ev.uf)}${opt('PB',ev.uf)}${opt('PR',ev.uf)}${opt('PE',ev.uf)}${opt('PI',ev.uf)}${opt('RJ',ev.uf)}${opt('RN',ev.uf)}${opt('RS',ev.uf)}${opt('RO',ev.uf)}${opt('RR',ev.uf)}${opt('SC',ev.uf)}${opt('SP',ev.uf)}${opt('SE',ev.uf)}${opt('TO',ev.uf)}</select></div>
+</div>
     <div class="grid">
       <div><label>Site oficial</label><input data-field="site_oficial" value="${attr(ev.site_oficial)}"></div>
       <div><label>Ingressos</label><input data-field="link_ingressos" value="${attr(ev.link_ingressos)}"></div>
@@ -184,7 +188,9 @@ function renderEventSections(){
       e.titulo_original,
       e.titulo_publicado,
       e.descricao_original,
-      e.descricao_publicada
+      e.descricao_publicada,
+      e.pais,
+      e.uf
     ].some(v => String(v||'').toLowerCase().includes(q)));
   }
   if(filter !== 'todos'){
