@@ -19,6 +19,19 @@ button.secondary{background:#555}.danger{background:#9b0000}.ok{background:#126b
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
 .small{font-size:.95rem;color:#444}
 pre{white-space:pre-wrap}
+.dashboard-summary{font-size:1.15rem;font-weight:700;margin-top:12px}
+.section-title{margin-top:24px;padding:10px 12px;border-left:7px solid #999;background:#f5f5f5;border-radius:8px}
+.section-pendente{border-left-color:#b77900}
+.section-aprovado{border-left-color:#237a3b}
+.section-rejeitado{border-left-color:#9b0000}
+.section-removido{border-left-color:#555}
+.toolbar{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:end;margin-top:12px}
+.urgent{border-left:7px solid #b77900}
+.badge{display:inline-block;padding:3px 8px;border-radius:999px;background:#eee;margin-right:6px;font-size:.9rem}
+.badge-pendente{background:#fff4d6}
+.badge-aprovado{background:#e8f6ec}
+.badge-rejeitado{background:#fff0f0}
+.badge-removido{background:#eee}
 </style>
 </head>
 <body>
@@ -38,7 +51,26 @@ pre{white-space:pre-wrap}
 
 <section class="panel" id="eventsPanel" style="display:none">
 <h2>Eventos cadastrados</h2>
-<button id="refreshBtn" type="button">Atualizar lista</button>
+<div id="dashboardSummary" class="dashboard-summary">Total de eventos: 0</div>
+<div class="toolbar">
+  <div>
+    <label for="searchInput">Buscar evento</label>
+    <input id="searchInput" type="search" placeholder="Digite parte do título, e-mail ou ID">
+  </div>
+  <div>
+    <label for="filterSelect">Filtro rápido</label>
+    <select id="filterSelect">
+      <option value="todos">Mostrar todos</option>
+      <option value="pendente">Somente pendentes</option>
+      <option value="aprovado">Somente aprovados</option>
+      <option value="rejeitado">Somente rejeitados</option>
+      <option value="removido">Somente removidos</option>
+    </select>
+  </div>
+  <div>
+    <button id="refreshBtn" type="button">Atualizar lista</button>
+  </div>
+</div>
 <div id="status" class="status">Aguardando carregamento.</div>
 <div id="eventsList"></div>
 </section>
@@ -59,10 +91,19 @@ async function api(path, options={}){
 }
 function renderEvent(ev){
   const card=document.createElement('section');
-  card.className='card';
+  const createdAt = ev.created_at ? new Date(ev.created_at) : null;
+  const olderThan2Days = createdAt && ((Date.now() - createdAt.getTime()) > 2*24*60*60*1000);
+  card.className='card' + (ev.status_publicacao==='pendente' && olderThan2Days ? ' urgent' : '');
+  const badgeClass = 'badge-' + (ev.status_publicacao || 'pendente');
+  const ageInfo = createdAt ? 'Criado em: ' + createdAt.toLocaleString('pt-BR') : '';
   card.innerHTML=`
     <h3>${escapeHtml(ev.titulo_publicado||ev.titulo_original||'Sem título')}</h3>
-    <p class="small">ID: ${ev.id}</p>
+    <p>
+      <span class="badge ${badgeClass}">${ev.status_publicacao||'sem status'}</span>
+      <span class="badge">${ev.tipo_servico||''}</span>
+      <span class="badge">${ev.tipo_evento||''}</span>
+    </p>
+    <p class="small">ID: ${ev.id}<br>${ageInfo}${olderThan2Days && ev.status_publicacao==='pendente' ? '<br><strong>Atenção: pendente há mais de 2 dias.</strong>' : ''}</p>
     <div class="grid">
       <div><strong>Serviço:</strong> ${ev.tipo_servico||''}</div>
       <div><strong>Evento:</strong> ${ev.tipo_evento||''}</div>
@@ -96,40 +137,110 @@ function renderEvent(ev){
     <button class="saveBtn" type="button">Salvar edições</button>
     <button class="approveBtn ok" type="button">Aprovar publicação</button>
     <button class="rejectBtn danger" type="button">Rejeitar</button>
+    <button class="removeBtn danger" type="button">Remover da publicação</button>
+    <button class="approveLiberateBtn ok" type="button">Aprovar + liberar</button>
     <button class="liberateBtn secondary" type="button">Liberar / gerar acesso</button>
     <div class="status eventStatus">Pronto.</div>
   `;
   card.querySelector('.saveBtn').onclick=()=>saveEvent(ev.id,card);
   card.querySelector('.approveBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'aprovado'},card);
   card.querySelector('.rejectBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'rejeitado'},card);
+  card.querySelector('.removeBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'removido'},card);
+  card.querySelector('.approveLiberateBtn').onclick=async()=>{await quickUpdate(ev.id,{status_publicacao:'aprovado',status_pagamento: ev.tipo_servico==='divulgacao_gratuita' ? 'dispensado' : 'pago'},card,false); await liberate(ev.id,card);};
   card.querySelector('.liberateBtn').onclick=()=>liberate(ev.id,card);
   return card;
 }
 function opt(value,current){return `<option value="${value}" ${value===current?'selected':''}>${value}</option>`}
 function escapeHtml(s){return val(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function attr(s){return escapeHtml(s).replace(/"/g,'&quot;')}
+let allEvents = [];
+
 async function loadEvents(){
   status('status','Carregando eventos...','');
-  const list=document.getElementById('eventsList'); list.innerHTML='';
+  const list=document.getElementById('eventsList');
+  list.innerHTML='';
   try{
     const data=await api('/admin/eventos');
-    if(!data.eventos.length){status('status','Nenhum evento encontrado.','');return}
-    for(const ev of data.eventos) list.appendChild(renderEvent(ev));
-    status('status',data.eventos.length+' evento(s) carregado(s).','success');
-  }catch(e){status('status','Erro: '+e.message,'error')}
+    allEvents = data.eventos || [];
+    renderEventSections();
+    status('status','Eventos carregados com sucesso.','success');
+  }catch(e){
+    status('status','Erro: '+e.message,'error');
+  }
 }
+
+function renderEventSections(){
+  const list=document.getElementById('eventsList');
+  list.innerHTML='';
+
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase().trim();
+  const filter=document.getElementById('filterSelect')?.value||'todos';
+
+  let eventos = allEvents.slice();
+  if(q){
+    eventos = eventos.filter(e => [
+      e.id,
+      e.email_usuario,
+      e.titulo_original,
+      e.titulo_publicado,
+      e.descricao_original,
+      e.descricao_publicada
+    ].some(v => String(v||'').toLowerCase().includes(q)));
+  }
+  if(filter !== 'todos'){
+    eventos = eventos.filter(e => (e.status_publicacao || 'pendente') === filter);
+  }
+
+  document.getElementById('dashboardSummary').textContent =
+    `Total de eventos: ${allEvents.length} | Exibidos: ${eventos.length}`;
+
+  if(!eventos.length){
+    const vazio=document.createElement('p');
+    vazio.textContent='Nenhum evento encontrado para o filtro atual.';
+    list.appendChild(vazio);
+    return;
+  }
+
+  const pendentes = eventos.filter(e => (e.status_publicacao || 'pendente') === 'pendente');
+  const aprovados = eventos.filter(e => e.status_publicacao === 'aprovado');
+  const rejeitados = eventos.filter(e => e.status_publicacao === 'rejeitado');
+  const removidos = eventos.filter(e => e.status_publicacao === 'removido');
+
+  function criarSecao(titulo, classe, listaEventos){
+    const secao=document.createElement('section');
+    secao.className='panel';
+    const h=document.createElement('h2');
+    h.className='section-title '+classe;
+    h.textContent=`${titulo} (${listaEventos.length})`;
+    secao.appendChild(h);
+    if(!listaEventos.length){
+      const p=document.createElement('p');
+      p.textContent='Nenhum evento nesta categoria.';
+      secao.appendChild(p);
+    } else {
+      listaEventos.forEach(ev=>secao.appendChild(renderEvent(ev)));
+    }
+    return secao;
+  }
+
+  list.appendChild(criarSecao('Pendentes de análise', 'section-pendente', pendentes));
+  list.appendChild(criarSecao('Aprovados', 'section-aprovado', aprovados));
+  list.appendChild(criarSecao('Rejeitados', 'section-rejeitado', rejeitados));
+  list.appendChild(criarSecao('Removidos da publicação', 'section-removido', removidos));
+}
+
 async function saveEvent(id,card){
   const body={};
   card.querySelectorAll('[data-field]').forEach(el=>body[el.dataset.field]=el.value);
   await quickUpdate(id,body,card);
 }
-async function quickUpdate(id,body,card){
+async function quickUpdate(id,body,card,reload=true){
   const st=card.querySelector('.eventStatus');
   st.textContent='Salvando...'; st.className='status eventStatus';
   try{
     await api('/admin/eventos/'+id,{method:'PATCH',body:JSON.stringify(body)});
     st.textContent='Alteração salva.'; st.className='status eventStatus success';
-    await loadEvents();
+    if(reload) await loadEvents();
   }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
 }
 async function liberate(id,card){
@@ -150,6 +261,8 @@ document.getElementById('loginBtn').onclick=()=>{
   loadEvents();
 };
 document.getElementById('refreshBtn').onclick=loadEvents;
+document.getElementById('searchInput').addEventListener('input', renderEventSections);
+document.getElementById('filterSelect').addEventListener('change', renderEventSections);
 </script>
 </body>
 </html>
