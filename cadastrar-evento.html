@@ -43,13 +43,24 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 
 <div class="grid">
 <div><label for="tipo_servico">Tipo de solicitação</label><select id="tipo_servico" name="tipo_servico"><option value="audesc_transmissao">Contratar transmissão pelo Audesc</option><option value="divulgacao_gratuita">Apenas divulgar evento com audiodescrição</option></select></div>
-<div><label for="tipo_evento">Visibilidade</label><select id="tipo_evento" name="tipo_evento"><option value="publico">Público, com divulgação no Audesc</option><option value="privado">Privado, sem divulgação pública</option></select></div>
+<div><label for="tipo_evento">Visibilidade</label><select id="tipo_evento" name="tipo_evento"><option value="publico">Público, com divulgação no Audesc</option><option value="privado">Restrita, sem divulgação pública</option></select></div>
 </div>
 
 <div class="grid">
 <div><label for="data_evento">Data e horário do evento</label><input id="data_evento" name="data_evento" type="datetime-local"></div>
 <div><label for="duracao_horas">Duração em horas</label><select id="duracao_horas" name="duracao_horas"><option value="1">1 hora</option><option value="2" selected>2 horas</option><option value="3">3 horas</option><option value="4">4 horas</option><option value="5">5 horas</option><option value="6">6 horas</option><option value="7">7 horas</option><option value="8">8 horas</option></select></div>
-<div><label for="max_ouvintes">Quantidade máxima de ouvintes</label><select id="max_ouvintes" name="max_ouvintes"><option value="10">10 ouvintes</option><option value="20" selected>20 ouvintes</option><option value="30">30 ouvintes</option><option value="40">40 ouvintes</option><option value="50">50 ouvintes</option><option value="100">100 ouvintes</option></select></div>
+<div><label for="max_ouvintes">Quantidade máxima de ouvintes</label><select id="max_ouvintes" name="max_ouvintes">
+<option value="10">10 ouvintes</option>
+<option value="20" selected>20 ouvintes</option>
+<option value="30">30 ouvintes</option>
+<option value="40">40 ouvintes</option>
+<option value="60">60 ouvintes</option>
+<option value="80">80 ouvintes</option>
+<option value="100">100 ouvintes</option>
+<option value="120">120 ouvintes</option>
+<option value="150">150 ouvintes</option>
+<option value="200">200 ouvintes</option>
+</select></div>
 </div>
 
 <h2>Local do evento</h2>
@@ -126,11 +137,33 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  try{
   const r=await fetch(API_URL+'/criar-evento',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify(data)});
   const j=await r.json();if(!r.ok)throw new Error(j.error||'Erro ao enviar solicitação.');
-  setStatus('status',j.mensagem||'Solicitação enviada com sucesso.','success');
+  if(data.tipo_servico === 'divulgacao_gratuita'){
+   setStatus('status','Evento recebido e enviado para curadoria antes da publicação.','success');
+  }else{
+   setStatus('status','Evento recebido e enviado para curadoria antes da publicação. Em breve você receberá um e-mail com informações de pagamento e instruções de acesso.','success');
+  }
   form.reset();atualizarLocalizacao();
  }catch(err){setStatus('status','Erro: '+(err.message||'não foi possível enviar.'),'error')}
  finally{btn.disabled=false}
 };
+
+const tipoServico = document.getElementById('tipo_servico');
+const tipoEvento = document.getElementById('tipo_evento');
+
+function ajustarVisibilidade(){
+  const opcaoRestrita = tipoEvento.querySelector('option[value="privado"]');
+
+  if(tipoServico.value === 'divulgacao_gratuita'){
+    tipoEvento.value = 'publico';
+    opcaoRestrita.disabled = true;
+  } else {
+    opcaoRestrita.disabled = false;
+  }
+}
+
+tipoServico.addEventListener('change', ajustarVisibilidade);
+ajustarVisibilidade();
+
 checkSession();
 </script>
 </body>
