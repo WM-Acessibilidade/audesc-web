@@ -12,7 +12,7 @@ label{display:block;font-weight:700;margin-top:16px}input,textarea,select,button
 input,textarea,select{width:100%;box-sizing:border-box;padding:12px;margin-top:6px;border:1px solid #999;border-radius:8px;background:#fff;color:#111}
 textarea{min-height:140px}.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 button{margin-top:20px;padding:14px 18px;border:0;border-radius:10px;cursor:pointer;font-weight:700;background:#111;color:#fff}
-button[disabled]{opacity:.55}.status{margin-top:16px;padding:12px;border-radius:8px;border:1px solid #aaa;background:#f0f0f0}
+button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top:16px;padding:12px;border-radius:8px;border:1px solid #aaa;background:#f0f0f0}
 .success{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}.hidden{display:none}
 </style>
 </head>
@@ -20,7 +20,7 @@ button[disabled]{opacity:.55}.status{margin-top:16px;padding:12px;border-radius:
 <header>
 <a href="index.html">Voltar</a>
 <h1>Cadastrar evento acessível</h1>
-<p>Confirme seu e-mail por link para liberar o formulário.</p>
+<p>Confirme seu e-mail por link. Por segurança, a confirmação libera o formulário por até 1 hora neste navegador.</p>
 </header>
 <main>
 <section class="panel" id="emailStep">
@@ -28,6 +28,7 @@ button[disabled]{opacity:.55}.status{margin-top:16px;padding:12px;border-radius:
 <label for="email">E-mail do responsável</label>
 <input id="email" type="email" autocomplete="email" required>
 <button id="sendLinkBtn" type="button">Enviar link de validação</button>
+<button id="logoutBtn" type="button" class="secondary hidden">Usar outro e-mail</button>
 <div id="emailStatus" class="status" role="status" aria-live="polite">Informe o e-mail para receber o link.</div>
 </section>
 
@@ -37,7 +38,6 @@ button[disabled]{opacity:.55}.status{margin-top:16px;padding:12px;border-radius:
 <form id="eventoForm">
 <label for="titulo_original">Nome do evento</label>
 <input id="titulo_original" name="titulo_original" type="text" required maxlength="200">
-
 <label for="descricao_original">Descrição do evento</label>
 <textarea id="descricao_original" name="descricao_original" maxlength="5000"></textarea>
 
@@ -64,7 +64,6 @@ button[disabled]{opacity:.55}.status{margin-top:16px;padding:12px;border-radius:
 <label for="link_ingressos">Link de ingressos</label><input id="link_ingressos" name="link_ingressos" type="url" placeholder="https://">
 <label for="link_programacao">Link de programação</label><input id="link_programacao" name="link_programacao" type="url" placeholder="https://">
 <label for="link_acessibilidade">Link sobre acessibilidade / audiodescrição</label><input id="link_acessibilidade" name="link_acessibilidade" type="url" placeholder="https://">
-
 <div class="hidden" aria-hidden="true"><label for="website">Não preencha</label><input id="website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
 <button id="submitBtn" type="submit">Enviar solicitação</button>
 <div id="status" class="status" role="status" aria-live="polite">Aguardando preenchimento.</div>
@@ -77,11 +76,24 @@ const API_URL='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0O38-ahRI_iRA-oyKIaOew_QgWjBpkW';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const SESSION_MAX_MINUTES=60;
 let accessToken='';
 
 function setStatus(id,text,cls){const el=document.getElementById(id);el.textContent=text;el.className='status'+(cls?' '+cls:'')}
-function showForm(email){document.getElementById('emailStep').classList.add('hidden');document.getElementById('formStep').classList.remove('hidden');document.getElementById('verifiedEmailInfo').textContent='E-mail confirmado: '+(email||'')}
-async function checkSession(){const {data}=await sb.auth.getSession();if(data&&data.session){accessToken=data.session.access_token;showForm(data.session.user.email)}}
+function showEmailStep(msg,cls){document.getElementById('emailStep').classList.remove('hidden');document.getElementById('formStep').classList.add('hidden');if(msg)setStatus('emailStatus',msg,cls||'')}
+function showForm(email){document.getElementById('emailStep').classList.add('hidden');document.getElementById('formStep').classList.remove('hidden');document.getElementById('verifiedEmailInfo').textContent='E-mail confirmado: '+(email||'')+'. Esta validação será aceita por até 1 hora neste navegador.'}
+function sessionAgeMinutes(session){const raw=session?.user?.last_sign_in_at||session?.created_at||session?.expires_at;if(!raw)return 999999;const base=new Date(raw).getTime();if(!base||Number.isNaN(base))return 999999;return (Date.now()-base)/60000}
+
+async function checkSession(){
+ const {data}=await sb.auth.getSession();
+ const session=data?.session;
+ if(!session){showEmailStep('Informe o e-mail para receber o link de validação.','');return}
+ if(sessionAgeMinutes(session)>SESSION_MAX_MINUTES){await sb.auth.signOut();accessToken='';showEmailStep('Por segurança, a validação anterior expirou. Solicite um novo link para continuar.','error');return}
+ accessToken=session.access_token;
+ showForm(session.user.email);
+}
+
+document.getElementById('logoutBtn').onclick=async()=>{await sb.auth.signOut();accessToken='';document.getElementById('logoutBtn').classList.add('hidden');showEmailStep('Sessão encerrada. Informe o e-mail que deseja validar.','')};
 
 document.getElementById('sendLinkBtn').onclick=async()=>{
  const email=document.getElementById('email').value.trim();
@@ -90,22 +102,22 @@ document.getElementById('sendLinkBtn').onclick=async()=>{
  try{
   const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:location.origin+location.pathname}});
   if(error)throw error;
-  setStatus('emailStatus','Link de validação enviado. Abra o e-mail e clique no link para continuar.','success');
+  setStatus('emailStatus','Link de validação enviado. Abra o e-mail e clique no link para continuar. O link libera o formulário por até 1 hora neste navegador.','success');
  }catch(e){setStatus('emailStatus','Erro ao enviar link: '+(e.message||'falha desconhecida.'),'error')}
  finally{document.getElementById('sendLinkBtn').disabled=false}
 };
 
 const paisSelect=document.getElementById('pais'),ufSelect=document.getElementById('uf'),paisOutroBox=document.getElementById('paisOutroBox'),paisOutroInput=document.getElementById('pais_outro');
-function atualizarLocalizacao(){
- if(paisSelect.value==='Brasil'){ufSelect.disabled=false}else{ufSelect.value='';ufSelect.disabled=true}
- if(paisSelect.value==='Outro'){paisOutroBox.classList.remove('hidden');paisOutroInput.required=true}else{paisOutroBox.classList.add('hidden');paisOutroInput.required=false;paisOutroInput.value=''}
-}
+function atualizarLocalizacao(){if(paisSelect.value==='Brasil'){ufSelect.disabled=false}else{ufSelect.value='';ufSelect.disabled=true}if(paisSelect.value==='Outro'){paisOutroBox.classList.remove('hidden');paisOutroInput.required=true}else{paisOutroBox.classList.add('hidden');paisOutroInput.required=false;paisOutroInput.value=''}}
 paisSelect.addEventListener('change',atualizarLocalizacao);atualizarLocalizacao();
 
 document.getElementById('eventoForm').onsubmit=async(e)=>{
  e.preventDefault();
  const form=e.target;
- if(!accessToken){setStatus('status','Confirme o e-mail pelo link antes de enviar.','error');return}
+ const {data:sessionData}=await sb.auth.getSession();
+ const session=sessionData?.session;
+ if(!session||sessionAgeMinutes(session)>SESSION_MAX_MINUTES){accessToken='';await sb.auth.signOut();showEmailStep('Por segurança, confirme novamente seu e-mail antes de enviar o evento.','error');return}
+ accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const data=Object.fromEntries(new FormData(form).entries());
  if(data.pais==='Brasil'&&!data.uf){setStatus('status','Selecione a unidade da Federação.','error');btn.disabled=false;return}
