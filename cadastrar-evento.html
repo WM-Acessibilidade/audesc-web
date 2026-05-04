@@ -48,8 +48,8 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 
 <div class="grid">
 <div><label for="data_evento">Data e horário do evento</label><input id="data_evento" name="data_evento" type="datetime-local"></div>
-<div><label for="duracao_horas">Duração em horas</label><select id="duracao_horas" name="duracao_horas"><option value="1">1 hora</option><option value="2" selected>2 horas</option><option value="3">3 horas</option><option value="4">4 horas</option><option value="5">5 horas</option><option value="6">6 horas</option><option value="7">7 horas</option><option value="8">8 horas</option></select></div>
-<div><label for="max_ouvintes">Quantidade máxima de ouvintes</label><select id="max_ouvintes" name="max_ouvintes">
+<div id="duracaoBox"><label for="duracao_horas">Duração em horas</label><select id="duracao_horas" name="duracao_horas"><option value="1">1 hora</option><option value="2" selected>2 horas</option><option value="3">3 horas</option><option value="4">4 horas</option><option value="5">5 horas</option><option value="6">6 horas</option><option value="7">7 horas</option><option value="8">8 horas</option></select></div>
+<div id="ouvintesBox"><label for="max_ouvintes">Quantidade máxima de ouvintes</label><select id="max_ouvintes" name="max_ouvintes">
 <option value="10">10 ouvintes</option>
 <option value="20" selected>20 ouvintes</option>
 <option value="30">30 ouvintes</option>
@@ -113,7 +113,7 @@ document.getElementById('sendLinkBtn').onclick=async()=>{
  try{
   const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:location.origin+location.pathname}});
   if(error)throw error;
-  setStatus('emailStatus','Link de validação enviado. Abra o e-mail e clique no link para continuar. O link libera o formulário por até 1 hora neste navegador.','success');
+  setStatus('emailStatus','Link de validação enviado. Abra o e-mail e clique no link para continuar. Caso o e-mail não chegue em um prazo de três minutos, verifique sua caixa de Spam antes de realizar uma nova solicitação.','success');
  }catch(e){setStatus('emailStatus','Erro ao enviar link: '+(e.message||'falha desconhecida.'),'error')}
  finally{document.getElementById('sendLinkBtn').disabled=false}
 };
@@ -133,6 +133,10 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  const data=Object.fromEntries(new FormData(form).entries());
  if(data.pais==='Brasil'&&!data.uf){setStatus('status','Selecione a unidade da Federação.','error');btn.disabled=false;return}
  if(data.pais==='Outro'&&!data.pais_outro){setStatus('status','Informe o país.','error');btn.disabled=false;return}
+ if(data.tipo_servico === 'divulgacao_gratuita'){
+  delete data.duracao_horas;
+  delete data.max_ouvintes;
+ }
  if(data.data_evento)data.data_evento=new Date(data.data_evento).toISOString();
  try{
   const r=await fetch(API_URL+'/criar-evento',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify(data)});
@@ -151,14 +155,33 @@ const tipoServico = document.getElementById('tipo_servico');
 const tipoEvento = document.getElementById('tipo_evento');
 
 function ajustarVisibilidade(){
-  const opcaoRestrita = tipoEvento.querySelector('option[value="privado"]');
+ const opcaoRestrita = tipoEvento.querySelector('option[value="privado"]');
+ const duracaoBox = document.getElementById('duracaoBox');
+ const ouvintesBox = document.getElementById('ouvintesBox');
+ const duracao = document.getElementById('duracao_horas');
+ const ouvintes = document.getElementById('max_ouvintes');
 
-  if(tipoServico.value === 'divulgacao_gratuita'){
-    tipoEvento.value = 'publico';
-    opcaoRestrita.disabled = true;
-  } else {
-    opcaoRestrita.disabled = false;
-  }
+ if(tipoServico.value === 'divulgacao_gratuita'){
+  tipoEvento.value = 'publico';
+  opcaoRestrita.disabled = true;
+
+  duracaoBox.classList.add('hidden');
+  ouvintesBox.classList.add('hidden');
+
+  duracao.disabled = true;
+  ouvintes.disabled = true;
+ } else {
+  opcaoRestrita.disabled = false;
+
+  duracaoBox.classList.remove('hidden');
+  ouvintesBox.classList.remove('hidden');
+
+  duracao.disabled = false;
+  ouvintes.disabled = false;
+
+  if(!duracao.value) duracao.value = '2';
+  if(!ouvintes.value) ouvintes.value = '20';
+ }
 }
 
 tipoServico.addEventListener('change', ajustarVisibilidade);

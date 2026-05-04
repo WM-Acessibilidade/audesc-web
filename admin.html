@@ -111,6 +111,9 @@ function renderEvent(ev){
       <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
       <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div><div><strong>UF:</strong> ${ev.uf||''}</div>
+      <div><strong>Data e horário:</strong> ${formatarData(ev.data_evento)}</div>
+      <div><strong>Horas de transmissão:</strong> ${ev.duracao_horas || ''}</div>
+      <div><strong>Máximo de ouvintes:</strong> ${ev.max_ouvintes || ''}</div>
     </div>
     <label>Título publicado</label>
     <input data-field="titulo_publicado" value="${attr(ev.titulo_publicado||ev.titulo_original||'')}">
@@ -131,6 +134,17 @@ function renderEvent(ev){
 <div><label>País</label><select data-field="pais">${opt('Brasil',ev.pais)}${opt('Portugal',ev.pais)}${opt('Estados Unidos',ev.pais)}${opt('Argentina',ev.pais)}${opt('Espanha',ev.pais)}${opt('Outro',ev.pais)}</select></div>
 <div><label>UF</label><select data-field="uf">${opt('',ev.uf)}${opt('AC',ev.uf)}${opt('AL',ev.uf)}${opt('AP',ev.uf)}${opt('AM',ev.uf)}${opt('BA',ev.uf)}${opt('CE',ev.uf)}${opt('DF',ev.uf)}${opt('ES',ev.uf)}${opt('GO',ev.uf)}${opt('MA',ev.uf)}${opt('MT',ev.uf)}${opt('MS',ev.uf)}${opt('MG',ev.uf)}${opt('PA',ev.uf)}${opt('PB',ev.uf)}${opt('PR',ev.uf)}${opt('PE',ev.uf)}${opt('PI',ev.uf)}${opt('RJ',ev.uf)}${opt('RN',ev.uf)}${opt('RS',ev.uf)}${opt('RO',ev.uf)}${opt('RR',ev.uf)}${opt('SC',ev.uf)}${opt('SP',ev.uf)}${opt('SE',ev.uf)}${opt('TO',ev.uf)}</select></div>
 </div>
+    
+    <div class="grid">
+      <div><label>Data e horário do evento</label><input data-field="data_evento" type="datetime-local" value="${valorDataInput(ev.data_evento)}"></div>
+      <div><label>Horas de transmissão</label><select data-field="duracao_horas">
+        ${opt('1', String(ev.duracao_horas || ''))}${opt('2', String(ev.duracao_horas || ''))}${opt('3', String(ev.duracao_horas || ''))}${opt('4', String(ev.duracao_horas || ''))}${opt('5', String(ev.duracao_horas || ''))}${opt('6', String(ev.duracao_horas || ''))}${opt('7', String(ev.duracao_horas || ''))}${opt('8', String(ev.duracao_horas || ''))}
+      </select></div>
+      <div><label>Número máximo de ouvintes</label><select data-field="max_ouvintes">
+        ${opt('10', String(ev.max_ouvintes || ''))}${opt('20', String(ev.max_ouvintes || ''))}${opt('30', String(ev.max_ouvintes || ''))}${opt('40', String(ev.max_ouvintes || ''))}${opt('60', String(ev.max_ouvintes || ''))}${opt('80', String(ev.max_ouvintes || ''))}${opt('100', String(ev.max_ouvintes || ''))}${opt('120', String(ev.max_ouvintes || ''))}${opt('150', String(ev.max_ouvintes || ''))}${opt('200', String(ev.max_ouvintes || ''))}
+      </select></div>
+    </div>
+
     <div class="grid">
       <div><label>Site oficial</label><input data-field="site_oficial" value="${attr(ev.site_oficial)}"></div>
       <div><label>Ingressos</label><input data-field="link_ingressos" value="${attr(ev.link_ingressos)}"></div>
@@ -190,7 +204,10 @@ function renderEventSections(){
       e.descricao_original,
       e.descricao_publicada,
       e.pais,
-      e.uf
+      e.uf,
+      e.data_evento,
+      e.duracao_horas,
+      e.max_ouvintes
     ].some(v => String(v||'').toLowerCase().includes(q)));
   }
   if(filter !== 'todos'){
@@ -235,9 +252,39 @@ function renderEventSections(){
   list.appendChild(criarSecao('Removidos da publicação', 'section-removido', removidos));
 }
 
+
+function formatarData(v){
+  if(!v) return '';
+  const d = new Date(v);
+  if(Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('pt-BR');
+}
+function valorDataInput(v){
+  if(!v) return '';
+  const d = new Date(v);
+  if(Number.isNaN(d.getTime())) return '';
+  const local = new Date(d.getTime() - d.getTimezoneOffset()*60000);
+  return local.toISOString().slice(0,16);
+}
+
 async function saveEvent(id,card){
   const body={};
   card.querySelectorAll('[data-field]').forEach(el=>body[el.dataset.field]=el.value);
+
+  if(body.data_evento){
+    body.data_evento = new Date(body.data_evento).toISOString();
+  } else if(Object.prototype.hasOwnProperty.call(body, 'data_evento')) {
+    body.data_evento = null;
+  }
+
+  if(body.duracao_horas !== undefined && body.duracao_horas !== ''){
+    body.duracao_horas = Number(body.duracao_horas);
+  }
+
+  if(body.max_ouvintes !== undefined && body.max_ouvintes !== ''){
+    body.max_ouvintes = Number(body.max_ouvintes);
+  }
+
   await quickUpdate(id,body,card);
 }
 async function quickUpdate(id,body,card,reload=true){
