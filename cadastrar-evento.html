@@ -65,9 +65,23 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 
 <h2>Local do evento</h2>
 <div class="grid">
-<div><label for="pais">País</label><select id="pais" name="pais"><option value="Brasil" selected>Brasil</option><option value="Portugal">Portugal</option><option value="Estados Unidos">Estados Unidos</option><option value="Argentina">Argentina</option><option value="Espanha">Espanha</option><option value="Outro">Outro</option></select></div>
+<div><label for="pais">País</label><select id="pais" name="pais">
+<option value="Brasil" selected>Brasil</option>
+<option value="Angola">Angola</option>
+<option value="Cabo Verde">Cabo Verde</option>
+<option value="Guiné-Bissau">Guiné-Bissau</option>
+<option value="Guiné Equatorial">Guiné Equatorial</option>
+<option value="Moçambique">Moçambique</option>
+<option value="Portugal">Portugal</option>
+<option value="São Tomé e Príncipe">São Tomé e Príncipe</option>
+<option value="Timor-Leste">Timor-Leste</option>
+<option value="Outros">Outros</option>
+</select></div>
 <div id="paisOutroBox" class="hidden"><label for="pais_outro">Informe o país</label><input id="pais_outro" name="pais_outro" type="text" maxlength="100"></div>
-<div><label for="uf">Unidade da Federação (apenas para Brasil)</label><select id="uf" name="uf"><option value="">Selecione</option><option>AC</option><option>AL</option><option>AP</option><option>AM</option><option>BA</option><option>CE</option><option>DF</option><option>ES</option><option>GO</option><option>MA</option><option>MT</option><option>MS</option><option>MG</option><option>PA</option><option>PB</option><option>PR</option><option>PE</option><option>PI</option><option>RJ</option><option>RN</option><option>RS</option><option>RO</option><option>RR</option><option>SC</option><option>SP</option><option>SE</option><option>TO</option></select></div>
+<div><label for="uf" id="ufLabel">Unidade administrativa</label>
+<select id="uf" name="uf">
+<option value="">Selecione</option>
+</select></div>
 </div>
 
 <h2>Links do evento</h2>
@@ -119,7 +133,91 @@ document.getElementById('sendLinkBtn').onclick=async()=>{
 };
 
 const paisSelect=document.getElementById('pais'),ufSelect=document.getElementById('uf'),paisOutroBox=document.getElementById('paisOutroBox'),paisOutroInput=document.getElementById('pais_outro');
-function atualizarLocalizacao(){if(paisSelect.value==='Brasil'){ufSelect.disabled=false}else{ufSelect.value='';ufSelect.disabled=true}if(paisSelect.value==='Outro'){paisOutroBox.classList.remove('hidden');paisOutroInput.required=true}else{paisOutroBox.classList.add('hidden');paisOutroInput.required=false;paisOutroInput.value=''}}
+const unidadesAdministrativas = {
+ Brasil: {
+  rotulo: 'Unidade federativa',
+  padrao: 'DF',
+  opcoes: [
+   ['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']
+  ]
+ },
+ Angola: {
+  rotulo: 'Província',
+  padrao: '',
+  opcoes: ['Bengo','Benguela','Bié','Cabinda','Cuando Cubango','Cuanza Norte','Cuanza Sul','Cunene','Huambo','Huíla','Luanda','Lunda Norte','Lunda Sul','Malanje','Moxico','Namibe','Uíge','Zaire']
+ },
+ 'Cabo Verde': {
+  rotulo: 'Ilha',
+  padrao: '',
+  opcoes: ['Boa Vista','Brava','Fogo','Maio','Sal','Santiago','Santo Antão','São Nicolau','São Vicente']
+ },
+ 'Guiné-Bissau': {
+  rotulo: 'Região',
+  padrao: '',
+  opcoes: ['Bafatá','Biombo','Bolama/Bijagós','Cacheu','Gabú','Oio','Quinara','Tombali','Setor Autônomo de Bissau']
+ },
+ 'Guiné Equatorial': {
+  rotulo: 'Província',
+  padrao: '',
+  opcoes: ['Annobón','Bioko Norte','Bioko Sul','Centro Sul','Djibloho','Kie-Ntem','Litoral','Wele-Nzas']
+ },
+ Moçambique: {
+  rotulo: 'Província',
+  padrao: '',
+  opcoes: ['Cabo Delgado','Gaza','Inhambane','Manica','Maputo','Maputo Cidade','Nampula','Niassa','Sofala','Tete','Zambézia']
+ },
+ Portugal: {
+  rotulo: 'Distrito ou região autônoma',
+  padrao: '',
+  opcoes: ['Aveiro','Beja','Braga','Bragança','Castelo Branco','Coimbra','Évora','Faro','Guarda','Leiria','Lisboa','Portalegre','Porto','Santarém','Setúbal','Viana do Castelo','Vila Real','Viseu','Açores','Madeira']
+ },
+ 'São Tomé e Príncipe': {
+  rotulo: 'Distrito ou região autônoma',
+  padrao: '',
+  opcoes: ['Água Grande','Cantagalo','Caué','Lembá','Lobata','Mé-Zóchi','Região Autônoma do Príncipe']
+ },
+ 'Timor-Leste': {
+  rotulo: 'Município ou região administrativa especial',
+  padrao: '',
+  opcoes: ['Aileu','Ainaro','Ataúro','Baucau','Bobonaro','Covalima','Díli','Ermera','Lautém','Liquiçá','Manatuto','Manufahi','Oecusse','Viqueque']
+ }
+};
+
+function criarOpcao(valor, texto){
+ const opt=document.createElement('option');
+ opt.value=valor;
+ opt.textContent=texto || valor;
+ return opt;
+}
+
+function atualizarLocalizacao(){
+ const pais = paisSelect.value;
+ const dados = unidadesAdministrativas[pais];
+ const label = document.getElementById('ufLabel');
+
+ ufSelect.innerHTML = '';
+ ufSelect.appendChild(criarOpcao('', 'Selecione'));
+
+ if(dados){
+  label.textContent = dados.rotulo;
+  dados.opcoes.forEach(item=>{
+   if(Array.isArray(item)){
+    ufSelect.appendChild(criarOpcao(item[0], item[1] + ' (' + item[0] + ')'));
+   }else{
+    ufSelect.appendChild(criarOpcao(item, item));
+   }
+  });
+  ufSelect.disabled=false;
+  ufSelect.value=dados.padrao || '';
+ }else{
+  label.textContent = 'Unidade administrativa';
+  ufSelect.value='';
+  ufSelect.disabled=true;
+ }
+
+ if(paisOutroBox) paisOutroBox.classList.add('hidden');
+ if(paisOutroInput){ paisOutroInput.required=false; paisOutroInput.value=''; }
+}
 paisSelect.addEventListener('change',atualizarLocalizacao);atualizarLocalizacao();
 
 document.getElementById('eventoForm').onsubmit=async(e)=>{
@@ -131,8 +229,8 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const data=Object.fromEntries(new FormData(form).entries());
- if(data.pais==='Brasil'&&!data.uf){setStatus('status','Selecione a unidade da Federação.','error');btn.disabled=false;return}
- if(data.pais==='Outro'&&!data.pais_outro){setStatus('status','Informe o país.','error');btn.disabled=false;return}
+ if(data.pais!=='Outros'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
+ 
  if(data.tipo_servico === 'divulgacao_gratuita'){
   delete data.duracao_horas;
   delete data.max_ouvintes;
