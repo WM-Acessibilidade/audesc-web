@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Painel Admin — Audesc</title>
+<style>
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;margin:0;background:#f7f7f7;color:#111}
+header,main{max-width:1100px;margin:0 auto;padding:20px}
+.panel,.card{background:#fff;border:1px solid #ddd;border-radius:12px;padding:18px;margin-top:16px}
+label{display:block;font-weight:700;margin-top:12px}
+input,textarea,select,button{font:inherit}
+input,textarea,select{width:100%;box-sizing:border-box;padding:10px;margin-top:5px;border:1px solid #999;border-radius:8px;background:#fff;color:#111}
+textarea{min-height:90px}
+button{margin:8px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:pointer;font-weight:700;background:#111;color:#fff}
+button.secondary{background:#555}.danger{background:#9b0000}.ok{background:#126b2e}
+.status{margin-top:12px;padding:10px;border-radius:8px;border:1px solid #aaa;background:#f0f0f0}
+.success{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.small{font-size:.95rem;color:#444}
+pre{white-space:pre-wrap}
+.dashboard-summary{font-size:1.15rem;font-weight:700;margin-top:12px}
+.section-title{margin-top:24px;padding:10px 12px;border-left:7px solid #999;background:#f5f5f5;border-radius:8px}
+.section-pendente{border-left-color:#b77900}
+.section-aprovado{border-left-color:#237a3b}
+.section-rejeitado{border-left-color:#9b0000}
+.section-removido{border-left-color:#555}
+.toolbar{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));align-items:end;margin-top:12px}
+.urgent{border-left:7px solid #b77900}
+.badge{display:inline-block;padding:3px 8px;border-radius:999px;background:#eee;margin-right:6px;font-size:.9rem}
+.badge-pendente{background:#fff4d6}
+.badge-aprovado{background:#e8f6ec}
+.badge-rejeitado{background:#fff0f0}
+.badge-removido{background:#eee}
+</style>
+</head>
+<body>
+<header>
+<a href="index.html">Voltar</a>
+<h1>Painel administrativo Audesc</h1>
+<p>Use este painel para revisar, editar, aprovar e liberar eventos.</p>
+</header>
+<main>
+<section class="panel" id="loginPanel">
+<h2>Acesso administrativo</h2>
+<label for="adminToken">Senha administrativa</label>
+<input id="adminToken" type="password">
+<button id="loginBtn" type="button">Entrar</button>
+<div id="loginStatus" class="status">Informe a senha administrativa.</div>
+</section>
+
+<section class="panel" id="eventsPanel" style="display:none">
+<h2>Eventos cadastrados</h2>
+<div id="dashboardSummary" class="dashboard-summary">Total de eventos: 0</div>
+<div class="toolbar">
+  <div>
+    <label for="searchInput">Buscar evento</label>
+    <input id="searchInput" type="search" placeholder="Digite parte do título, e-mail ou ID">
+  </div>
+  <div>
+    <label for="filterSelect">Filtro rápido</label>
+    <select id="filterSelect">
+      <option value="todos">Mostrar todos</option>
+      <option value="pendente">Somente pendentes</option>
+      <option value="aprovado">Somente aprovados</option>
+      <option value="rejeitado">Somente rejeitados</option>
+      <option value="removido">Somente removidos</option>
+    </select>
+  </div>
+  <div>
+    <button id="refreshBtn" type="button">Atualizar lista</button>
+  </div>
+</div>
+<div id="status" class="status">Aguardando carregamento.</div>
+<div id="eventsList"></div>
+</section>
+</main>
+
+<script>
+const API_URL='https://audesc-events-api.onrender.com';
+let ADMIN_TOKEN='';
+
+function status(id,msg,cls){const el=document.getElementById(id);el.textContent=msg;el.className='status'+(cls?' '+cls:'')}
+function val(v){return v==null?'':String(v)}
+async function api(path, options={}){
+  const headers=Object.assign({'Content-Type':'application/json','x-admin-token':ADMIN_TOKEN}, options.headers||{});
+  const res=await fetch(API_URL+path,Object.assign({},options,{headers}));
+  const json=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(json.error||'Erro na API');
+  return json;
+}
+
+const unidadesAdministrativas = {
+ Brasil:{rotulo:'Unidade federativa',padrao:'DF',opcoes:[['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']]},
+ Angola:{rotulo:'Província',padrao:'',opcoes:['Bengo','Benguela','Bié','Cabinda','Cuando Cubango','Cuanza Norte','Cuanza Sul','Cunene','Huambo','Huíla','Luanda','Lunda Norte','Lunda Sul','Malanje','Moxico','Namibe','Uíge','Zaire']},
+ 'Cabo Verde':{rotulo:'Ilha',padrao:'',opcoes:['Boa Vista','Brava','Fogo','Maio','Sal','Santiago','Santo Antão','São Nicolau','São Vicente']},
+ 'Guiné-Bissau':{rotulo:'Região',padrao:'',opcoes:['Bafatá','Biombo','Bolama/Bijagós','Cacheu','Gabú','Oio','Quinara','Tombali','Setor Autônomo de Bissau']},
+ 'Guiné Equatorial':{rotulo:'Província',padrao:'',opcoes:['Annobón','Bioko Norte','Bioko Sul','Centro Sul','Djibloho','Kie-Ntem','Litoral','Wele-Nzas']},
+ Moçambique:{rotulo:'Província',padrao:'',opcoes:['Cabo Delgado','Gaza','Inhambane','Manica','Maputo','Maputo Cidade','Nampula','Niassa','Sofala','Tete','Zambézia']},
+ Portugal:{rotulo:'Distrito ou região autônoma',padrao:'',opcoes:['Aveiro','Beja','Braga','Bragança','Castelo Branco','Coimbra','Évora','Faro','Guarda','Leiria','Lisboa','Portalegre','Porto','Santarém','Setúbal','Viana do Castelo','Vila Real','Viseu','Açores','Madeira']},
+ 'São Tomé e Príncipe':{rotulo:'Distrito ou região autônoma',padrao:'',opcoes:['Água Grande','Cantagalo','Caué','Lembá','Lobata','Mé-Zóchi','Região Autônoma do Príncipe']},
+ 'Timor-Leste':{rotulo:'Município ou região administrativa especial',padrao:'',opcoes:['Aileu','Ainaro','Ataúro','Baucau','Bobonaro','Covalima','Díli','Ermera','Lautém','Liquiçá','Manatuto','Manufahi','Oecusse','Viqueque']}
+};
+function criarOpcao(valor,texto){const opt=document.createElement('option');opt.value=valor;opt.textContent=texto||valor;return opt}
+function nomeUnidadeAdministrativa(pais,valor){if(!valor)return '';const d=unidadesAdministrativas[pais];if(!d)return valor;const item=d.opcoes.find(op=>Array.isArray(op)?op[0]===valor:op===valor);return Array.isArray(item)?item[1]+' ('+item[0]+')':(item||valor)}
+function formatarLocal(ev){const unidade=nomeUnidadeAdministrativa(ev.pais,ev.uf);if(unidade&&ev.pais)return unidade+' — '+ev.pais;if(unidade)return unidade;return ev.pais||''}
+function preencherUnidadeAdministrativa(paisSelect,localSelect,labelEl,valorAtual){const d=unidadesAdministrativas[paisSelect.value];localSelect.innerHTML='';localSelect.appendChild(criarOpcao('','Selecione'));if(d){if(labelEl)labelEl.textContent=d.rotulo;d.opcoes.forEach(item=>{if(Array.isArray(item))localSelect.appendChild(criarOpcao(item[0],item[1]+' ('+item[0]+')'));else localSelect.appendChild(criarOpcao(item,item))});localSelect.disabled=false;localSelect.value=valorAtual||d.padrao||''}else{if(labelEl)labelEl.textContent='Local';localSelect.value='';localSelect.disabled=true}}
+
+function renderEvent(ev){
+  const card=document.createElement('section');
+  const createdAt = ev.created_at ? new Date(ev.created_at) : null;
+  const olderThan2Days = createdAt && ((Date.now() - createdAt.getTime()) > 2*24*60*60*1000);
+  card.className='card' + (ev.status_publicacao==='pendente' && olderThan2Days ? ' urgent' : '');
+  const badgeClass = 'badge-' + (ev.status_publicacao || 'pendente');
+  const ageInfo = createdAt ? 'Criado em: ' + createdAt.toLocaleString('pt-BR') : '';
+  card.innerHTML=`
+    <h3>${escapeHtml(ev.titulo_publicado||ev.titulo_original||'Sem título')}</h3>
+    <p>
+      <span class="badge ${badgeClass}">${ev.status_publicacao||'sem status'}</span>
+      <span class="badge">${ev.tipo_servico||''}</span>
+      <span class="badge">${ev.tipo_evento||''}</span>
+    </p>
+    <p class="small">ID: ${ev.id}<br>${ageInfo}${olderThan2Days && ev.status_publicacao==='pendente' ? '<br><strong>Atenção: pendente há mais de 2 dias.</strong>' : ''}</p>
+    <div class="grid">
+      <div><strong>Serviço:</strong> ${ev.tipo_servico||''}</div>
+      <div><strong>Evento:</strong> ${ev.tipo_evento||''}</div>
+      <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
+      <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>
+      <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
+      <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div><div><strong>Local:</strong> ${formatarLocal(ev)}</div>
+      <div><strong>Data e horário:</strong> ${formatarData(ev.data_evento)}</div>
+      <div><strong>Horas de transmissão:</strong> ${ev.duracao_horas || ''}</div>
+      <div><strong>Máximo de ouvintes:</strong> ${ev.max_ouvintes || ''}</div>
+    </div>
+    <label>Título publicado</label>
+    <input data-field="titulo_publicado" value="${attr(ev.titulo_publicado||ev.titulo_original||'')}">
+    <label>Descrição publicada</label>
+    <textarea data-field="descricao_publicada">${escapeHtml(ev.descricao_publicada||ev.descricao_original||'')}</textarea>
+    <div class="grid">
+      <div><label>Status publicação</label><select data-field="status_publicacao">
+        ${opt('pendente',ev.status_publicacao)}${opt('aprovado',ev.status_publicacao)}${opt('rejeitado',ev.status_publicacao)}${opt('removido',ev.status_publicacao)}
+      </select></div>
+      <div><label>Status pagamento</label><select data-field="status_pagamento">
+        ${opt('pendente',ev.status_pagamento)}${opt('pago',ev.status_pagamento)}${opt('cancelado',ev.status_pagamento)}${opt('dispensado',ev.status_pagamento)}
+      </select></div>
+      <div><label>Tipo serviço</label><select data-field="tipo_servico">
+        ${opt('audesc_transmissao',ev.tipo_servico)}${opt('divulgacao_gratuita',ev.tipo_servico)}
+      </select></div>
+    </div>
+    <div class="grid">
+      <div><label>País</label><select data-field="pais" class="pais-admin">
+        ${opt('Brasil',ev.pais)}${opt('Angola',ev.pais)}${opt('Cabo Verde',ev.pais)}${opt('Guiné-Bissau',ev.pais)}${opt('Guiné Equatorial',ev.pais)}${opt('Moçambique',ev.pais)}${opt('Portugal',ev.pais)}${opt('São Tomé e Príncipe',ev.pais)}${opt('Timor-Leste',ev.pais)}${opt('Outros',ev.pais)}
+      </select></div>
+      <div><label class="local-admin-label">Local</label><select data-field="uf" class="local-admin"></select></div>
+    </div>
+    
+    <div class="grid">
+      <div><label>Data e horário do evento</label><input data-field="data_evento" type="datetime-local" value="${valorDataInput(ev.data_evento)}"></div>
+      <div><label>Horas de transmissão</label><select data-field="duracao_horas">
+        ${opt('1', String(ev.duracao_horas || ''))}${opt('2', String(ev.duracao_horas || ''))}${opt('3', String(ev.duracao_horas || ''))}${opt('4', String(ev.duracao_horas || ''))}${opt('5', String(ev.duracao_horas || ''))}${opt('6', String(ev.duracao_horas || ''))}${opt('7', String(ev.duracao_horas || ''))}${opt('8', String(ev.duracao_horas || ''))}
+      </select></div>
+      <div><label>Número máximo de ouvintes</label><select data-field="max_ouvintes">
+        ${opt('10', String(ev.max_ouvintes || ''))}${opt('20', String(ev.max_ouvintes || ''))}${opt('30', String(ev.max_ouvintes || ''))}${opt('40', String(ev.max_ouvintes || ''))}${opt('60', String(ev.max_ouvintes || ''))}${opt('80', String(ev.max_ouvintes || ''))}${opt('100', String(ev.max_ouvintes || ''))}${opt('120', String(ev.max_ouvintes || ''))}${opt('150', String(ev.max_ouvintes || ''))}${opt('200', String(ev.max_ouvintes || ''))}
+      </select></div>
+    </div>
+
+    <div class="grid">
+      <div><label>Site oficial</label><input data-field="site_oficial" value="${attr(ev.site_oficial)}"></div>
+      <div><label>Ingressos</label><input data-field="link_ingressos" value="${attr(ev.link_ingressos)}"></div>
+      <div><label>Programação</label><input data-field="link_programacao" value="${attr(ev.link_programacao)}"></div>
+      <div><label>Acessibilidade</label><input data-field="link_acessibilidade" value="${attr(ev.link_acessibilidade)}"></div>
+    </div>
+    <p><strong>Sala:</strong> ${ev.sala_codigo||'ainda não gerada'}<br><strong>Senha:</strong> ${ev.senha_transmissor||'ainda não gerada'}</p>
+    <button class="saveBtn" type="button">Salvar edições</button>
+    <button class="approveBtn ok" type="button">Aprovar publicação</button>
+    <button class="rejectBtn danger" type="button">Rejeitar</button>
+    <button class="removeBtn danger" type="button">Remover da publicação</button>
+    <button class="approveLiberateBtn ok" type="button">Aprovar + liberar</button>
+    <button class="liberateBtn secondary" type="button">Liberar / gerar acesso</button>
+    <div class="status eventStatus">Pronto.</div>
+  `;
+  card.querySelector('.saveBtn').onclick=()=>saveEvent(ev.id,card);
+  card.querySelector('.approveBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'aprovado'},card);
+  card.querySelector('.rejectBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'rejeitado'},card);
+  card.querySelector('.removeBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'removido'},card);
+  card.querySelector('.approveLiberateBtn').onclick=async()=>{await quickUpdate(ev.id,{status_publicacao:'aprovado',status_pagamento: ev.tipo_servico==='divulgacao_gratuita' ? 'dispensado' : 'pago'},card,false); await liberate(ev.id,card);};
+  card.querySelector('.liberateBtn').onclick=()=>liberate(ev.id,card);
+
+  const paisAdmin = card.querySelector('.pais-admin');
+  const localAdmin = card.querySelector('.local-admin');
+  const localAdminLabel = card.querySelector('.local-admin-label');
+  if(paisAdmin && localAdmin){
+    preencherUnidadeAdministrativa(paisAdmin, localAdmin, localAdminLabel, ev.uf || '');
+    paisAdmin.addEventListener('change', () => preencherUnidadeAdministrativa(paisAdmin, localAdmin, localAdminLabel, ''));
+  }
+  return card;
+}
+function opt(value,current){return `<option value="${value}" ${value===current?'selected':''}>${value}</option>`}
+function escapeHtml(s){return val(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+function attr(s){return escapeHtml(s).replace(/"/g,'&quot;')}
+let allEvents = [];
+
+async function loadEvents(){
+  status('status','Carregando eventos...','');
+  const list=document.getElementById('eventsList');
+  list.innerHTML='';
+  try{
+    const data=await api('/admin/eventos');
+    allEvents = data.eventos || [];
+    renderEventSections();
+    status('status','Eventos carregados com sucesso.','success');
+  }catch(e){
+    status('status','Erro: '+e.message,'error');
+  }
+}
+
+function renderEventSections(){
+  const list=document.getElementById('eventsList');
+  list.innerHTML='';
+
+  const q=(document.getElementById('searchInput')?.value||'').toLowerCase().trim();
+  const filter=document.getElementById('filterSelect')?.value||'todos';
+
+  let eventos = allEvents.slice();
+  if(q){
+    eventos = eventos.filter(e => [
+      e.id,
+      e.email_usuario,
+      e.titulo_original,
+      e.titulo_publicado,
+      e.descricao_original,
+      e.descricao_publicada,
+      e.pais,
+      e.uf,
+      e.data_evento,
+      e.duracao_horas,
+      e.max_ouvintes
+    ].some(v => String(v||'').toLowerCase().includes(q)));
+  }
+  if(filter !== 'todos'){
+    eventos = eventos.filter(e => (e.status_publicacao || 'pendente') === filter);
+  }
+
+  document.getElementById('dashboardSummary').textContent =
+    `Total de eventos: ${allEvents.length} | Exibidos: ${eventos.length}`;
+
+  if(!eventos.length){
+    const vazio=document.createElement('p');
+    vazio.textContent='Nenhum evento encontrado para o filtro atual.';
+    list.appendChild(vazio);
+    return;
+  }
+
+  const pendentes = eventos.filter(e => (e.status_publicacao || 'pendente') === 'pendente');
+  const aprovados = eventos.filter(e => e.status_publicacao === 'aprovado');
+  const rejeitados = eventos.filter(e => e.status_publicacao === 'rejeitado');
+  const removidos = eventos.filter(e => e.status_publicacao === 'removido');
+
+  function criarSecao(titulo, classe, listaEventos){
+    const secao=document.createElement('section');
+    secao.className='panel';
+    const h=document.createElement('h2');
+    h.className='section-title '+classe;
+    h.textContent=`${titulo} (${listaEventos.length})`;
+    secao.appendChild(h);
+    if(!listaEventos.length){
+      const p=document.createElement('p');
+      p.textContent='Nenhum evento nesta categoria.';
+      secao.appendChild(p);
+    } else {
+      listaEventos.forEach(ev=>secao.appendChild(renderEvent(ev)));
+    }
+    return secao;
+  }
+
+  list.appendChild(criarSecao('Pendentes de análise', 'section-pendente', pendentes));
+  list.appendChild(criarSecao('Aprovados', 'section-aprovado', aprovados));
+  list.appendChild(criarSecao('Rejeitados', 'section-rejeitado', rejeitados));
+  list.appendChild(criarSecao('Removidos da publicação', 'section-removido', removidos));
+}
+
+
+function formatarData(v){
+  if(!v) return '';
+  const d = new Date(v);
+  if(Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('pt-BR');
+}
+function valorDataInput(v){
+  if(!v) return '';
+  const d = new Date(v);
+  if(Number.isNaN(d.getTime())) return '';
+  const local = new Date(d.getTime() - d.getTimezoneOffset()*60000);
+  return local.toISOString().slice(0,16);
+}
+
+async function saveEvent(id,card){
+  const body={};
+  card.querySelectorAll('[data-field]').forEach(el=>body[el.dataset.field]=el.value);
+
+  if(body.data_evento){
+    body.data_evento = new Date(body.data_evento).toISOString();
+  } else if(Object.prototype.hasOwnProperty.call(body, 'data_evento')) {
+    body.data_evento = null;
+  }
+
+  if(body.duracao_horas !== undefined && body.duracao_horas !== ''){
+    body.duracao_horas = Number(body.duracao_horas);
+  }
+
+  if(body.max_ouvintes !== undefined && body.max_ouvintes !== ''){
+    body.max_ouvintes = Number(body.max_ouvintes);
+  }
+
+  await quickUpdate(id,body,card);
+}
+async function quickUpdate(id,body,card,reload=true){
+  const st=card.querySelector('.eventStatus');
+  st.textContent='Salvando...'; st.className='status eventStatus';
+  try{
+    await api('/admin/eventos/'+id,{method:'PATCH',body:JSON.stringify(body)});
+    st.textContent='Alteração salva.'; st.className='status eventStatus success';
+    if(reload) await loadEvents();
+  }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
+}
+async function liberate(id,card){
+  const st=card.querySelector('.eventStatus');
+  st.textContent='Liberando evento...'; st.className='status eventStatus';
+  try{
+    const data=await api('/liberar-evento/'+id,{method:'POST'});
+    st.textContent='Evento liberado. '+(data.senha_transmissor?('Senha: '+data.senha_transmissor+' | Sala: '+data.sala_codigo):'');
+    st.className='status eventStatus success';
+    await loadEvents();
+  }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
+}
+document.getElementById('loginBtn').onclick=()=>{
+  ADMIN_TOKEN=document.getElementById('adminToken').value.trim();
+  if(!ADMIN_TOKEN){status('loginStatus','Informe a senha.','error');return}
+  document.getElementById('loginPanel').style.display='none';
+  document.getElementById('eventsPanel').style.display='block';
+  loadEvents();
+};
+document.getElementById('refreshBtn').onclick=loadEvents;
+document.getElementById('searchInput').addEventListener('input', renderEventSections);
+document.getElementById('filterSelect').addEventListener('change', renderEventSections);
+</script>
+</body>
+</html>
