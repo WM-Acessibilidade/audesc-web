@@ -110,7 +110,7 @@ function renderEvent(ev){
       <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
       <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
-      <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div><div><strong>UF:</strong> ${ev.uf||''}</div>
+      <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div><div><strong>Local:</strong> ${[ev.uf, ev.pais].filter(Boolean).join(' — ')}</div>
       <div><strong>Data e horário:</strong> ${formatarData(ev.data_evento)}</div>
       <div><strong>Horas de transmissão:</strong> ${ev.duracao_horas || ''}</div>
       <div><strong>Máximo de ouvintes:</strong> ${ev.max_ouvintes || ''}</div>
