@@ -224,6 +224,7 @@ function renderEvent(ev){
     <button class="removeBtn danger" type="button">Remover da publicação</button>
     <button class="approveLiberateBtn ok" type="button">Aprovar + liberar</button>
     <button class="liberateBtn secondary" type="button">Liberar / gerar acesso</button>
+    <button class="deleteBtn danger" type="button">Excluir evento</button>
     <div class="status eventStatus">Pronto.</div>
   `;
   card.querySelector('.saveBtn').onclick=()=>saveEvent(ev.id,card);
@@ -232,6 +233,8 @@ function renderEvent(ev){
   card.querySelector('.removeBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'removido'},card);
   card.querySelector('.approveLiberateBtn').onclick=async()=>{await quickUpdate(ev.id,{status_publicacao:'aprovado',status_pagamento: ev.tipo_servico==='divulgacao_gratuita' ? 'dispensado' : 'pago'},card,false); await liberate(ev.id,card);};
   card.querySelector('.liberateBtn').onclick=()=>liberate(ev.id,card);
+  const deleteBtn = card.querySelector('.deleteBtn');
+  if(deleteBtn) deleteBtn.onclick=()=>deleteEvent(ev.id,card);
   return card;
 }
 function opt(value,current){return `<option value="${value}" ${value===current?'selected':''}>${value}</option>`}
@@ -373,6 +376,26 @@ async function liberate(id,card){
     await loadEvents();
   }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
 }
+
+async function deleteEvent(id,card){
+  const confirmed = confirm('Tem certeza de que deseja excluir definitivamente este evento? Esta ação não poderá ser desfeita.');
+  if(!confirmed) return;
+
+  const st = card.querySelector('.eventStatus');
+  st.textContent='Excluindo evento...';
+  st.className='status eventStatus';
+
+  try{
+    await api('/admin/eventos/'+id,{method:'DELETE'});
+    st.textContent='Evento excluído definitivamente.';
+    st.className='status eventStatus success';
+    await loadEvents();
+  }catch(e){
+    st.textContent='Erro ao excluir: '+e.message;
+    st.className='status eventStatus error';
+  }
+}
+
 document.getElementById('loginBtn').onclick=()=>{
   ADMIN_TOKEN=document.getElementById('adminToken').value.trim();
   if(!ADMIN_TOKEN){status('loginStatus','Informe a senha.','error');return}
