@@ -89,6 +89,66 @@ async function api(path, options={}){
   if(!res.ok) throw new Error(json.error||'Erro na API');
   return json;
 }
+
+const unidadesAdministrativas = {
+  Brasil: { rotulo: 'Unidade federativa', opcoes: [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']] },
+  Angola: { rotulo: 'Província', opcoes: ['Bengo','Benguela','Bié','Cabinda','Cuando Cubango','Cuanza Norte','Cuanza Sul','Cunene','Huambo','Huíla','Luanda','Lunda Norte','Lunda Sul','Malanje','Moxico','Namibe','Uíge','Zaire'] },
+  'Cabo Verde': { rotulo: 'Ilha', opcoes: ['Boa Vista','Brava','Fogo','Maio','Sal','Santiago','Santo Antão','São Nicolau','São Vicente'] },
+  'Guiné-Bissau': { rotulo: 'Região', opcoes: ['Bafatá','Biombo','Bolama/Bijagós','Cacheu','Gabú','Oio','Quinara','Tombali','Setor Autônomo de Bissau'] },
+  'Guiné Equatorial': { rotulo: 'Província', opcoes: ['Annobón','Bioko Norte','Bioko Sul','Centro Sul','Djibloho','Kie-Ntem','Litoral','Wele-Nzas'] },
+  Moçambique: { rotulo: 'Província', opcoes: ['Cabo Delgado','Gaza','Inhambane','Manica','Maputo','Maputo Cidade','Nampula','Niassa','Sofala','Tete','Zambézia'] },
+  Portugal: { rotulo: 'Distrito ou região autônoma', opcoes: ['Aveiro','Beja','Braga','Bragança','Castelo Branco','Coimbra','Évora','Faro','Guarda','Leiria','Lisboa','Portalegre','Porto','Santarém','Setúbal','Viana do Castelo','Vila Real','Viseu','Açores','Madeira'] },
+  'São Tomé e Príncipe': { rotulo: 'Distrito ou região autônoma', opcoes: ['Água Grande','Cantagalo','Caué','Lembá','Lobata','Mé-Zóchi','Região Autônoma do Príncipe'] },
+  'Timor-Leste': { rotulo: 'Município ou região administrativa especial', opcoes: ['Aileu','Ainaro','Ataúro','Baucau','Bobonaro','Covalima','Díli','Ermera','Lautém','Liquiçá','Manatuto','Manufahi','Oecusse','Viqueque'] }
+};
+
+function paisesAdminOptions(valorAtual){
+  const paises = ['Brasil','Angola','Cabo Verde','Guiné-Bissau','Guiné Equatorial','Moçambique','Portugal','São Tomé e Príncipe','Timor-Leste','Outros'];
+  return paises.map(p => `<option value="${attr(p)}" ${p === valorAtual ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('');
+}
+function rotuloLocal(pais){ return unidadesAdministrativas[pais]?.rotulo || 'Local'; }
+
+function rotuloResumoLocal(pais){
+  return unidadesAdministrativas[pais]?.rotulo || 'Local';
+}
+\nfunction nomeLocal(pais, valor){
+  if(!valor) return '';
+  const dados = unidadesAdministrativas[pais];
+  if(!dados) return valor;
+  for(const item of dados.opcoes){
+    if(Array.isArray(item) && item[0] === valor) return `${item[1]} (${item[0]})`;
+    if(!Array.isArray(item) && item === valor) return item;
+  }
+  return valor;
+}
+function locaisAdminOptions(pais, valorAtual){
+  const dados = unidadesAdministrativas[pais];
+  if(!dados) return '<option value="">Não se aplica</option>';
+  let out = '<option value="">Selecione</option>';
+  for(const item of dados.opcoes){
+    const valor = Array.isArray(item) ? item[0] : item;
+    const texto = Array.isArray(item) ? `${item[1]} (${item[0]})` : item;
+    out += `<option value="${attr(valor)}" ${valor === valorAtual ? 'selected' : ''}>${escapeHtml(texto)}</option>`;
+  }
+  return out;
+}
+function atualizarLocalAdmin(card){
+  const pais = card.querySelector('[data-field="pais"]');
+  const local = card.querySelector('[data-field="uf"]');
+  const label = card.querySelector('.local-admin-label');
+  if(!pais || !local || !label) return;
+  const atual = local.value;
+  label.textContent = rotuloLocal(pais.value);
+  local.innerHTML = locaisAdminOptions(pais.value, atual);
+  if(pais.value === 'Outros'){
+    local.value = '';
+    local.disabled = true;
+  } else {
+    local.disabled = false;
+    if([...local.options].some(o => o.value === atual)) local.value = atual;
+  }
+}
+
 function renderEvent(ev){
   const card=document.createElement('section');
   const createdAt = ev.created_at ? new Date(ev.created_at) : null;
@@ -110,7 +170,7 @@ function renderEvent(ev){
       <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
       <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
-      <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div><div><strong>Local:</strong> ${[ev.uf, ev.pais].filter(Boolean).join(' — ')}</div>
+      <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div><div><strong>${rotuloResumoLocal(ev.pais)}:</strong> ${nomeLocal(ev.pais, ev.uf) || ''}${ev.pais ? ' — ' + escapeHtml(ev.pais) : ''}</div>
       <div><strong>Data e horário:</strong> ${formatarData(ev.data_evento)}</div>
       <div><strong>Horas de transmissão:</strong> ${ev.duracao_horas || ''}</div>
       <div><strong>Máximo de ouvintes:</strong> ${ev.max_ouvintes || ''}</div>
@@ -131,9 +191,14 @@ function renderEvent(ev){
       </select></div>
     </div>
     <div class="grid">
-<div><label>País</label><select data-field="pais">${opt('Brasil',ev.pais)}${opt('Portugal',ev.pais)}${opt('Estados Unidos',ev.pais)}${opt('Argentina',ev.pais)}${opt('Espanha',ev.pais)}${opt('Outro',ev.pais)}</select></div>
-<div><label>UF</label><select data-field="uf">${opt('',ev.uf)}${opt('AC',ev.uf)}${opt('AL',ev.uf)}${opt('AP',ev.uf)}${opt('AM',ev.uf)}${opt('BA',ev.uf)}${opt('CE',ev.uf)}${opt('DF',ev.uf)}${opt('ES',ev.uf)}${opt('GO',ev.uf)}${opt('MA',ev.uf)}${opt('MT',ev.uf)}${opt('MS',ev.uf)}${opt('MG',ev.uf)}${opt('PA',ev.uf)}${opt('PB',ev.uf)}${opt('PR',ev.uf)}${opt('PE',ev.uf)}${opt('PI',ev.uf)}${opt('RJ',ev.uf)}${opt('RN',ev.uf)}${opt('RS',ev.uf)}${opt('RO',ev.uf)}${opt('RR',ev.uf)}${opt('SC',ev.uf)}${opt('SP',ev.uf)}${opt('SE',ev.uf)}${opt('TO',ev.uf)}</select></div>
-</div>
+      <div><label>País</label><select data-field="pais" class="pais-admin-select">
+        ${paisesAdminOptions(ev.pais || 'Brasil')}
+      </select></div>
+      <div><label class="local-admin-label">${rotuloLocal(ev.pais || 'Brasil')}</label><select data-field="uf" class="uf-admin-select" ${ev.pais === 'Outros' ? 'disabled' : ''}>
+        ${locaisAdminOptions(ev.pais || 'Brasil', ev.uf || '')}
+      </select></div>
+    </div>
+
     
     <div class="grid">
       <div><label>Data e horário do evento</label><input data-field="data_evento" type="datetime-local" value="${valorDataInput(ev.data_evento)}"></div>
@@ -285,6 +350,7 @@ async function saveEvent(id,card){
     body.max_ouvintes = Number(body.max_ouvintes);
   }
 
+  if(body.pais === 'Outros') body.uf = '';
   await quickUpdate(id,body,card);
 }
 async function quickUpdate(id,body,card,reload=true){
