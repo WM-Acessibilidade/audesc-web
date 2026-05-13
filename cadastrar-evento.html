@@ -201,11 +201,18 @@ function atualizarLocalizacao(){
  if(dados){
   label.textContent = dados.rotulo;
   dados.opcoes.forEach(item=>{
+   let valor = '';
+   let texto = '';
+
    if(Array.isArray(item)){
-    ufSelect.appendChild(criarOpcao(item[0], item[1] + ' (' + item[0] + ')'));
+    valor = item[0];
+    texto = item[1] + ' (' + item[0] + ')';
    }else{
-    ufSelect.appendChild(criarOpcao(item, item));
+    valor = item;
+    texto = item;
    }
+
+   ufSelect.appendChild(criarOpcao(valor, texto));
   });
   ufSelect.disabled=false;
   ufSelect.value=dados.padrao || '';
