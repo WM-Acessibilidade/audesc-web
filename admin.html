@@ -111,7 +111,8 @@ function rotuloLocal(pais){ return unidadesAdministrativas[pais]?.rotulo || 'Loc
 function rotuloResumoLocal(pais){
   return unidadesAdministrativas[pais]?.rotulo || 'Local';
 }
-\nfunction nomeLocal(pais, valor){
+
+function nomeLocal(pais, valor){
   if(!valor) return '';
   const dados = unidadesAdministrativas[pais];
   if(!dados) return valor;
