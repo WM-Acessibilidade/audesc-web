@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Audesc - Meus Eventos</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:1000px;margin:0 auto;padding:20px;line-height:1.5}
+input,button{padding:10px;font-size:1rem}
+.card{border:1px solid #ccc;border-radius:8px;padding:16px;margin:16px 0}
+.status{font-weight:bold}
+</style>
+</head>
+<body>
+<h1>Meus Eventos</h1>
+<p>Informe seu e-mail para visualizar os eventos cadastrados.</p>
+
+<input id="email" type="email" placeholder="seuemail@exemplo.com" style="width:100%;max-width:420px">
+<button id="buscar">Buscar eventos</button>
+
+<p><a href="eventos.html">Voltar para eventos públicos</a></p>
+
+<div id="status"></div>
+<div id="lista"></div>
+
+<script>
+const API='https://audesc-events-api.onrender.com';
+
+function t(v){ return v || '—'; }
+
+function render(ev){
+ return `
+ <div class="card">
+  <h2>${t(ev.titulo_publicado || ev.titulo_original)}</h2>
+  <p class="status">
+   Publicação: ${t(ev.status_publicacao)} |
+   Pagamento: ${t(ev.status_pagamento)} |
+   Operação: ${t(ev.status_operacao)}
+  </p>
+  <p><strong>Tipo:</strong> ${t(ev.tipo_servico)}</p>
+  <p><strong>Data:</strong> ${t(ev.data_evento)}</p>
+  <p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>
+  <p><strong>Senha:</strong> ${t(ev.senha_transmissor)}</p>
+ </div>`;
+}
+
+async function carregar(){
+ const email=document.getElementById('email').value.trim().toLowerCase();
+
+ if(!email){
+   alert('Informe o e-mail.');
+   return;
+ }
+
+ document.getElementById('status').textContent='Carregando eventos...';
+ document.getElementById('lista').innerHTML='';
+
+ try{
+   const r=await fetch(API+'/meus-eventos?email='+encodeURIComponent(email));
+   const data=await r.json();
+
+   if(!r.ok) throw new Error(data.error || 'Erro');
+
+   document.getElementById('status').textContent='Total de eventos encontrados: '+data.total;
+
+   if(!data.eventos.length){
+     document.getElementById('lista').innerHTML='<p>Nenhum evento encontrado.</p>';
+     return;
+   }
+
+   document.getElementById('lista').innerHTML=data.eventos.map(render).join('');
+ }catch(e){
+   document.getElementById('status').textContent='Erro: '+e.message;
+ }
+}
+
+document.getElementById('buscar').onclick=carregar;
+</script>
+</body>
+</html>
