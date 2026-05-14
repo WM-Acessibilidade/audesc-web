@@ -4,31 +4,65 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Audesc - Meus Eventos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 body{font-family:Arial,sans-serif;max-width:1000px;margin:0 auto;padding:20px;line-height:1.5}
 input,button{padding:10px;font-size:1rem}
+button{cursor:pointer}
 .card{border:1px solid #ccc;border-radius:8px;padding:16px;margin:16px 0}
 .status{font-weight:bold}
+.msg{padding:12px;border:1px solid #ccc;border-radius:8px;background:#f6f6f6;margin:16px 0}
+.success{border-color:#237a3b;background:#e8f6ec}
+.error{border-color:#a40000;background:#fff0f0}
+.small{font-size:.95rem;color:#444}
 </style>
 </head>
 <body>
 <h1>Meus Eventos</h1>
-<p>Informe seu e-mail para visualizar os eventos cadastrados.</p>
 
+<section id="loginBox">
+<p>Informe seu e-mail para receber um link de acesso aos seus eventos. Por segurança, o acesso será liberado por até 1 hora neste navegador.</p>
+
+<label for="email">E-mail</label><br>
 <input id="email" type="email" placeholder="seuemail@exemplo.com" style="width:100%;max-width:420px">
-<button id="buscar">Buscar eventos</button>
+<button id="enviarLink" type="button">Enviar link de acesso</button>
 
+<div id="loginStatus" class="msg">Aguardando e-mail.</div>
+</section>
+
+<section id="eventosBox" hidden>
+<p id="emailAutenticado" class="msg success"></p>
+<button id="sair" type="button">Sair / usar outro e-mail</button>
 <p><a href="eventos.html">Voltar para eventos públicos</a></p>
 
-<div id="status"></div>
+<div id="status" class="msg">Carregando eventos...</div>
 <div id="lista"></div>
+</section>
 
 <script>
 const API='https://audesc-events-api.onrender.com';
+const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0O38-ahRI_iRA-oyKIaOew_QgWjBpkW';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const SESSION_MAX_MINUTES=60;
+
+function setMsg(id,msg,cls){
+ const el=document.getElementById(id);
+ el.textContent=msg;
+ el.className='msg'+(cls?' '+cls:'');
+}
 
 function t(v){ return v || '—'; }
 
-function render(ev){
+function sessionAgeMinutes(session){
+ const raw=session?.user?.last_sign_in_at || session?.created_at || session?.expires_at;
+ if(!raw) return 999999;
+ const base=new Date(raw).getTime();
+ if(!base || Number.isNaN(base)) return 999999;
+ return (Date.now()-base)/60000;
+}
+
+function renderEvento(ev){
  return `
  <div class="card">
   <h2>${t(ev.titulo_publicado || ev.titulo_original)}</h2>
@@ -38,43 +72,103 @@ function render(ev){
    Operação: ${t(ev.status_operacao)}
   </p>
   <p><strong>Tipo:</strong> ${t(ev.tipo_servico)}</p>
-  <p><strong>Data:</strong> ${t(ev.data_evento)}</p>
+  <p><strong>Data:</strong> ${t(ev.data_evento ? new Date(ev.data_evento).toLocaleString('pt-BR') : '')}</p>
+  <p><strong>País:</strong> ${t(ev.pais)}</p>
+  <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
   <p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>
   <p><strong>Senha:</strong> ${t(ev.senha_transmissor)}</p>
+  <p class="small">Criado em: ${t(ev.created_at ? new Date(ev.created_at).toLocaleString('pt-BR') : '')}</p>
  </div>`;
 }
 
-async function carregar(){
+async function enviarLink(){
  const email=document.getElementById('email').value.trim().toLowerCase();
 
- if(!email){
-   alert('Informe o e-mail.');
-   return;
+ if(!email || !email.includes('@')){
+  setMsg('loginStatus','Informe um e-mail válido.','error');
+  return;
  }
 
+ document.getElementById('enviarLink').disabled=true;
+ setMsg('loginStatus','Enviando link de acesso...','');
+
+ try{
+  const {error}=await sb.auth.signInWithOtp({
+   email,
+   options:{
+    shouldCreateUser:true,
+    emailRedirectTo:location.origin+location.pathname
+   }
+  });
+
+  if(error) throw error;
+
+  setMsg('loginStatus','Link enviado. Abra o e-mail e clique no link para acessar seus eventos. Caso não chegue em três minutos, verifique a caixa de Spam.','success');
+ }catch(e){
+  setMsg('loginStatus','Erro ao enviar link: '+(e.message||'falha desconhecida.'),'error');
+ }finally{
+  document.getElementById('enviarLink').disabled=false;
+ }
+}
+
+async function carregarEventos(session){
+ document.getElementById('loginBox').hidden=true;
+ document.getElementById('eventosBox').hidden=false;
+ document.getElementById('emailAutenticado').textContent='E-mail autenticado: '+session.user.email+'. Acesso válido por até 1 hora neste navegador.';
  document.getElementById('status').textContent='Carregando eventos...';
  document.getElementById('lista').innerHTML='';
 
  try{
-   const r=await fetch(API+'/meus-eventos?email='+encodeURIComponent(email));
-   const data=await r.json();
+  const r=await fetch(API+'/meus-eventos',{
+   headers:{'Authorization':'Bearer '+session.access_token}
+  });
+  const data=await r.json();
 
-   if(!r.ok) throw new Error(data.error || 'Erro');
+  if(!r.ok) throw new Error(data.error||'Erro ao carregar eventos.');
 
-   document.getElementById('status').textContent='Total de eventos encontrados: '+data.total;
+  document.getElementById('status').textContent='Total de eventos encontrados: '+data.total;
 
-   if(!data.eventos.length){
-     document.getElementById('lista').innerHTML='<p>Nenhum evento encontrado.</p>';
-     return;
-   }
+  if(!data.eventos.length){
+   document.getElementById('lista').innerHTML='<p>Nenhum evento encontrado para este e-mail.</p>';
+   return;
+  }
 
-   document.getElementById('lista').innerHTML=data.eventos.map(render).join('');
+  document.getElementById('lista').innerHTML=data.eventos.map(renderEvento).join('');
  }catch(e){
-   document.getElementById('status').textContent='Erro: '+e.message;
+  setMsg('status','Erro: '+(e.message||'não foi possível carregar eventos.'),'error');
  }
 }
 
-document.getElementById('buscar').onclick=carregar;
+async function verificarSessao(){
+ const {data}=await sb.auth.getSession();
+ const session=data?.session;
+
+ if(!session){
+  document.getElementById('loginBox').hidden=false;
+  document.getElementById('eventosBox').hidden=true;
+  return;
+ }
+
+ if(sessionAgeMinutes(session)>SESSION_MAX_MINUTES){
+  await sb.auth.signOut();
+  document.getElementById('loginBox').hidden=false;
+  document.getElementById('eventosBox').hidden=true;
+  setMsg('loginStatus','Por segurança, a validação anterior expirou. Solicite um novo link para acessar seus eventos.','error');
+  return;
+ }
+
+ await carregarEventos(session);
+}
+
+document.getElementById('enviarLink').onclick=enviarLink;
+document.getElementById('sair').onclick=async()=>{
+ await sb.auth.signOut();
+ document.getElementById('loginBox').hidden=false;
+ document.getElementById('eventosBox').hidden=true;
+ setMsg('loginStatus','Sessão encerrada. Informe o e-mail para receber novo link.','');
+};
+
+verificarSessao();
 </script>
 </body>
 </html>
