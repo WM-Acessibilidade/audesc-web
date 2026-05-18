@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Audesc - Meus Eventos</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <style>
 body{font-family:Arial,sans-serif;max-width:1000px;margin:0 auto;padding:20px;line-height:1.5}
 input,button{padding:10px;font-size:1rem}
@@ -45,6 +46,52 @@ const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0O38-ahRI_iRA-oyKIaOew_QgWjBpkW';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 const SESSION_MAX_MINUTES=60;
+
+let paddleInicializado=false;
+
+async function inicializarPaddle(){
+ if(paddleInicializado) return;
+
+ const r=await fetch(API+'/pagamentos/paddle/config');
+ const cfg=await r.json();
+
+ if(!r.ok) throw new Error(cfg.error || 'Não foi possível carregar a configuração do Paddle.');
+
+ if(cfg.environment === 'sandbox'){
+  Paddle.Environment.set('sandbox');
+ }
+
+ Paddle.Initialize({
+  token: cfg.client_token,
+  checkout: {
+   settings: {
+    displayMode: 'overlay',
+    theme: 'light',
+    locale: 'pt'
+   }
+  }
+ });
+
+ paddleInicializado=true;
+}
+
+async function abrirCheckoutPaddle(transactionId){
+ if(!transactionId) throw new Error('Transação Paddle não informada.');
+ await inicializarPaddle();
+ Paddle.Checkout.open({
+  transactionId: transactionId
+ });
+}
+
+function transactionIdDaUrl(url){
+ try{
+  const u=new URL(url, location.href);
+  return u.searchParams.get('_ptxn');
+ }catch(e){
+  return null;
+ }
+}
+
 
 function setMsg(id,msg,cls){
  const el=document.getElementById(id);
@@ -169,10 +216,13 @@ async function pagarEvento(eventoId){
    return;
   }
 
-  const url=data.checkout_url || data.transaction?.checkout?.url;
-  if(!url) throw new Error('O Paddle não retornou link de checkout.');
+  const txId =
+   data.transaction?.id ||
+   transactionIdDaUrl(data.checkout_url || data.transaction?.checkout?.url);
 
-  window.location.href=url;
+  if(!txId) throw new Error('O Paddle não retornou o identificador da transação.');
+
+  await abrirCheckoutPaddle(txId);
  }catch(e){
   setMsg('status','Erro ao iniciar pagamento: '+(e.message||'falha desconhecida.'),'error');
  }
@@ -208,7 +258,22 @@ document.getElementById('sair').onclick=async()=>{
  setMsg('loginStatus','Sessão encerrada. Informe o e-mail para receber novo link.','');
 };
 
-verificarSessao();
+
+async function abrirCheckoutSeUrlTiverTransacao(){
+ const params=new URLSearchParams(location.search);
+ const tx=params.get('_ptxn');
+ if(!tx) return;
+
+ try{
+  setMsg('status','Abrindo checkout do Paddle...','');
+  await abrirCheckoutPaddle(tx);
+  history.replaceState({}, document.title, location.pathname);
+ }catch(e){
+  setMsg('status','Erro ao abrir checkout: '+(e.message||'falha desconhecida.'),'error');
+ }
+}
+
+verificarSessao().then(abrirCheckoutSeUrlTiverTransacao);
 </script>
 </body>
 </html>
