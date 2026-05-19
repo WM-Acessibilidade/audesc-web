@@ -24,7 +24,7 @@ const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0O38-ahRI_iRA-oyKIaOew_QgWjBpkW';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 const SESSION_MAX_MINUTES=120;
-let eventoAtual=null,paddleInicializado=false;
+let eventoAtual=null,paddleInicializado=false,pagamentoIniciado=false,monitoramentoPagamento=false;
 function t(v){return v||'—'}
 function setMsg(msg,cls){const el=document.getElementById('status');el.textContent=msg;el.className='msg'+(cls?' '+cls:'')}
 function sessionAgeMinutes(session){const raw=session?.user?.last_sign_in_at||session?.created_at||session?.expires_at;if(!raw)return 999999;const base=new Date(raw).getTime();if(!base||Number.isNaN(base))return 999999;return (Date.now()-base)/60000}
@@ -53,14 +53,16 @@ async function buscarEventoAtualizado(){
 }
 
 async function acompanharConfirmacaoPagamento(){
- setMsg('Pagamento recebido pelo checkout. Confirmando atualização do evento...', '');
+ if(monitoramentoPagamento) return;
+ monitoramentoPagamento=true;
+ setMsg('Pagamento iniciado. Aguardando confirmação automática do evento...', '');
  for(let i=0;i<12;i++){
   await new Promise(resolve=>setTimeout(resolve,5000));
   const ev=await buscarEventoAtualizado();
   if(ev){
    eventoAtual=ev;
-   renderEvento(ev);
    if(ev.status_pagamento==='pago'){
+    renderEvento(ev);
     setMsg('Pagamento confirmado. Os dados do evento foram atualizados.', 'success');
     return;
    }
@@ -83,15 +85,18 @@ function renderEvento(ev){
   <p><strong>Data:</strong> ${t(ev.data_evento?new Date(ev.data_evento).toLocaleString('pt-BR'):'')}</p>
   <p><strong>País:</strong> ${t(ev.pais)}</p>
   <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
+  <p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>
+  <p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>
   <p><strong>Valor:</strong> definido no checkout internacional do Paddle.</p>
-  ${pago?'<p class="msg success">Pagamento já confirmado.</p>':'<p class="msg">Abrindo checkout seguro do Paddle...</p>'}
+  ${pago?'<p class="msg success">Pagamento confirmado. Os dados do evento estão atualizados.</p>':'<p class="msg">Abrindo checkout seguro do Paddle...</p>'}
  </section>`;
 
- if(!pago){
+ if(!pago && !pagamentoIniciado){
+   pagamentoIniciado=true;
    pagar();
  }
 }
-async function pagar(){const {data}=await sb.auth.getSession();const session=data?.session;if(!session||sessionAgeMinutes(session)>SESSION_MAX_MINUTES){await sb.auth.signOut();setMsg('Por segurança, acesse novamente Meus Eventos e solicite um novo link antes de pagar.','error');return}setMsg('Criando pagamento seguro no Paddle...','');try{const r=await fetch(API+'/pagamentos/paddle/criar-transacao',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({evento_id:eventoAtual.id})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Erro ao criar pagamento.');if(data.ja_pago){setMsg('Este evento já está marcado como pago.','success');eventoAtual.status_pagamento='pago';renderEvento(eventoAtual);return}const txId=data.transaction?.id||transactionIdDaUrl(data.checkout_url||data.transaction?.checkout?.url);if(!txId)throw new Error('O Paddle não retornou o identificador da transação.');await abrirCheckoutPaddle(txId)}catch(e){setMsg('Erro ao iniciar pagamento: '+(e.message||'falha desconhecida.'),'error')}}
+async function pagar(){const {data}=await sb.auth.getSession();const session=data?.session;if(!session||sessionAgeMinutes(session)>SESSION_MAX_MINUTES){await sb.auth.signOut();setMsg('Por segurança, acesse novamente Meus Eventos e solicite um novo link antes de pagar.','error');return}setMsg('Criando pagamento seguro no Paddle...','');try{const r=await fetch(API+'/pagamentos/paddle/criar-transacao',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},body:JSON.stringify({evento_id:eventoAtual.id})});const data=await r.json();if(!r.ok)throw new Error(data.error||'Erro ao criar pagamento.');if(data.ja_pago){setMsg('Este evento já está marcado como pago.','success');eventoAtual.status_pagamento='pago';renderEvento(eventoAtual);return}const txId=data.transaction?.id||transactionIdDaUrl(data.checkout_url||data.transaction?.checkout?.url);if(!txId)throw new Error('O Paddle não retornou o identificador da transação.');await abrirCheckoutPaddle(txId); acompanharConfirmacaoPagamento()}catch(e){setMsg('Erro ao iniciar pagamento: '+(e.message||'falha desconhecida.'),'error')}}
 carregar();
 </script>
 </body>
