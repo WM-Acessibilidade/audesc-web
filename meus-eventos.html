@@ -124,7 +124,7 @@ function renderEvento(ev){
   <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
   <p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>
   <p><strong>Senha:</strong> ${t(ev.senha_transmissor)}</p>
-  ${ev.status_pagamento !== 'pago' && ev.tipo_servico === 'audesc_transmissao' ? `<p><button type="button" onclick="pagarEvento('${ev.id}')">Pagar agora</button></p>` : ''}
+  ${ev.status_pagamento !== 'pago' && ev.tipo_servico === 'audesc_transmissao' ? `<p><a href="pagamento.html?evento=${ev.id}"><button type="button">Pagar agora</button></a></p>` : ''}
   <p class="small">Criado em: ${t(ev.created_at ? new Date(ev.created_at).toLocaleString('pt-BR') : '')}</p>
  </div>`;
 }
