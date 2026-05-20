@@ -191,7 +191,7 @@ async function carregarEventos(session){
 async function pagarEvento(eventoId){
  const {data}=await sb.auth.getSession();
  const session=data?.session;
- if(!session || sessionAgeMinutes(session)>SESSION_MAX_MINUTES){
+ if(!session || ){
   await sb.auth.signOut();
   document.getElementById('loginBox').hidden=false;
   document.getElementById('eventosBox').hidden=true;
@@ -233,17 +233,17 @@ async function verificarSessao(){
  const {data}=await sb.auth.getSession();
  const session=data?.session;
 
- if(!session){
+ if(!session || !session.access_token){
   document.getElementById('loginBox').hidden=false;
   document.getElementById('eventosBox').hidden=true;
   return;
  }
 
- if(sessionAgeMinutes(session)>SESSION_MAX_MINUTES){
+ if(){
   await sb.auth.signOut();
   document.getElementById('loginBox').hidden=false;
   document.getElementById('eventosBox').hidden=true;
-  setMsg('loginStatus','Por segurança, a validação anterior expirou. Solicite um novo link para acessar seus eventos.','error');
+  setMsg('loginStatus','Sua sessão não está ativa neste navegador. Solicite um novo link de acesso..','error');
   return;
  }
 
