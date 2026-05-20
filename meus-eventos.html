@@ -19,7 +19,7 @@ button{cursor:pointer}
 </style>
 </head>
 <body>
-<h1>Meus Eventos</h1>
+<p><a href="index.html">← Voltar para eventos públicos</a></p><h1>Meus Eventos</h1>
 
 <section id="loginBox">
 <p>Informe seu e-mail para receber um link de acesso aos seus eventos. Por segurança, o acesso será liberado por até 1 hora neste navegador.</p>
@@ -45,7 +45,7 @@ const API='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0O38-ahRI_iRA-oyKIaOew_QgWjBpkW';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
-const SESSION_MAX_MINUTES=120;
+const SESSION_MAX_MINUTES=null;
 
 let paddleInicializado=false;
 
