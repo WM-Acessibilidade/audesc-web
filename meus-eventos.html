@@ -5,24 +5,27 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Audesc - Meus Eventos</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <style>
 body{font-family:Arial,sans-serif;max-width:1000px;margin:0 auto;padding:20px;line-height:1.5}
 input,button{padding:10px;font-size:1rem}
-button{cursor:pointer}
-.card{border:1px solid #ccc;border-radius:8px;padding:16px;margin:16px 0}
+button{cursor:pointer;border-radius:8px;border:1px solid #333}
+.card{border:1px solid #ccc;border-radius:8px;padding:16px;margin:16px 0;background:#fff}
 .status{font-weight:bold}
 .msg{padding:12px;border:1px solid #ccc;border-radius:8px;background:#f6f6f6;margin:16px 0}
 .success{border-color:#237a3b;background:#e8f6ec}
 .error{border-color:#a40000;background:#fff0f0}
 .small{font-size:.95rem;color:#444}
+.toplink{margin-bottom:16px}
 </style>
 </head>
 <body>
-<p><a href="eventos-publicos.html">← Voltar para eventos públicos</a></p><h1>Meus Eventos</h1>
+<p class="toplink"><a href="eventos.html">← Voltar para eventos públicos</a></p>
+
+<h1>Meus Eventos</h1>
 
 <section id="loginBox">
-<p>Informe seu e-mail para receber um link de acesso aos seus eventos. Por questão de segurança, clique em Sair ou feche o navegador quando terminar.</p>
+<p>Informe seu e-mail para receber um link de acesso aos seus eventos.</p>
+<p>Por questão de segurança, clique em Sair ou feche o navegador quando terminar.</p>
 
 <label for="email">E-mail</label><br>
 <input id="email" type="email" placeholder="seuemail@exemplo.com" style="width:100%;max-width:420px">
@@ -34,10 +37,9 @@ button{cursor:pointer}
 <section id="eventosBox" hidden>
 <p id="emailAutenticado" class="msg success"></p>
 <button id="sair" type="button">Sair / usar outro e-mail</button>
-<p><a href="eventos.html">Voltar para eventos públicos</a></p>
 
 <div id="status" class="msg">Carregando eventos...</div>
-<div id="lista"></div>
+<div id="lista-eventos"></div>
 </section>
 
 <script>
@@ -45,88 +47,35 @@ const API='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0O38-ahRI_iRA-oyKIaOew_QgWjBpkW';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
-const SESSION_MAX_MINUTES=null;
 
-let paddleInicializado=false;
-
-async function inicializarPaddle(){
- if(paddleInicializado) return;
-
- const r=await fetch(API+'/pagamentos/paddle/config');
- const cfg=await r.json();
-
- if(!r.ok) throw new Error(cfg.error || 'Não foi possível carregar a configuração do Paddle.');
-
- if(cfg.environment === 'sandbox'){
-  Paddle.Environment.set('sandbox');
- }
-
- Paddle.Initialize({
-  token: cfg.client_token,
-  checkout: {
-   settings: {
-    displayMode: 'overlay',
-    theme: 'light',
-    locale: 'pt'
-   }
-  }
- });
-
- paddleInicializado=true;
-}
-
-async function abrirCheckoutPaddle(transactionId){
- if(!transactionId) throw new Error('Transação Paddle não informada.');
- await inicializarPaddle();
- Paddle.Checkout.open({
-  transactionId: transactionId
- });
-}
-
-function transactionIdDaUrl(url){
- try{
-  const u=new URL(url, location.href);
-  return u.searchParams.get('_ptxn');
- }catch(e){
-  return null;
- }
-}
-
+function t(v){ return v || '—'; }
 
 function setMsg(id,msg,cls){
  const el=document.getElementById(id);
+ if(!el) return;
  el.textContent=msg;
  el.className='msg'+(cls?' '+cls:'');
 }
 
-function t(v){ return v || '—'; }
-
-function sessionAgeMinutes(session){
- const raw=session?.user?.last_sign_in_at || session?.created_at || session?.expires_at;
- if(!raw) return 999999;
- const base=new Date(raw).getTime();
- if(!base || Number.isNaN(base)) return 999999;
- return (Date.now()-base)/60000;
+function obterEventosOcultos(){
+ try{ return JSON.parse(localStorage.getItem('audesc_eventos_ocultos')||'[]'); }
+ catch(e){ return []; }
 }
 
-function renderEvento(ev){
- return `
- <div class="card">
-  <h2>${t(ev.titulo_publicado || ev.titulo_original)}</h2>
-  <p class="status">
-   Publicação: ${t(ev.status_publicacao)} |
-   Pagamento: ${t(ev.status_pagamento)} |
-   Operação: ${t(ev.status_operacao)}
-  </p>
-  <p><strong>Tipo:</strong> ${t(ev.tipo_servico)}</p>
-  <p><strong>Data:</strong> ${t(ev.data_evento ? new Date(ev.data_evento).toLocaleString('pt-BR') : '')}</p>
-  <p><strong>País:</strong> ${t(ev.pais)}</p>
-  <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
-  <p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>
-  <p><strong>Senha:</strong> ${t(ev.senha_transmissor)}</p>
-  ${ev.status_pagamento !== 'pago' && ev.tipo_servico === 'audesc_transmissao' ? `<p><a href="pagamento.html?evento=${ev.id}"><button type="button">Pagar agora</button></a></p>` : ''}
-  <p class="small">Criado em: ${t(ev.created_at ? new Date(ev.created_at).toLocaleString('pt-BR') : '')}</p>
- </div>`;
+function salvarEventosOcultos(lista){
+ localStorage.setItem('audesc_eventos_ocultos', JSON.stringify(lista));
+}
+
+function ocultarEventoLocalmente(eventoId){
+ const confirmar=confirm('Deseja realmente remover este evento da página Meus Eventos neste navegador? Esta ação não excluirá o evento do sistema, do painel administrativo nem da página pública.');
+ if(!confirmar) return;
+
+ const ocultos=obterEventosOcultos();
+ if(!ocultos.includes(eventoId)){
+  ocultos.push(eventoId);
+  salvarEventosOcultos(ocultos);
+ }
+ carregarEventos();
 }
 
 async function enviarLink(){
@@ -137,7 +86,8 @@ async function enviarLink(){
   return;
  }
 
- document.getElementById('enviarLink').disabled=true;
+ const btn=document.getElementById('enviarLink');
+ btn.disabled=true;
  setMsg('loginStatus','Enviando link de acesso...','');
 
  try{
@@ -155,125 +105,103 @@ async function enviarLink(){
  }catch(e){
   setMsg('loginStatus','Erro ao enviar link: '+(e.message||'falha desconhecida.'),'error');
  }finally{
-  document.getElementById('enviarLink').disabled=false;
+  btn.disabled=false;
  }
 }
 
-async function carregarEventos(session){
+function mostrarLogin(){
+ document.getElementById('loginBox').hidden=false;
+ document.getElementById('eventosBox').hidden=true;
+}
+
+function mostrarEventos(session){
  document.getElementById('loginBox').hidden=true;
  document.getElementById('eventosBox').hidden=false;
- document.getElementById('emailAutenticado').textContent='E-mail autenticado: '+session.user.email+'. Acesso válido por até 1 hora neste navegador.';
+ document.getElementById('emailAutenticado').textContent='E-mail autenticado: '+session.user.email+'. Por questão de segurança, clique em Sair ou feche o navegador quando terminar.';
+}
+
+function renderEventos(eventos){
+ const ocultos=obterEventosOcultos();
+ const visiveis=eventos.filter(ev=>!ocultos.includes(ev.id));
+
+ const pendentes=visiveis.filter(ev=>ev.status_operacao!=='liberado');
+ const liberados=visiveis.filter(ev=>ev.status_operacao==='liberado');
+
+ function card(ev){
+  return `
+  <section class="card">
+   <h3>${t(ev.titulo_publicado||ev.titulo_original)}</h3>
+   <p class="status">
+    Publicação: ${t(ev.status_publicacao)} |
+    Pagamento: ${t(ev.status_pagamento)} |
+    Operação: ${t(ev.status_operacao)}
+   </p>
+   <p><strong>Tipo:</strong> ${t(ev.tipo_servico)}</p>
+   <p><strong>Data:</strong> ${t(ev.data_evento?new Date(ev.data_evento).toLocaleString('pt-BR'):'')}</p>
+   <p><strong>País:</strong> ${t(ev.pais)}</p>
+   <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
+   ${ev.sala_codigo?`<p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>`:''}
+   ${ev.senha_transmissor?`<p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>`:''}
+   ${ev.status_pagamento !== 'pago' && ev.tipo_servico === 'audesc_transmissao'
+     ? `<p><a href="pagamento.html?evento=${ev.id}"><button type="button">Pagar agora</button></a></p>`
+     : ''
+   }
+   <p><button type="button" onclick="ocultarEventoLocalmente('${ev.id}')">Excluir desta página</button></p>
+  </section>`;
+ }
+
+ let conteudo='<h2>Pendentes</h2>';
+ conteudo+=pendentes.length?pendentes.map(card).join(''):'<p>Nenhum evento pendente.</p>';
+
+ conteudo+='<h2>Liberados</h2>';
+ conteudo+=liberados.length?liberados.map(card).join(''):'<p>Nenhum evento liberado.</p>';
+
+ document.getElementById('lista-eventos').innerHTML=conteudo;
+}
+
+async function carregarEventos(){
+ const {data}=await sb.auth.getSession();
+ const session=data?.session;
+
+ if(!session || !session.access_token){
+  mostrarLogin();
+  return;
+ }
+
+ mostrarEventos(session);
  document.getElementById('status').textContent='Carregando eventos...';
- document.getElementById('lista').innerHTML='';
+ document.getElementById('lista-eventos').innerHTML='';
 
  try{
   const r=await fetch(API+'/meus-eventos',{
    headers:{'Authorization':'Bearer '+session.access_token}
   });
-  const data=await r.json();
+  const dataEventos=await r.json();
 
-  if(!r.ok) throw new Error(data.error||'Erro ao carregar eventos.');
+  if(!r.ok) throw new Error(dataEventos.error||dataEventos.erro||'Erro ao carregar eventos.');
 
-  document.getElementById('status').textContent='Total de eventos encontrados: '+data.total;
+  document.getElementById('status').textContent='Total de eventos encontrados: '+(dataEventos.total ?? dataEventos.eventos?.length ?? 0);
 
-  if(!data.eventos.length){
-   document.getElementById('lista').innerHTML='<p>Nenhum evento encontrado para este e-mail.</p>';
+  if(!dataEventos.eventos || !dataEventos.eventos.length){
+   document.getElementById('lista-eventos').innerHTML='<p>Nenhum evento encontrado para este e-mail.</p>';
    return;
   }
 
-  document.getElementById('lista').innerHTML=data.eventos.map(renderEvento).join('');
+  renderEventos(dataEventos.eventos);
  }catch(e){
   setMsg('status','Erro: '+(e.message||'não foi possível carregar eventos.'),'error');
  }
 }
 
+document.getElementById('enviarLink').addEventListener('click', enviarLink);
 
-async function pagarEvento(eventoId){
- const {data}=await sb.auth.getSession();
- const session=data?.session;
- if(!session || ){
-  await sb.auth.signOut();
-  document.getElementById('loginBox').hidden=false;
-  document.getElementById('eventosBox').hidden=true;
-  setMsg('loginStatus','Por segurança, solicite novo link antes de pagar.','error');
-  return;
- }
-
- setMsg('status','Criando pagamento seguro no Paddle...','');
-
- try{
-  const r=await fetch(API+'/pagamentos/paddle/criar-transacao',{
-   method:'POST',
-   headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
-   body:JSON.stringify({evento_id:eventoId})
-  });
-  const data=await r.json();
-  if(!r.ok) throw new Error(data.error || 'Erro ao criar pagamento.');
-
-  if(data.ja_pago){
-   setMsg('status','Este evento já está marcado como pago.','success');
-   await carregarEventos(session);
-   return;
-  }
-
-  const txId =
-   data.transaction?.id ||
-   transactionIdDaUrl(data.checkout_url || data.transaction?.checkout?.url);
-
-  if(!txId) throw new Error('O Paddle não retornou o identificador da transação.');
-
-  await abrirCheckoutPaddle(txId);
- }catch(e){
-  setMsg('status','Erro ao iniciar pagamento: '+(e.message||'falha desconhecida.'),'error');
- }
-}
-
-
-async function verificarSessao(){
- const {data}=await sb.auth.getSession();
- const session=data?.session;
-
- if(!session || !session.access_token){
-  document.getElementById('loginBox').hidden=false;
-  document.getElementById('eventosBox').hidden=true;
-  return;
- }
-
- if(){
-  await sb.auth.signOut();
-  document.getElementById('loginBox').hidden=false;
-  document.getElementById('eventosBox').hidden=true;
-  setMsg('loginStatus','Sua sessão não está ativa neste navegador. Solicite um novo link de acesso..','error');
-  return;
- }
-
- await carregarEventos(session);
-}
-
-document.getElementById('enviarLink').onclick=enviarLink;
-document.getElementById('sair').onclick=async()=>{
+document.getElementById('sair').addEventListener('click', async()=>{
  await sb.auth.signOut();
- document.getElementById('loginBox').hidden=false;
- document.getElementById('eventosBox').hidden=true;
+ mostrarLogin();
  setMsg('loginStatus','Sessão encerrada. Informe o e-mail para receber novo link.','');
-};
+});
 
-
-async function abrirCheckoutSeUrlTiverTransacao(){
- const params=new URLSearchParams(location.search);
- const tx=params.get('_ptxn');
- if(!tx) return;
-
- try{
-  setMsg('status','Abrindo checkout do Paddle...','');
-  await abrirCheckoutPaddle(tx);
-  history.replaceState({}, document.title, location.pathname);
- }catch(e){
-  setMsg('status','Erro ao abrir checkout: '+(e.message||'falha desconhecida.'),'error');
- }
-}
-
-verificarSessao().then(abrirCheckoutSeUrlTiverTransacao);
+carregarEventos();
 </script>
 </body>
 </html>
