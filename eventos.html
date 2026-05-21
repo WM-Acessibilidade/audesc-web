@@ -24,11 +24,72 @@ function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 function fmt(v){return v?new Date(v).toLocaleString('pt-BR'):''}
 function isLive(e){if(!e.data_evento||!e.duracao_horas)return false;const st=new Date(e.data_evento).getTime(),end=st+Number(e.duracao_horas)*3600000,now=Date.now();return now>=st&&now<=end}
 function isPast(e){if(!e.data_evento||!e.duracao_horas)return false;return Date.now()>new Date(e.data_evento).getTime()+Number(e.duracao_horas)*3600000}
-function detailUrl(e){return 'evento.html?id='+encodeURIComponent(e.id)}
-function item(e){const li=document.createElement('li');const title=e.titulo_publicado||e.titulo_original||'Evento sem título';li.innerHTML=`<a href="${detailUrl(e)}">${esc(title)}</a><br><span>${esc(fmt(e.data_evento))}</span><br><span class="small">${esc(e.pais||'')}${e.uf?' - '+esc(e.uf):''}</span> ${isLive(e)?'<span class="badge live-badge">AO VIVO</span>':''}`;return li}
+function estadoAtual(){
+ return {
+  pais:document.getElementById('paisFiltro').value||'',
+  uf:document.getElementById('ufFiltro').value||'',
+  busca:document.getElementById('busca').value||''
+ };
+}
+function salvarEstado(){
+ const estado=estadoAtual();
+ localStorage.setItem('audesc_eventos_estado',JSON.stringify(estado));
+ return estado;
+}
+function detailUrl(e){
+ const estado=salvarEstado();
+ const params=new URLSearchParams();
+ params.set('id',e.id);
+ if(estado.pais)params.set('pais',estado.pais);
+ if(estado.uf)params.set('uf',estado.uf);
+ if(estado.busca)params.set('busca',estado.busca);
+ params.set('retorno',e.id);
+ return 'evento.html?'+params.toString();
+}
+function item(e){
+ const li=document.createElement('li');
+ li.id='evento-'+e.id;
+ const title=e.titulo_publicado||e.titulo_original||'Evento sem título';
+ li.innerHTML=`<a id="link-evento-${e.id}" href="${detailUrl(e)}" onclick="salvarEstado()">${esc(title)}</a><br><span>${esc(fmt(e.data_evento))}</span> ${isLive(e)?'<span class="badge live-badge">AO VIVO</span>':''}`;
+ return li;
+}
 function filtered(){const q=document.getElementById('busca').value.toLowerCase().trim(),p=document.getElementById('paisFiltro').value,uf=document.getElementById('ufFiltro').value;return eventos.filter(e=>{const h=[e.titulo_publicado,e.titulo_original,e.descricao_publicada,e.descricao_original,e.pais,e.uf].join(' ').toLowerCase();return(!q||h.includes(q))&&(!p||e.pais===p)&&(!uf||e.uf===uf)})}
 function render(){const fs=filtered(),live=fs.filter(isLive).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0)),prox=fs.filter(e=>!isLive(e)&&!isPast(e)).sort((a,b)=>new Date(a.data_evento||'2999-01-01')-new Date(b.data_evento||'2999-01-01')),ant=fs.filter(isPast).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0));document.getElementById('summary').textContent=`Total de eventos: ${fs.length}. Futuros: ${prox.length}. Ao vivo: ${live.length}.`;[['listaLive',live],['listaProximos',prox],['listaAnteriores',ant]].forEach(([id,arr])=>{const el=document.getElementById(id);el.innerHTML='';if(!arr.length){el.innerHTML='<li>Nenhum evento nesta seção.</li>';return}arr.forEach(e=>el.appendChild(item(e)))})}
 async function load(){try{const r=await fetch(API_URL+'/public/eventos'),j=await r.json();if(!r.ok)throw new Error(j.error);eventos=j.eventos||[];render()}catch(e){document.getElementById('summary').textContent='Erro: '+e.message}}
-document.getElementById('busca').addEventListener('input',render);const paisFiltro=document.getElementById('paisFiltro'),ufFiltro=document.getElementById('ufFiltro'),ufFiltroLabel=document.getElementById('ufFiltroLabel');function atualizarFiltroLocal(){preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);render()}paisFiltro.addEventListener('change',atualizarFiltroLocal);ufFiltro.addEventListener('change',render);preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);load();
+document.getElementById('busca').addEventListener('input',()=>{salvarEstado();render()});
+const paisFiltro=document.getElementById('paisFiltro'),ufFiltro=document.getElementById('ufFiltro'),ufFiltroLabel=document.getElementById('ufFiltroLabel');
+function atualizarFiltroLocal(){preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);salvarEstado();render()}
+paisFiltro.addEventListener('change',atualizarFiltroLocal);
+ufFiltro.addEventListener('change',()=>{salvarEstado();render()});
+
+function aplicarEstadoInicial(){
+ const params=new URLSearchParams(location.search);
+ let estado={};
+ try{estado=JSON.parse(localStorage.getItem('audesc_eventos_estado')||'{}')}catch(e){estado={}}
+ const pais=params.get('pais')||estado.pais||'Brasil';
+ const uf=params.get('uf')||estado.uf||'DF';
+ const busca=params.get('busca')||estado.busca||'';
+ if(paisFiltro.querySelector(`option[value="${CSS.escape(pais)}"]`)) paisFiltro.value=pais;
+ preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);
+ if(uf) ufFiltro.value=uf;
+ document.getElementById('busca').value=busca;
+ salvarEstado();
+}
+function focarEventoRetorno(){
+ const params=new URLSearchParams(location.search);
+ const retorno=params.get('retorno')||sessionStorage.getItem('audesc_ultimo_evento');
+ if(!retorno)return;
+ const link=document.getElementById('link-evento-'+retorno);
+ if(link){
+  link.focus();
+  link.scrollIntoView({block:'center'});
+  sessionStorage.removeItem('audesc_ultimo_evento');
+ }
+}
+const renderOriginal=render;
+render=function(){renderOriginal();setTimeout(focarEventoRetorno,0)};
+
+aplicarEstadoInicial();
+load();
 </script>
 </body></html>
