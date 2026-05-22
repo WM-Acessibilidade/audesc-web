@@ -4,7 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cadastrar evento — Audesc</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2">
+async function logoutAndResetEmail(){
+ try{
+  await sb.auth.signOut();
+ }catch(e){}
+
+ accessToken='';
+ localStorage.removeItem('audesc_verified_email');
+
+ location.reload();
+}
+
+
+</script>
 <style>
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;margin:0;background:#f7f7f7;color:#111}
 header,main{max-width:900px;margin:0 auto;padding:20px}.panel{background:#fff;border:1px solid #ddd;border-radius:12px;padding:20px;margin-top:20px}
@@ -20,7 +33,10 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <header>
 <a href="eventos.html">Voltar</a>
 <h1>Cadastrar evento acessível</h1>
-<p>Confirme seu e-mail por link. Por questão de segurança, clique em sair ou feche o navegador quando terminar.</p>
+<p>Confirme seu e-mail por link. Por questão de segurança, clique em sair ou feche o navegador quando terminar.
+<br><br>
+<button type="button" onclick="logoutAndResetEmail()">Sair / usar outro e-mail</button>
+</p>
 </header>
 <main>
 <section class="panel" id="emailStep">
@@ -311,6 +327,19 @@ tipoServico.addEventListener('change', ajustarVisibilidade);
 ajustarVisibilidade();
 
 checkSession();
+
+async function logoutAndResetEmail(){
+ try{
+  await sb.auth.signOut();
+ }catch(e){}
+
+ accessToken='';
+ localStorage.removeItem('audesc_verified_email');
+
+ location.reload();
+}
+
+
 </script>
 </body>
 </html>
