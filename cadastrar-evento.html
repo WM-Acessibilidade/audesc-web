@@ -34,8 +34,6 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <a href="eventos.html">Voltar</a>
 <h1>Cadastrar evento acessível</h1>
 <p>Confirme seu e-mail por link. Por questão de segurança, clique em sair ou feche o navegador quando terminar.
-<br><br>
-<button type="button" onclick="logoutAndResetEmail()">Sair / usar outro e-mail</button>
 </p>
 </header>
 <main>
@@ -51,6 +49,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <section class="panel hidden" id="formStep">
 <h2>Dados do evento</h2>
 <p id="verifiedEmailInfo"></p>
+<button id="logoutBtnForm" type="button" class="secondary">Sair / usar outro e-mail</button>
 <form id="eventoForm">
 <label for="titulo_original">Nome do evento</label>
 <input id="titulo_original" name="titulo_original" type="text" required maxlength="200">
@@ -325,6 +324,12 @@ function ajustarVisibilidade(){
 
 tipoServico.addEventListener('change', ajustarVisibilidade);
 ajustarVisibilidade();
+
+
+const logoutBtnForm = document.getElementById('logoutBtnForm');
+if(logoutBtnForm){
+ logoutBtnForm.addEventListener('click', logoutAndResetEmail);
+}
 
 checkSession();
 
