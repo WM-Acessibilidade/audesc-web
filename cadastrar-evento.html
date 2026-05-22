@@ -18,9 +18,9 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 </head>
 <body>
 <header>
-<a href="index.html">Voltar</a>
+<a href="eventos.html">Voltar</a>
 <h1>Cadastrar evento acessível</h1>
-<p>Confirme seu e-mail por link. Por segurança, a confirmação libera o formulário por até 1 hora neste navegador.</p>
+<p>Confirme seu e-mail por link. Por questão de segurança, clique em sair ou feche o navegador quando terminar.</p>
 </header>
 <main>
 <section class="panel" id="emailStep">
@@ -109,19 +109,18 @@ const API_URL='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0O38-ahRI_iRA-oyKIaOew_QgWjBpkW';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
-const SESSION_MAX_MINUTES=60;
+const SESSION_MAX_MINUTES=null;
 let accessToken='';
 
 function setStatus(id,text,cls){const el=document.getElementById(id);el.textContent=text;el.className='status'+(cls?' '+cls:'')}
 function showEmailStep(msg,cls){document.getElementById('emailStep').classList.remove('hidden');document.getElementById('formStep').classList.add('hidden');if(msg)setStatus('emailStatus',msg,cls||'')}
-function showForm(email){document.getElementById('emailStep').classList.add('hidden');document.getElementById('formStep').classList.remove('hidden');document.getElementById('verifiedEmailInfo').textContent='E-mail confirmado: '+(email||'')+'. Esta validação será aceita por até 1 hora neste navegador.'}
+function showForm(email){document.getElementById('emailStep').classList.add('hidden');document.getElementById('formStep').classList.remove('hidden');document.getElementById('verifiedEmailInfo').textContent='E-mail confirmado: '+(email||'')+'. Por questão de segurança, clique em sair ou feche o navegador quando terminar.'}
 function sessionAgeMinutes(session){const raw=session?.user?.last_sign_in_at||session?.created_at||session?.expires_at;if(!raw)return 999999;const base=new Date(raw).getTime();if(!base||Number.isNaN(base))return 999999;return (Date.now()-base)/60000}
 
 async function checkSession(){
  const {data}=await sb.auth.getSession();
  const session=data?.session;
  if(!session){showEmailStep('Informe o e-mail para receber o link de validação.','');return}
- if(sessionAgeMinutes(session)>SESSION_MAX_MINUTES){await sb.auth.signOut();accessToken='';showEmailStep('Por segurança, a validação anterior expirou. Solicite um novo link para continuar.','error');return}
  accessToken=session.access_token;
  showForm(session.user.email);
 }
@@ -240,7 +239,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  const form=e.target;
  const {data:sessionData}=await sb.auth.getSession();
  const session=sessionData?.session;
- if(!session||sessionAgeMinutes(session)>SESSION_MAX_MINUTES){accessToken='';await sb.auth.signOut();showEmailStep('Por segurança, confirme novamente seu e-mail antes de enviar o evento.','error');return}
+ if(!session){accessToken='';await sb.auth.signOut();showEmailStep('Sessão não encontrada. Confirme novamente seu e-mail antes de enviar o evento.','error');return}
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const data=Object.fromEntries(new FormData(form).entries());
