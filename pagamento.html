@@ -7,7 +7,7 @@
 <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <style>
 body{font-family:Arial,sans-serif;max-width:900px;margin:0 auto;padding:20px;line-height:1.5}
-button{padding:12px 16px;font-size:1rem;cursor:pointer;border-radius:8px;border:1px solid #333;background:#111;color:#fff}
+button{padding:12px 16px;font-size:1rem;cursor:pointer;border-radius:8px;border:1px solid #333;background:#111;color:#fff} input{font:inherit;padding:10px;border:1px solid #999;border-radius:8px;box-sizing:border-box;width:100%;max-width:320px}
 .card{border:1px solid #ccc;border-radius:10px;padding:18px;margin:16px 0;background:#fff}
 .msg{padding:12px;border:1px solid #ccc;border-radius:8px;background:#f6f6f6;margin:16px 0}
 .success{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}
@@ -24,7 +24,7 @@ const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0O38-ahRI_iRA-oyKIaOew_QgWjBpkW';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 const SESSION_MAX_MINUTES=120;
-let eventoAtual=null,paddleInicializado=false,pagamentoIniciado=false,monitoramentoPagamento=false;
+let eventoAtual=null,paddleInicializado=false,pagamentoIniciado=false,monitoramentoPagamento=false,calculoAtual=null;
 function t(v){return v||'—'}
 function setMsg(msg,cls){const el=document.getElementById('status');el.textContent=msg;el.className='msg'+(cls?' '+cls:'')}
 function sessionAgeMinutes(session){const raw=session?.user?.last_sign_in_at||session?.created_at||session?.expires_at;if(!raw)return 999999;const base=new Date(raw).getTime();if(!base||Number.isNaN(base))return 999999;return (Date.now()-base)/60000}
@@ -42,6 +42,36 @@ async function abrirCheckoutPaddle(transactionId){await inicializarPaddle();Padd
 
 function gatewayPagamento(ev){
  return String(ev?.pais||'').trim().toLowerCase()==='brasil' ? 'mercadopago' : 'paddle';
+}
+
+function moedaSimbolo(m){return m==='BRL'?'R$':(m==='EUR'?'€':'US$')}
+function formatarMoeda(valor, moeda){
+ try{return new Intl.NumberFormat('pt-BR',{style:'currency',currency:moeda}).format(Number(valor||0))}
+ catch(e){return moedaSimbolo(moeda)+' '+Number(valor||0).toFixed(2)}
+}
+
+async function calcularPagamento(cupom=''){
+ const {data}=await sb.auth.getSession();
+ const session=data?.session;
+ if(!session||!eventoAtual) return null;
+ const url=API+'/pagamentos/calcular/'+encodeURIComponent(eventoAtual.id)+(cupom?'?cupom='+encodeURIComponent(cupom):'');
+ const r=await fetch(url,{headers:{'Authorization':'Bearer '+session.access_token}});
+ const dataCalc=await r.json();
+ if(!r.ok) throw new Error(dataCalc.error||'Erro ao calcular pagamento.');
+ calculoAtual=dataCalc.calculo;
+ return calculoAtual;
+}
+
+async function aplicarCupom(){
+ const input=document.getElementById('cupomInput');
+ const cupom=(input?.value||'').trim();
+ try{
+  await calcularPagamento(cupom);
+  renderEvento(eventoAtual);
+  setMsg(cupom?'Cupom aplicado com sucesso.':'Cupom removido.', 'success');
+ }catch(e){
+  setMsg('Cupom inválido: '+(e.message||'não foi possível aplicar.'),'error');
+ }
 }
 
 function transactionIdDaUrl(url){try{const u=new URL(url,location.href);return u.searchParams.get('_ptxn')}catch(e){return null}}
@@ -76,7 +106,7 @@ async function acompanharConfirmacaoPagamento(){
  setMsg('Pagamento realizado, mas a confirmação ainda está sendo processada. Aguarde alguns instantes ou volte para Meus Eventos.', '');
 }
 
-async function carregar(){const id=new URLSearchParams(location.search).get('evento');if(!id){setMsg('Evento não informado.','error');return}const {data}=await sb.auth.getSession();const session=data?.session;if(!session||sessionAgeMinutes(session)>SESSION_MAX_MINUTES){await sb.auth.signOut();setMsg('Por segurança, acesse novamente a página Meus Eventos e solicite um novo link de validação.','error');return}try{const r=await fetch(API+'/meus-eventos/'+encodeURIComponent(id),{headers:{'Authorization':'Bearer '+session.access_token}});const data=await r.json();if(!r.ok)throw new Error(data.error||'Erro ao carregar evento.');eventoAtual=data.evento;renderEvento(eventoAtual);setMsg('Confira os dados do evento. O checkout será aberto automaticamente abaixo.','');const tx=new URLSearchParams(location.search).get('_ptxn');if(tx){setMsg('Abrindo checkout do Paddle...','');await abrirCheckoutPaddle(tx);history.replaceState({},document.title,'pagamento.html?evento='+encodeURIComponent(id))}}catch(e){setMsg('Erro: '+(e.message||'não foi possível carregar o evento.'),'error')}}
+async function carregar(){const id=new URLSearchParams(location.search).get('evento');if(!id){setMsg('Evento não informado.','error');return}const {data}=await sb.auth.getSession();const session=data?.session;if(!session||sessionAgeMinutes(session)>SESSION_MAX_MINUTES){await sb.auth.signOut();setMsg('Por segurança, acesse novamente a página Meus Eventos e solicite um novo link de validação.','error');return}try{const r=await fetch(API+'/meus-eventos/'+encodeURIComponent(id),{headers:{'Authorization':'Bearer '+session.access_token}});const data=await r.json();if(!r.ok)throw new Error(data.error||'Erro ao carregar evento.');eventoAtual=data.evento;await calcularPagamento();renderEvento(eventoAtual);setMsg('Confira os dados do evento e prossiga para o pagamento.','');const tx=new URLSearchParams(location.search).get('_ptxn');if(tx){setMsg('Abrindo checkout do Paddle...','');await abrirCheckoutPaddle(tx);history.replaceState({},document.title,'pagamento.html?evento='+encodeURIComponent(id))}}catch(e){setMsg('Erro: '+(e.message||'não foi possível carregar o evento.'),'error')}}
 function renderEvento(ev){
  const pago=ev.status_pagamento==='pago';
 
@@ -93,12 +123,24 @@ function renderEvento(ev){
   <p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>
   <p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>
   <p><strong>Gateway de pagamento:</strong> ${gatewayPagamento(ev)==='mercadopago'?'Mercado Pago / PIX e cartões no Brasil':'Paddle / pagamento internacional'}</p>
-  ${pago?'<p class="msg success">Pagamento confirmado. Os dados do evento estão atualizados.</p>':`<p class="msg">Abrindo checkout seguro: ${gatewayPagamento(ev)==='mercadopago'?'Mercado Pago para Brasil':'Paddle internacional'}...</p>`}
+  ${calculoAtual?`
+  <p><strong>Pacote:</strong> ${calculoAtual.pacote.ouvintes} ouvintes por ${calculoAtual.pacote.duracao_horas} hora(s)</p>
+  <p><strong>Valor original:</strong> ${formatarMoeda(calculoAtual.valor_original, calculoAtual.moeda)}</p>
+  <p><strong>Desconto:</strong> ${formatarMoeda(calculoAtual.desconto_aplicado, calculoAtual.moeda)}</p>
+  <p><strong>Valor final:</strong> ${formatarMoeda(calculoAtual.valor_final, calculoAtual.moeda)}</p>
+  `:''}
+  ${pago?'<p class="msg success">Pagamento confirmado. Os dados do evento estão atualizados.</p>':`
+  <div class="msg">
+   <label for="cupomInput"><strong>Código promocional</strong></label><br>
+   <input id="cupomInput" type="text" value="${calculoAtual?.cupom_codigo||''}" placeholder="Digite o cupom, se houver">
+   <br>
+   <button type="button" onclick="aplicarCupom()">Aplicar cupom</button>
+   <button type="button" onclick="pagar()">Pagar agora</button>
+  </div>`}
  </section>`;
 
- if(!pago && !pagamentoIniciado){
-   pagamentoIniciado=true;
-   pagar();
+ if(!pago){
+   pagamentoIniciado=false;
  }
 }
 async function pagar(){
@@ -111,6 +153,8 @@ async function pagar(){
  }
 
  const gateway = gatewayPagamento(eventoAtual);
+ const cupomAtual=(document.getElementById('cupomInput')?.value||calculoAtual?.cupom_codigo||'').trim();
+ try{ await calcularPagamento(cupomAtual); }catch(e){ setMsg('Cupom inválido: '+(e.message||'não foi possível aplicar.'),'error'); return; }
 
  if(gateway === 'mercadopago'){
   setMsg('Criando pagamento seguro no Mercado Pago...', '');
@@ -118,7 +162,7 @@ async function pagar(){
    const r=await fetch(API+'/pagamentos/mercadopago/criar-preferencia',{
     method:'POST',
     headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
-    body:JSON.stringify({evento_id:eventoAtual.id})
+    body:JSON.stringify({evento_id:eventoAtual.id,cupom:cupomAtual})
    });
    const data=await r.json();
    if(!r.ok)throw new Error(data.error||'Erro ao criar pagamento Mercado Pago.');
@@ -146,7 +190,7 @@ async function pagar(){
   const r=await fetch(API+'/pagamentos/paddle/criar-transacao',{
    method:'POST',
    headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
-   body:JSON.stringify({evento_id:eventoAtual.id})
+   body:JSON.stringify({evento_id:eventoAtual.id,cupom:cupomAtual})
   });
   const data=await r.json();
   if(!r.ok)throw new Error(data.error||'Erro ao criar pagamento.');

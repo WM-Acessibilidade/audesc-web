@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Precificação e cupons — Audesc</title>
+<style>
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;margin:0;background:#f7f7f7;color:#111}
+header,main{max-width:1000px;margin:0 auto;padding:20px}
+.panel,.card{background:#fff;border:1px solid #ddd;border-radius:12px;padding:18px;margin-top:16px}
+label{display:block;font-weight:700;margin-top:12px}
+input,select,button{font:inherit}
+input,select{width:100%;box-sizing:border-box;padding:10px;margin-top:5px;border:1px solid #999;border-radius:8px;background:#fff;color:#111}
+button{margin:8px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:pointer;font-weight:700;background:#111;color:#fff}
+.status{margin-top:12px;padding:10px;border-radius:8px;border:1px solid #aaa;background:#f0f0f0}
+.success{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.small{font-size:.95rem;color:#444}
+</style>
+</head>
+<body>
+<header>
+<a href="admin.html">Voltar ao painel administrativo</a>
+<h1>Precificação e cupons</h1>
+<p>Configure os valores dos pacotes e os cupons de desconto do Audesc.</p>
+</header>
+<main>
+<section class="panel" id="loginPanel">
+<h2>Acesso administrativo</h2>
+<label for="adminToken">Senha administrativa</label>
+<input id="adminToken" type="password">
+<button id="loginBtn" type="button">Entrar</button>
+<div id="loginStatus" class="status">Informe a senha administrativa.</div>
+</section>
+
+<section class="panel" id="contentPanel" style="display:none">
+<h2>Configuração dos preços</h2>
+<div id="pricingList"></div>
+
+<h2>Criar cupom</h2>
+<div class="card">
+<label for="codigo">Código do cupom</label>
+<input id="codigo" placeholder="Exemplo: AUDESC20">
+
+<div class="grid">
+<div>
+<label for="tipo_desconto">Tipo de desconto</label>
+<select id="tipo_desconto">
+<option value="percentual">Percentual</option>
+<option value="valor_fixo">Valor fixo</option>
+</select>
+</div>
+<div>
+<label for="valor_desconto">Valor do desconto</label>
+<input id="valor_desconto" type="number" step="0.01" value="10">
+</div>
+<div>
+<label for="moeda">Moeda</label>
+<select id="moeda">
+<option value="">Todas as moedas</option>
+<option value="BRL">BRL — Brasil</option>
+<option value="USD">USD — Dólar</option>
+<option value="EUR">EUR — Euro</option>
+</select>
+</div>
+</div>
+
+<div class="grid">
+<div>
+<label for="validade">Validade</label>
+<input id="validade" type="datetime-local">
+</div>
+<div>
+<label for="limite_uso">Limite de uso</label>
+<input id="limite_uso" type="number" min="1" placeholder="Em branco para ilimitado">
+</div>
+<div>
+<label for="ativo">Status</label>
+<select id="ativo">
+<option value="true">Ativo</option>
+<option value="false">Inativo</option>
+</select>
+</div>
+</div>
+
+<button id="criarCupomBtn" type="button">Criar cupom</button>
+</div>
+
+<h2>Cupons cadastrados</h2>
+<div id="couponsList"></div>
+<div id="status" class="status">Aguardando carregamento.</div>
+</section>
+</main>
+
+<script>
+const API_URL='https://audesc-events-api.onrender.com';
+let ADMIN_TOKEN='';
+
+function status(id,msg,cls){const el=document.getElementById(id);el.textContent=msg;el.className='status'+(cls?' '+cls:'')}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+async function api(path, options={}){
+ const headers=Object.assign({'Content-Type':'application/json','x-admin-token':ADMIN_TOKEN}, options.headers||{});
+ const res=await fetch(API_URL+path,Object.assign({},options,{headers}));
+ const json=await res.json().catch(()=>({}));
+ if(!res.ok) throw new Error(json.error||'Erro na API');
+ return json;
+}
+function moedaNome(m){return m==='BRL'?'BRL — Brasil':(m==='EUR'?'EUR — Euro':'USD — Dólar')}
+function fmtData(v){return v?new Date(v).toLocaleString('pt-BR'):''}
+
+async function carregar(){
+ status('status','Carregando...','');
+ const prec=await api('/admin/precificacao');
+ renderPricing(prec.precificacao||[]);
+ const cupons=await api('/admin/cupons');
+ renderCoupons(cupons.cupons||[]);
+ status('status','Dados carregados.','success');
+}
+
+function renderPricing(lista){
+ const root=document.getElementById('pricingList');
+ root.innerHTML='';
+ lista.forEach(p=>{
+  const div=document.createElement('section');
+  div.className='card';
+  div.innerHTML=`
+   <h3>${moedaNome(p.moeda)}</h3>
+   <div class="grid">
+    <div><label>Valor base para 10 ouvintes e 1 hora</label><input data-field="valor_base_10_ouvintes_1_hora" type="number" step="0.01" value="${p.valor_base_10_ouvintes_1_hora}"></div>
+    <div><label>Acréscimo por bloco de 10 ouvintes</label><input data-field="acrescimo_por_10_ouvintes" type="number" step="0.01" value="${p.acrescimo_por_10_ouvintes}"></div>
+    <div><label>Ouvintes mínimos</label><input data-field="ouvintes_minimos" type="number" step="1" value="${p.ouvintes_minimos}"></div>
+    <div><label>Duração mínima em horas</label><input data-field="duracao_minima_horas" type="number" step="1" value="${p.duracao_minima_horas}"></div>
+   </div>
+   <p class="small">Atualizado em: ${fmtData(p.atualizado_em)}</p>
+   <button type="button">Salvar ${p.moeda}</button>
+   <div class="status">Pronto.</div>`;
+  div.querySelector('button').onclick=async()=>{
+   const body={};
+   div.querySelectorAll('[data-field]').forEach(el=>body[el.dataset.field]=el.value);
+   try{
+    await api('/admin/precificacao/'+p.moeda,{method:'PATCH',body:JSON.stringify(body)});
+    div.querySelector('.status').textContent='Precificação salva.';
+    div.querySelector('.status').className='status success';
+   }catch(e){
+    div.querySelector('.status').textContent='Erro: '+e.message;
+    div.querySelector('.status').className='status error';
+   }
+  };
+  root.appendChild(div);
+ });
+}
+
+function renderCoupons(lista){
+ const root=document.getElementById('couponsList');
+ root.innerHTML='';
+ if(!lista.length){root.innerHTML='<p>Nenhum cupom cadastrado.</p>';return}
+ lista.forEach(c=>{
+  const div=document.createElement('section');
+  div.className='card';
+  div.innerHTML=`
+   <h3>${esc(c.codigo)}</h3>
+   <p>
+    Tipo: ${esc(c.tipo_desconto)}<br>
+    Valor: ${esc(c.valor_desconto)}<br>
+    Moeda: ${esc(c.moeda||'Todas')}<br>
+    Ativo: ${c.ativo?'sim':'não'}<br>
+    Usos: ${c.usos_realizados||0}${c.limite_uso? ' de '+c.limite_uso:''}<br>
+    Validade: ${fmtData(c.validade)}
+   </p>
+   <button type="button" data-action="toggle">${c.ativo?'Desativar':'Ativar'}</button>
+   <div class="status">Pronto.</div>`;
+  div.querySelector('[data-action="toggle"]').onclick=async()=>{
+   try{
+    await api('/admin/cupons/'+c.id,{method:'PATCH',body:JSON.stringify({ativo:!c.ativo})});
+    await carregar();
+   }catch(e){
+    div.querySelector('.status').textContent='Erro: '+e.message;
+    div.querySelector('.status').className='status error';
+   }
+  };
+  root.appendChild(div);
+ });
+}
+
+document.getElementById('loginBtn').onclick=async()=>{
+ ADMIN_TOKEN=document.getElementById('adminToken').value.trim();
+ if(!ADMIN_TOKEN){status('loginStatus','Informe a senha.','error');return}
+ try{
+  status('loginStatus','Validando...','');
+  await api('/admin/precificacao');
+  document.getElementById('loginPanel').style.display='none';
+  document.getElementById('contentPanel').style.display='';
+  await carregar();
+ }catch(e){
+  status('loginStatus','Erro: '+e.message,'error');
+ }
+};
+
+document.getElementById('criarCupomBtn').onclick=async()=>{
+ try{
+  const body={
+   codigo:document.getElementById('codigo').value,
+   tipo_desconto:document.getElementById('tipo_desconto').value,
+   valor_desconto:document.getElementById('valor_desconto').value,
+   moeda:document.getElementById('moeda').value || null,
+   validade:document.getElementById('validade').value ? new Date(document.getElementById('validade').value).toISOString() : null,
+   limite_uso:document.getElementById('limite_uso').value,
+   ativo:document.getElementById('ativo').value === 'true'
+  };
+  await api('/admin/cupons',{method:'POST',body:JSON.stringify(body)});
+  document.getElementById('codigo').value='';
+  await carregar();
+ }catch(e){
+  status('status','Erro ao criar cupom: '+e.message,'error');
+ }
+};
+</script>
+</body>
+</html>

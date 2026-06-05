@@ -39,6 +39,7 @@ pre{white-space:pre-wrap}
 <a href="index.html">Voltar</a>
 <h1>Painel administrativo Audesc</h1>
 <p>Use este painel para revisar, editar, aprovar e liberar eventos.</p>
+<p><a href="precificacao.html">Precificação e cupons</a></p>
 </header>
 <main>
 <section class="panel" id="loginPanel">
@@ -218,15 +219,12 @@ function renderEvent(ev){
       <div><label>Acessibilidade</label><input data-field="link_acessibilidade" value="${attr(ev.link_acessibilidade)}"></div>
     </div>
     <p><strong>Sala:</strong> ${ev.sala_codigo||'ainda não gerada'}<br><strong>Senha:</strong> ${ev.senha_transmissor||'ainda não gerada'}</p>
-    <p><strong>Status do e-mail:</strong> ${formatarStatusEmail(ev)}<br><strong>Último envio:</strong> ${formatarData(ev.email_liberacao_enviado_em)}</p>
     <button class="saveBtn" type="button">Salvar edições</button>
     <button class="approveBtn ok" type="button">Aprovar publicação</button>
     <button class="rejectBtn danger" type="button">Rejeitar</button>
     <button class="removeBtn danger" type="button">Remover da publicação</button>
-    <label><input class="sendEmailOnRelease" type="checkbox" checked> Enviar e-mail automaticamente ao liberar</label>
     <button class="approveLiberateBtn ok" type="button">Aprovar + liberar</button>
     <button class="liberateBtn secondary" type="button">Liberar / gerar acesso</button>
-    <button class="resendEmailBtn secondary" type="button">Reenviar e-mail de acesso</button>
     <button class="deleteBtn danger" type="button">Excluir evento</button>
     <div class="status eventStatus">Pronto.</div>
   `;
@@ -236,8 +234,6 @@ function renderEvent(ev){
   card.querySelector('.removeBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'removido'},card);
   card.querySelector('.approveLiberateBtn').onclick=async()=>{await quickUpdate(ev.id,{status_publicacao:'aprovado',status_pagamento: ev.tipo_servico==='divulgacao_gratuita' ? 'dispensado' : 'pago'},card,false); await liberate(ev.id,card);};
   card.querySelector('.liberateBtn').onclick=()=>liberate(ev.id,card);
-  const resendEmailBtn=card.querySelector('.resendEmailBtn');
-  if(resendEmailBtn) resendEmailBtn.onclick=()=>resendEmail(ev.id,card);
   const deleteBtn = card.querySelector('.deleteBtn');
   if(deleteBtn) deleteBtn.onclick=()=>deleteEvent(ev.id,card);
   return card;
@@ -341,21 +337,6 @@ function valorDataInput(v){
   return local.toISOString().slice(0,16);
 }
 
-
-function formatarStatusEmail(ev){
-  const status = ev.email_liberacao_status || '';
-  if(status === 'enviado') return 'enviado com sucesso';
-  if(status === 'erro') return 'erro no envio';
-  if(status === 'nao_enviado') return 'não enviado';
-  return 'ainda não enviado';
-}
-function mensagemResultadoEmail(resultado){
-  if(!resultado) return 'Sem informação sobre envio de e-mail.';
-  if(resultado.ok) return 'E-mail enviado com sucesso.';
-  if(resultado.skipped) return 'E-mail não enviado: ' + (resultado.reason || 'envio ignorado.');
-  return 'Evento liberado, mas houve falha no envio do e-mail.';
-}
-
 async function saveEvent(id,card){
   const body={};
   card.querySelectorAll('[data-field]').forEach(el=>body[el.dataset.field]=el.value);
@@ -388,40 +369,13 @@ async function quickUpdate(id,body,card,reload=true){
 }
 async function liberate(id,card){
   const st=card.querySelector('.eventStatus');
-  const enviarEmail = card.querySelector('.sendEmailOnRelease')?.checked !== false;
-  st.textContent='Liberando evento...';
-  st.className='status eventStatus';
+  st.textContent='Liberando evento...'; st.className='status eventStatus';
   try{
-    const data=await api('/liberar-evento/'+id,{
-      method:'POST',
-      body:JSON.stringify({enviar_email:enviarEmail})
-    });
-    const emailMsg=mensagemResultadoEmail(data.email_resultado);
-    st.textContent='Evento liberado. '+(data.senha_transmissor?('Senha: '+data.senha_transmissor+' | Sala: '+data.sala_codigo+'. '):'')+emailMsg;
-    st.className='status eventStatus '+(data.email_resultado&&data.email_resultado.ok?'success':(enviarEmail?'error':'success'));
+    const data=await api('/liberar-evento/'+id,{method:'POST'});
+    st.textContent='Evento liberado. '+(data.senha_transmissor?('Senha: '+data.senha_transmissor+' | Sala: '+data.sala_codigo):'');
+    st.className='status eventStatus success';
     await loadEvents();
-  }catch(e){
-    st.textContent='Erro: '+e.message;
-    st.className='status eventStatus error';
-  }
-}
-
-
-async function resendEmail(id,card){
-  const st=card.querySelector('.eventStatus');
-  const confirmed=confirm('Deseja reenviar o e-mail de acesso ao responsável pelo evento?');
-  if(!confirmed) return;
-  st.textContent='Reenviando e-mail...';
-  st.className='status eventStatus';
-  try{
-    const data=await api('/admin/eventos/'+id+'/reenviar-email',{method:'POST'});
-    st.textContent=mensagemResultadoEmail(data.email_resultado);
-    st.className='status eventStatus '+(data.email_resultado&&data.email_resultado.ok?'success':'error');
-    await loadEvents();
-  }catch(e){
-    st.textContent='Erro ao reenviar e-mail: '+e.message;
-    st.className='status eventStatus error';
-  }
+  }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
 }
 
 async function deleteEvent(id,card){
