@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gerenciar e-mails — Audesc</title>
+<style>
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;margin:0;background:#f7f7f7;color:#111}
+header,main{max-width:1100px;margin:0 auto;padding:20px}
+.panel,.card{background:#fff;border:1px solid #ddd;border-radius:12px;padding:18px;margin-top:16px}
+label{display:block;font-weight:700;margin-top:12px}
+input,textarea,select,button{font:inherit}
+input,textarea,select{width:100%;box-sizing:border-box;padding:10px;margin-top:5px;border:1px solid #999;border-radius:8px;background:#fff;color:#111}
+textarea{min-height:140px}
+button{margin:8px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:pointer;font-weight:700;background:#111;color:#fff}
+button.secondary{background:#555}.danger{background:#9b0000}.ok{background:#126b2e}
+.status{margin-top:12px;padding:10px;border-radius:8px;border:1px solid #aaa;background:#f0f0f0}
+.success{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+.email-item{border-top:1px solid #ddd;padding:10px 0}
+.badge{display:inline-block;padding:3px 8px;border-radius:999px;background:#eee;margin-right:6px;font-size:.9rem}
+.badge-confiavel{background:#e8f6ec}.badge-bloqueado{background:#fff0f0}.badge-comum{background:#eee}
+.small{font-size:.95rem;color:#444}
+</style>
+</head>
+<body>
+<header>
+<a href="admin.html">Voltar ao painel administrativo</a>
+<h1>Gerenciar e-mails</h1>
+<p>Controle e-mails de organizadores de eventos e de usuários cadastrados para receber notificações.</p>
+</header>
+<main>
+<section class="panel" id="loginPanel">
+<h2>Acesso administrativo</h2>
+<label for="adminToken">Senha administrativa</label>
+<input id="adminToken" type="password">
+<button id="loginBtn" type="button">Entrar</button>
+<div id="loginStatus" class="status">Informe a senha administrativa.</div>
+</section>
+
+<section class="panel" id="contentPanel" style="display:none">
+<h2>E-mails cadastrados</h2>
+<div class="grid">
+<div>
+<label for="busca">Buscar</label>
+<input id="busca" type="search" placeholder="Digite e-mail ou status">
+</div>
+<div>
+<label for="filtro">Filtro</label>
+<select id="filtro">
+<option value="todos">Todos</option>
+<option value="comum">Comuns</option>
+<option value="confiavel">Confiáveis</option>
+<option value="bloqueado">Bloqueados</option>
+<option value="eventos">Usaram cadastro de eventos</option>
+<option value="notificacoes">Cadastrados para notificações</option>
+</select>
+</div>
+</div>
+
+<p>
+<button type="button" onclick="selecionarTodos()">Selecionar exibidos</button>
+<button type="button" onclick="limparSelecao()" class="secondary">Limpar seleção</button>
+<button type="button" onclick="alterarStatus('confiavel')" class="ok">Classificar como confiável</button>
+<button type="button" onclick="alterarStatus('comum')" class="secondary">Classificar como comum</button>
+<button type="button" onclick="alterarStatus('bloqueado')" class="danger">Bloquear</button>
+<button type="button" onclick="excluirSelecionados()" class="danger">Excluir selecionados</button>
+</p>
+
+<div id="resumo" class="status">Aguardando carregamento.</div>
+<div id="listaEmails"></div>
+
+<h2>Enviar mensagem aos e-mails selecionados</h2>
+<div class="card">
+<label for="assunto">Assunto</label>
+<input id="assunto">
+<label for="mensagem">Mensagem</label>
+<textarea id="mensagem"></textarea>
+<label for="anexos">Anexos opcionais</label>
+<input id="anexos" type="file" multiple>
+<p class="small">Para evitar arquivos muito grandes, envie poucos anexos. O envio será feito pelo Resend.</p>
+<button type="button" onclick="enviarMensagem()">Enviar mensagem</button>
+</div>
+
+<div id="status" class="status">Pronto.</div>
+</section>
+</main>
+
+<script>
+const API_URL='https://audesc-events-api.onrender.com';
+let ADMIN_TOKEN='';
+let emails=[];
+
+function status(id,msg,cls){const el=document.getElementById(id);el.textContent=msg;el.className='status'+(cls?' '+cls:'')}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+async function api(path, options={}){
+ const headers=Object.assign({'Content-Type':'application/json','x-admin-token':ADMIN_TOKEN}, options.headers||{});
+ const res=await fetch(API_URL+path,Object.assign({},options,{headers}));
+ const json=await res.json().catch(()=>({}));
+ if(!res.ok) throw new Error(json.error||'Erro na API');
+ return json;
+}
+
+function selecionados(){return [...document.querySelectorAll('.emailCheck:checked')].map(c=>c.value)}
+function filtrar(){
+ const q=(document.getElementById('busca').value||'').toLowerCase().trim();
+ const f=document.getElementById('filtro').value;
+ return emails.filter(e=>{
+  const texto=[e.email,e.status,e.observacao].join(' ').toLowerCase();
+  if(q && !texto.includes(q)) return false;
+  if(f==='todos') return true;
+  if(f==='eventos') return e.origem_eventos;
+  if(f==='notificacoes') return e.origem_notificacoes;
+  return e.status===f;
+ });
+}
+function renderResumo(){
+ document.getElementById('resumo').textContent=`Total: ${emails.length}. Exibidos: ${filtrar().length}. Selecionados: ${selecionados().length}.`;
+}
+function render(){
+ const lista=filtrar();
+ const root=document.getElementById('listaEmails');
+ root.innerHTML='';
+ renderResumo();
+ if(!lista.length){root.innerHTML='<p>Nenhum e-mail encontrado.</p>';return}
+ lista.forEach(e=>{
+  const div=document.createElement('div');
+  div.className='email-item';
+  div.innerHTML=`
+   <label>
+    <input class="emailCheck" type="checkbox" value="${esc(e.email)}" onchange="renderResumo()">
+    ${esc(e.email)}
+   </label>
+   <p>
+    <span class="badge badge-${esc(e.status||'comum')}">${esc(e.status||'comum')}</span>
+    ${e.origem_eventos?'<span class="badge">eventos</span>':''}
+    ${e.origem_notificacoes?'<span class="badge">notificações</span>':''}
+   </p>
+   <p class="small">
+    Eventos cadastrados: ${e.total_eventos||0}<br>
+    Notificações ativas: ${e.notificacoes_ativas?'sim':'não'}<br>
+    Notificações validadas: ${e.notificacoes_validadas?'sim':'não'}
+    ${e.observacao?'<br>Observação: '+esc(e.observacao):''}
+   </p>`;
+  root.appendChild(div);
+ });
+}
+async function carregar(){
+ status('status','Carregando e-mails...','');
+ const data=await api('/admin/emails');
+ emails=data.emails||[];
+ render();
+ status('status','E-mails carregados.','success');
+}
+function selecionarTodos(){document.querySelectorAll('.emailCheck').forEach(c=>c.checked=true);renderResumo()}
+function limparSelecao(){document.querySelectorAll('.emailCheck').forEach(c=>c.checked=false);renderResumo()}
+async function alterarStatus(novoStatus){
+ const lista=selecionados();
+ if(!lista.length){status('status','Selecione ao menos um e-mail.','error');return}
+ try{await api('/admin/emails/status',{method:'PATCH',body:JSON.stringify({emails:lista,status:novoStatus})});await carregar();status('status','Status atualizado.','success')}
+ catch(e){status('status','Erro: '+e.message,'error')}
+}
+async function excluirSelecionados(){
+ const lista=selecionados();
+ if(!lista.length){status('status','Selecione ao menos um e-mail.','error');return}
+ if(!confirm('Excluir os e-mails selecionados das notificações e da lista de controle? Eventos já cadastrados serão preservados.')) return;
+ try{await api('/admin/emails',{method:'DELETE',body:JSON.stringify({emails:lista})});await carregar();status('status','E-mails excluídos da base de controle/notificações.','success')}
+ catch(e){status('status','Erro: '+e.message,'error')}
+}
+function arquivoParaBase64(file){
+ return new Promise((resolve,reject)=>{
+  const reader=new FileReader();
+  reader.onload=()=>resolve(String(reader.result).split(',')[1]||'');
+  reader.onerror=reject;
+  reader.readAsDataURL(file);
+ });
+}
+async function coletarAnexos(){
+ const input=document.getElementById('anexos');
+ const files=[...(input.files||[])].slice(0,3);
+ const anexos=[];
+ for(const file of files){anexos.push({filename:file.name,content:await arquivoParaBase64(file)})}
+ return anexos;
+}
+async function enviarMensagem(){
+ const lista=selecionados();
+ if(!lista.length){status('status','Selecione ao menos um e-mail.','error');return}
+ const assunto=document.getElementById('assunto').value.trim();
+ const mensagem=document.getElementById('mensagem').value.trim();
+ if(!assunto||!mensagem){status('status','Informe assunto e mensagem.','error');return}
+ try{
+  status('status','Preparando envio...','');
+  const anexos=await coletarAnexos();
+  await api('/admin/emails/enviar-mensagem',{method:'POST',body:JSON.stringify({emails:lista,assunto,mensagem,anexos})});
+  status('status','Mensagem enviada.','success');
+ }catch(e){status('status','Erro ao enviar: '+e.message,'error')}
+}
+document.getElementById('busca').addEventListener('input',render);
+document.getElementById('filtro').addEventListener('change',render);
+document.getElementById('loginBtn').onclick=async()=>{
+ ADMIN_TOKEN=document.getElementById('adminToken').value.trim();
+ if(!ADMIN_TOKEN){status('loginStatus','Informe a senha.','error');return}
+ try{
+  status('loginStatus','Validando...','');
+  await api('/admin/emails');
+  document.getElementById('loginPanel').style.display='none';
+  document.getElementById('contentPanel').style.display='';
+  await carregar();
+ }catch(e){status('loginStatus','Erro: '+e.message,'error')}
+};
+</script>
+</body>
+</html>
