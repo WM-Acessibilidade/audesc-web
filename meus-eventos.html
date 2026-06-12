@@ -15,7 +15,7 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 .success{border-color:#237a3b;background:#e8f6ec}
 .error{border-color:#a40000;background:#fff0f0}
 .small{font-size:.95rem;color:#444}
-.toplink{margin-bottom:16px}.skiplinks a{display:inline-block;margin-right:12px}.card h3 a{color:#0645ad}
+.toplink{margin-bottom:16px}.skiplinks a{display:inline-block;margin-right:12px}.card h3 a{color:#0645ad}.filtros-eventos{border:1px solid #ccc;border-radius:8px;padding:12px;margin:16px 0;background:#fff}.filtros-eventos legend{font-weight:bold}.filtros-eventos label{display:block;margin:8px 0}
 </style>
 </head>
 <body>
@@ -38,11 +38,18 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 <p id="emailAutenticado" class="msg success"></p>
 <button id="sair" type="button">Sair / usar outro e-mail</button>
 
-<div id="status" class="msg">Carregando eventos...</div>
-<nav class="skiplinks" aria-label="Navegação rápida da lista de eventos">
-<a href="#eventos-pendentes">Ir para eventos pendentes</a>
-<a href="#eventos-liberados">Ir para eventos liberados</a>
-</nav>
+<div class="msg">
+<p>Nesta página, o nome de cada evento funciona como um link.</p>
+<p>Eventos pendentes abrem a página de visualização e edição. Eventos liberados abrem a página pública do anúncio.</p>
+</div>
+<div id="status" class="msg">Total de eventos: 0</div>
+<fieldset class="filtros-eventos" aria-describedby="ajudaFiltroEventos">
+<legend>Exibição dos eventos</legend>
+<p id="ajudaFiltroEventos" class="small">Selecione uma opção. Apenas uma opção pode ficar marcada por vez.</p>
+<label><input type="checkbox" name="filtroEventos" id="filtroTotal" value="todos"> Total de eventos (<span id="contadorTotal">0</span>)</label>
+<label><input type="checkbox" name="filtroEventos" id="filtroPendentes" value="pendentes" checked> Eventos pendentes (<span id="contadorPendentes">0</span>)</label>
+<label><input type="checkbox" name="filtroEventos" id="filtroLiberados" value="liberados"> Eventos liberados (<span id="contadorLiberados">0</span>)</label>
+</fieldset>
 <div id="lista-eventos"></div>
 </section>
 
@@ -51,6 +58,8 @@ const API='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY='sb_publishable_0O38-ahRI_iRA-oyKIaOew_QgWjBpkW';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+let eventosCache=[];
+let filtroAtual='pendentes';
 
 function t(v){ return v || '—'; }
 
@@ -157,6 +166,30 @@ function mostrarEventos(session){
  document.getElementById('emailAutenticado').textContent='E-mail autenticado: '+session.user.email+'. Por questão de segurança, clique em Sair ou feche o navegador quando terminar.';
 }
 
+
+function configurarFiltrosEventos(){
+ const checks=[...document.querySelectorAll('input[name="filtroEventos"]')];
+ checks.forEach(chk=>{
+  chk.addEventListener('change',()=>{
+   if(!chk.checked){ chk.checked=true; return; }
+   filtroAtual=chk.value;
+   checks.forEach(outro=>{ if(outro!==chk) outro.checked=false; });
+   renderEventos(eventosCache);
+  });
+ });
+}
+function atualizarContadores(total, pendentes, liberados){
+ document.getElementById('contadorTotal').textContent=String(total);
+ document.getElementById('contadorPendentes').textContent=String(pendentes);
+ document.getElementById('contadorLiberados').textContent=String(liberados);
+ document.getElementById('status').textContent='Total de eventos: '+total;
+}
+function eventosFiltrados(visiveis, pendentes, liberados){
+ if(filtroAtual==='todos') return visiveis;
+ if(filtroAtual==='liberados') return liberados;
+ return pendentes;
+}
+
 function renderEventos(eventos){
  const ocultos=obterEventosOcultos();
  const visiveis=eventos.filter(ev=>!ocultos.includes(ev.id));
@@ -168,7 +201,6 @@ function renderEventos(eventos){
   return `
   <section class="card">
    <h3><a href="${ev.status_operacao==='liberado' && ev.status_publicacao==='aprovado' ? 'evento.html?id='+encodeURIComponent(ev.id) : 'meu-evento.html?id='+encodeURIComponent(ev.id)}">${t(ev.titulo_publicado||ev.titulo_original)}</a></h3>
-   <p class="small">O nome do evento é um link. Eventos pendentes abrem a página de visualização e edição; eventos liberados abrem o anúncio público.</p>
    <p class="status">
     Publicação: ${t(ev.status_publicacao)} |
     Pagamento: ${t(ev.status_pagamento)} |
@@ -191,12 +223,14 @@ function renderEventos(eventos){
   </section>`;
  }
 
- let conteudo='<h2 id="eventos-pendentes">Pendentes</h2>';
- conteudo+=pendentes.length?pendentes.map(card).join(''):'<p>Nenhum evento pendente.</p>';
-
- conteudo+='<h2 id="eventos-liberados">Liberados</h2>';
- conteudo+=liberados.length?liberados.map(card).join(''):'<p>Nenhum evento liberado.</p>';
-
+ atualizarContadores(visiveis.length, pendentes.length, liberados.length);
+ const lista=eventosFiltrados(visiveis, pendentes, liberados);
+ let titulo='Eventos pendentes';
+ let vazio='Nenhum evento pendente.';
+ if(filtroAtual==='todos'){ titulo='Total de eventos'; vazio='Nenhum evento encontrado.'; }
+ if(filtroAtual==='liberados'){ titulo='Eventos liberados'; vazio='Nenhum evento liberado.'; }
+ let conteudo='<h2>'+titulo+'</h2>';
+ conteudo+=lista.length?lista.map(card).join(''):'<p>'+vazio+'</p>';
  document.getElementById('lista-eventos').innerHTML=conteudo;
 }
 
@@ -221,10 +255,11 @@ async function carregarEventos(){
 
   if(!r.ok) throw new Error(dataEventos.error||dataEventos.erro||'Erro ao carregar eventos.');
 
+  eventosCache=dataEventos.eventos||[];
   const ocultos=obterEventosOcultos();
-  const totalVisiveis=(dataEventos.eventos||[]).filter(ev=>!ocultos.includes(ev.id)).length;
+  const totalVisiveis=eventosCache.filter(ev=>!ocultos.includes(ev.id)).length;
 
-  document.getElementById('status').textContent='Eventos visíveis nesta página: '+totalVisiveis;
+  document.getElementById('status').textContent='Total de eventos: '+totalVisiveis;
 
   if(!dataEventos.eventos || !dataEventos.eventos.length){
    document.getElementById('lista-eventos').innerHTML='<p>Nenhum evento encontrado para este e-mail.</p>';
@@ -238,6 +273,7 @@ async function carregarEventos(){
 }
 
 document.getElementById('enviarLink').addEventListener('click', enviarLink);
+configurarFiltrosEventos();
 
 document.getElementById('sair').addEventListener('click', async()=>{
  await sb.auth.signOut();
