@@ -42,14 +42,12 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 <p>Nesta página, o nome de cada evento funciona como um link.</p>
 <p>Eventos pendentes abrem a página de visualização e edição. Eventos liberados abrem a página pública do anúncio.</p>
 </div>
-<div id="status" class="msg">Total de eventos: 0</div>
-<fieldset class="filtros-eventos" aria-describedby="ajudaFiltroEventos">
-<legend>Exibição dos eventos</legend>
-<p id="ajudaFiltroEventos" class="small">Selecione uma opção. Apenas uma opção pode ficar marcada por vez.</p>
+<fieldset class="filtros-eventos">
 <label><input type="checkbox" name="filtroEventos" id="filtroTotal" value="todos"> Total de eventos (<span id="contadorTotal">0</span>)</label>
 <label><input type="checkbox" name="filtroEventos" id="filtroPendentes" value="pendentes" checked> Eventos pendentes (<span id="contadorPendentes">0</span>)</label>
 <label><input type="checkbox" name="filtroEventos" id="filtroLiberados" value="liberados"> Eventos liberados (<span id="contadorLiberados">0</span>)</label>
 </fieldset>
+<div id="status" class="msg" hidden></div>
 <div id="lista-eventos"></div>
 </section>
 
@@ -66,6 +64,7 @@ function t(v){ return v || '—'; }
 function setMsg(id,msg,cls){
  const el=document.getElementById(id);
  if(!el) return;
+ el.hidden=false;
  el.textContent=msg;
  el.className='msg'+(cls?' '+cls:'');
 }
@@ -182,7 +181,6 @@ function atualizarContadores(total, pendentes, liberados){
  document.getElementById('contadorTotal').textContent=String(total);
  document.getElementById('contadorPendentes').textContent=String(pendentes);
  document.getElementById('contadorLiberados').textContent=String(liberados);
- document.getElementById('status').textContent='Total de eventos: '+total;
 }
 function eventosFiltrados(visiveis, pendentes, liberados){
  if(filtroAtual==='todos') return visiveis;
@@ -258,8 +256,6 @@ async function carregarEventos(){
   eventosCache=dataEventos.eventos||[];
   const ocultos=obterEventosOcultos();
   const totalVisiveis=eventosCache.filter(ev=>!ocultos.includes(ev.id)).length;
-
-  document.getElementById('status').textContent='Total de eventos: '+totalVisiveis;
 
   if(!dataEventos.eventos || !dataEventos.eventos.length){
    document.getElementById('lista-eventos').innerHTML='<p>Nenhum evento encontrado para este e-mail.</p>';
