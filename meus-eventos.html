@@ -15,7 +15,7 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 .success{border-color:#237a3b;background:#e8f6ec}
 .error{border-color:#a40000;background:#fff0f0}
 .small{font-size:.95rem;color:#444}
-.toplink{margin-bottom:16px}
+.toplink{margin-bottom:16px}.skiplinks a{display:inline-block;margin-right:12px}.card h3 a{color:#0645ad}
 </style>
 </head>
 <body>
@@ -39,6 +39,10 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 <button id="sair" type="button">Sair / usar outro e-mail</button>
 
 <div id="status" class="msg">Carregando eventos...</div>
+<nav class="skiplinks" aria-label="Navegação rápida da lista de eventos">
+<a href="#eventos-pendentes">Ir para eventos pendentes</a>
+<a href="#eventos-liberados">Ir para eventos liberados</a>
+</nav>
 <div id="lista-eventos"></div>
 </section>
 
@@ -163,7 +167,8 @@ function renderEventos(eventos){
  function card(ev){
   return `
   <section class="card">
-   <h3>${t(ev.titulo_publicado||ev.titulo_original)}</h3>
+   <h3><a href="${ev.status_operacao==='liberado' && ev.status_publicacao==='aprovado' ? 'evento.html?id='+encodeURIComponent(ev.id) : 'meu-evento.html?id='+encodeURIComponent(ev.id)}">${t(ev.titulo_publicado||ev.titulo_original)}</a></h3>
+   <p class="small">O nome do evento é um link. Eventos pendentes abrem a página de visualização e edição; eventos liberados abrem o anúncio público.</p>
    <p class="status">
     Publicação: ${t(ev.status_publicacao)} |
     Pagamento: ${t(ev.status_pagamento)} |
@@ -186,10 +191,10 @@ function renderEventos(eventos){
   </section>`;
  }
 
- let conteudo='<h2>Pendentes</h2>';
+ let conteudo='<h2 id="eventos-pendentes">Pendentes</h2>';
  conteudo+=pendentes.length?pendentes.map(card).join(''):'<p>Nenhum evento pendente.</p>';
 
- conteudo+='<h2>Liberados</h2>';
+ conteudo+='<h2 id="eventos-liberados">Liberados</h2>';
  conteudo+=liberados.length?liberados.map(card).join(''):'<p>Nenhum evento liberado.</p>';
 
  document.getElementById('lista-eventos').innerHTML=conteudo;
