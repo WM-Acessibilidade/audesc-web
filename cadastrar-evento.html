@@ -33,7 +33,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <header>
 <a href="eventos.html">Voltar</a>
 <h1>Cadastrar evento acessível</h1>
-<p>Confirme seu e-mail por link. Por questão de segurança, clique em sair ou feche o navegador quando terminar.
+<p>Por questão de segurança, clique em sair ou feche o navegador quando terminar.
 </p>
 </header>
 <main>
@@ -114,7 +114,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <label for="link_acessibilidade">Link sobre acessibilidade / audiodescrição</label><input id="link_acessibilidade" name="link_acessibilidade" type="url" placeholder="https://">
 <div class="hidden" aria-hidden="true"><label for="website">Não preencha</label><input id="website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
 <button id="submitBtn" type="submit">Enviar solicitação</button>
-<div id="status" class="status" role="status" aria-live="polite">Aguardando preenchimento.</div>
+<div id="status" class="status" role="status" aria-live="polite" tabindex="-1">Aguardando preenchimento.</div>
 </form>
 </section>
 </main>
@@ -271,12 +271,11 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  try{
   const r=await fetch(API_URL+'/criar-evento',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify(data)});
   const j=await r.json();if(!r.ok)throw new Error(j.error||'Erro ao enviar solicitação.');
-  if(data.tipo_servico === 'divulgacao_gratuita'){
-   setStatus('status','Evento recebido e enviado para curadoria antes da publicação.','success');
-  }else{
-   setStatus('status','Evento recebido e enviado para curadoria antes da publicação. Em breve você receberá um e-mail com informações de pagamento e instruções de acesso.','success');
-  }
+  const status = document.getElementById('status');
+  status.className = 'status success';
+  status.innerHTML = 'Evento recebido. Você pode continuar cadastrando eventos. Assim que terminar, acesse <a href="meus-eventos.html">Meus Eventos</a> para efetuar o pagamento.';
   form.reset();atualizarLocalizacao();
+  status.focus();
  }catch(err){setStatus('status','Erro: '+(err.message||'não foi possível enviar.'),'error')}
  finally{btn.disabled=false}
 };
