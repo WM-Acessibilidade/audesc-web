@@ -15,7 +15,7 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 .success{border-color:#237a3b;background:#e8f6ec}
 .error{border-color:#a40000;background:#fff0f0}
 .small{font-size:.95rem;color:#444}
-.toplink{margin-bottom:16px}.skiplinks a{display:inline-block;margin-right:12px}.card h3 a{color:#0645ad}.filtros-eventos{border:1px solid #ccc;border-radius:8px;padding:12px;margin:16px 0;background:#fff}.filtros-eventos legend{font-weight:bold}.filtros-eventos label{display:block;margin:8px 0}
+.toplink{margin-bottom:16px}.skiplinks a{display:inline-block;margin-right:12px}.card h3 a{color:#0645ad}.filtros-eventos{border:1px solid #ccc;border-radius:8px;padding:12px;margin:16px 0;background:#fff}.filtros-eventos label{display:block;margin:8px 0}
 </style>
 </head>
 <body>
@@ -43,9 +43,9 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 <p>Eventos pendentes abrem a página de visualização e edição. Eventos liberados abrem a página pública do anúncio.</p>
 </div>
 <fieldset class="filtros-eventos">
-<label><input type="checkbox" name="filtroEventos" id="filtroTotal" value="todos"> Total de eventos (<span id="contadorTotal">0</span>)</label>
-<label><input type="checkbox" name="filtroEventos" id="filtroPendentes" value="pendentes" checked> Eventos pendentes (<span id="contadorPendentes">0</span>)</label>
-<label><input type="checkbox" name="filtroEventos" id="filtroLiberados" value="liberados"> Eventos liberados (<span id="contadorLiberados">0</span>)</label>
+<label><input type="radio" name="filtroEventos" id="filtroTotal" value="todos"> Total de eventos, <span id="contadorTotal">0</span></label>
+<label><input type="radio" name="filtroEventos" id="filtroPendentes" value="pendentes" checked> Eventos pendentes, <span id="contadorPendentes">0</span></label>
+<label><input type="radio" name="filtroEventos" id="filtroLiberados" value="liberados"> Eventos liberados, <span id="contadorLiberados">0</span></label>
 </fieldset>
 <div id="status" class="msg" hidden></div>
 <div id="lista-eventos"></div>
@@ -167,12 +167,11 @@ function mostrarEventos(session){
 
 
 function configurarFiltrosEventos(){
- const checks=[...document.querySelectorAll('input[name="filtroEventos"]')];
- checks.forEach(chk=>{
-  chk.addEventListener('change',()=>{
-   if(!chk.checked){ chk.checked=true; return; }
-   filtroAtual=chk.value;
-   checks.forEach(outro=>{ if(outro!==chk) outro.checked=false; });
+ const opcoes=[...document.querySelectorAll('input[name="filtroEventos"]')];
+ opcoes.forEach(opcao=>{
+  opcao.addEventListener('change',()=>{
+   if(!opcao.checked) return;
+   filtroAtual=opcao.value;
    renderEventos(eventosCache);
   });
  });
