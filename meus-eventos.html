@@ -43,9 +43,18 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 <p>Eventos pendentes abrem a página de visualização e edição. Eventos liberados abrem a página pública do anúncio.</p>
 </div>
 <fieldset class="filtros-eventos">
-<label><input type="radio" name="filtroEventos" id="filtroTotal" value="todos"> Total de eventos, <span id="contadorTotal">0</span></label>
-<label><input type="radio" name="filtroEventos" id="filtroPendentes" value="pendentes" checked> Eventos pendentes, <span id="contadorPendentes">0</span></label>
-<label><input type="radio" name="filtroEventos" id="filtroLiberados" value="liberados"> Eventos liberados, <span id="contadorLiberados">0</span></label>
+<label>
+<input type="radio" name="filtroEventos" id="filtroTotal" value="todos" aria-label="Total de eventos, 0">
+<span aria-hidden="true">Total de eventos, <span id="contadorTotal">0</span></span>
+</label>
+<label>
+<input type="radio" name="filtroEventos" id="filtroPendentes" value="pendentes" checked aria-label="Eventos pendentes, 0">
+<span aria-hidden="true">Eventos pendentes, <span id="contadorPendentes">0</span></span>
+</label>
+<label>
+<input type="radio" name="filtroEventos" id="filtroLiberados" value="liberados" aria-label="Eventos liberados, 0">
+<span aria-hidden="true">Eventos liberados, <span id="contadorLiberados">0</span></span>
+</label>
 </fieldset>
 <div id="status" class="msg" hidden></div>
 <div id="lista-eventos"></div>
@@ -180,6 +189,14 @@ function atualizarContadores(total, pendentes, liberados){
  document.getElementById('contadorTotal').textContent=String(total);
  document.getElementById('contadorPendentes').textContent=String(pendentes);
  document.getElementById('contadorLiberados').textContent=String(liberados);
+
+ const totalInput=document.getElementById('filtroTotal');
+ const pendentesInput=document.getElementById('filtroPendentes');
+ const liberadosInput=document.getElementById('filtroLiberados');
+
+ if(totalInput) totalInput.setAttribute('aria-label','Total de eventos, '+total);
+ if(pendentesInput) pendentesInput.setAttribute('aria-label','Eventos pendentes, '+pendentes);
+ if(liberadosInput) liberadosInput.setAttribute('aria-label','Eventos liberados, '+liberados);
 }
 function eventosFiltrados(visiveis, pendentes, liberados){
  if(filtroAtual==='todos') return visiveis;
