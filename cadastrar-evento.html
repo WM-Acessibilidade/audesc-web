@@ -280,7 +280,7 @@ function atualizarLocalizacao(){
  atualizarOpcoesServico();
  ajustarVisibilidade();
 }
-paisSelect.addEventListener('change',atualizarLocalizacao);atualizarLocalizacao();
+paisSelect.addEventListener('change',atualizarLocalizacao);
 
 document.getElementById('eventoForm').onsubmit=async(e)=>{
  e.preventDefault();
@@ -379,6 +379,7 @@ function ajustarVisibilidade(){
 
 tipoServico.addEventListener('change', ajustarVisibilidade);
 ufSelect.addEventListener('change',()=>{atualizarOpcoesServico();ajustarVisibilidade();});
+atualizarLocalizacao();
 atualizarOpcoesServico();
 ajustarVisibilidade();
 
