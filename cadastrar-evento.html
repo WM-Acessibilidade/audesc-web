@@ -55,8 +55,12 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <textarea id="descricao_original" name="descricao_original" maxlength="5000"></textarea>
 
 <div class="grid">
-<div><label for="tipo_servico">Tipo de solicitação</label><select id="tipo_servico" name="tipo_servico"><option value="audesc_transmissao">Contratar transmissão pelo Audesc</option><option value="divulgacao_gratuita">Apenas divulgar evento com audiodescrição</option></select></div>
-<div><label for="tipo_evento">Visibilidade</label><select id="tipo_evento" name="tipo_evento"><option value="publico">Público, com divulgação no Audesc</option><option value="privado">Restrita, sem divulgação pública</option></select></div>
+<div><label for="tipo_servico">Tipo de solicitação</label><select id="tipo_servico" name="tipo_servico"><option value="audesc_transmissao">Contratar transmissão pelo Audesc</option><option value="divulgacao_gratuita">Somente divulgar evento com audiodescrição</option>
+<option value="audesc_com_audiodescritor" data-df-only="true">Serviço completo - Audesc + audiodescritor</option>
+<option value="somente_audiodescritor" data-df-only="true">Somente audiodescritor</option>
+<option value="somente_consultor" data-df-only="true">Somente consultor</option>
+</select></div>
+<div id="visibilidadeBox"><label for="tipo_evento">Visibilidade</label><select id="tipo_evento" name="tipo_evento"><option value="publico">Público, com divulgação no Audesc</option><option value="privado">Restrita, sem divulgação pública</option></select></div>
 </div>
 
 <div id="acessoOuvintesBox">
@@ -101,6 +105,18 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <option value="Internacional">Internacional</option>
 </select></div>
 <div id="paisOutroBox" class="hidden"><label for="pais_outro">Informe o país</label><input id="pais_outro" name="pais_outro" type="text" maxlength="100"></div>
+<div id="origemTransmissaoBox" class="hidden"><label for="origem_transmissao">Origem da transmissão</label><select id="origem_transmissao" name="origem_transmissao">
+<option value="">Selecione</option>
+<option value="Brasil">Brasil</option>
+<option value="Angola">Angola</option>
+<option value="Cabo Verde">Cabo Verde</option>
+<option value="Guiné-Bissau">Guiné-Bissau</option>
+<option value="Guiné Equatorial">Guiné Equatorial</option>
+<option value="Moçambique">Moçambique</option>
+<option value="Portugal">Portugal</option>
+<option value="São Tomé e Príncipe">São Tomé e Príncipe</option>
+<option value="Timor-Leste">Timor-Leste</option>
+</select></div>
 <div><label for="uf" id="ufLabel">Unidade administrativa</label>
 <select id="uf" name="uf">
 <option value="">Selecione</option>
@@ -154,7 +170,7 @@ document.getElementById('sendLinkBtn').onclick=async()=>{
  finally{document.getElementById('sendLinkBtn').disabled=false}
 };
 
-const paisSelect=document.getElementById('pais'),ufSelect=document.getElementById('uf'),paisOutroBox=document.getElementById('paisOutroBox'),paisOutroInput=document.getElementById('pais_outro');
+const paisSelect=document.getElementById('pais'),ufSelect=document.getElementById('uf'),paisOutroBox=document.getElementById('paisOutroBox'),paisOutroInput=document.getElementById('pais_outro'),origemTransmissaoBox=document.getElementById('origemTransmissaoBox'),origemTransmissaoSelect=document.getElementById('origem_transmissao');
 const unidadesAdministrativas = {
  Brasil: {
   rotulo: 'Unidade federativa',
@@ -226,7 +242,11 @@ function atualizarLocalizacao(){
   ufSelect.value = '';
   ufSelect.disabled = true;
   if(ufContainer) ufContainer.classList.add('hidden');
+  if(origemTransmissaoBox) origemTransmissaoBox.classList.remove('hidden');
+  if(origemTransmissaoSelect) origemTransmissaoSelect.required = true;
  }else if(dados){
+  if(origemTransmissaoBox) origemTransmissaoBox.classList.add('hidden');
+  if(origemTransmissaoSelect){ origemTransmissaoSelect.required=false; origemTransmissaoSelect.value=''; }
   if(ufContainer) ufContainer.classList.remove('hidden');
   label.textContent = dados.rotulo;
   dados.opcoes.forEach(item=>{
@@ -247,6 +267,8 @@ function atualizarLocalizacao(){
   ufSelect.disabled=false;
   ufSelect.value=dados.padrao || '';
  }else{
+  if(origemTransmissaoBox) origemTransmissaoBox.classList.add('hidden');
+  if(origemTransmissaoSelect){ origemTransmissaoSelect.required=false; origemTransmissaoSelect.value=''; }
   if(ufContainer) ufContainer.classList.remove('hidden');
   label.textContent = 'Unidade administrativa';
   ufSelect.value='';
@@ -255,6 +277,8 @@ function atualizarLocalizacao(){
 
  if(paisOutroBox) paisOutroBox.classList.add('hidden');
  if(paisOutroInput){ paisOutroInput.required=false; paisOutroInput.value=''; }
+ atualizarOpcoesServico();
+ ajustarVisibilidade();
 }
 paisSelect.addEventListener('change',atualizarLocalizacao);atualizarLocalizacao();
 
@@ -268,9 +292,15 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const data=Object.fromEntries(new FormData(form).entries());
  if(data.pais!=='Outros'&&data.pais!=='Internacional'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
+ if(data.pais==='Internacional'&&!data.origem_transmissao){setStatus('status','Selecione a origem da transmissão.','error');btn.disabled=false;return}
  
  if(data.tipo_servico === 'divulgacao_gratuita'){
   delete data.duracao_horas;
+  delete data.max_ouvintes;
+  data.divulgar_acesso_ouvintes = false;
+  data.tipo_evento = 'publico';
+ }
+ if(data.tipo_servico === 'somente_audiodescritor' || data.tipo_servico === 'somente_consultor'){
   delete data.max_ouvintes;
   data.divulgar_acesso_ouvintes = false;
  }
@@ -291,8 +321,18 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
 
 const tipoServico = document.getElementById('tipo_servico');
 const tipoEvento = document.getElementById('tipo_evento');
+const visibilidadeBox = document.getElementById('visibilidadeBox');
 const acessoOuvintesBox = document.getElementById('acessoOuvintesBox');
 const divulgarAcessoOuvintes = document.getElementById('divulgar_acesso_ouvintes');
+
+function atualizarOpcoesServico(){
+ const brasilDf = paisSelect.value === 'Brasil' && ufSelect.value === 'DF';
+ const opcoesDf = tipoServico.querySelectorAll('option[data-df-only="true"]');
+ opcoesDf.forEach(opt=>{ opt.hidden=!brasilDf; opt.disabled=!brasilDf; });
+ if(!brasilDf && tipoServico.selectedOptions[0] && tipoServico.selectedOptions[0].dataset.dfOnly === 'true'){
+  tipoServico.value='audesc_transmissao';
+ }
+}
 
 function ajustarVisibilidade(){
  const opcaoRestrita = tipoEvento.querySelector('option[value="privado"]');
@@ -300,37 +340,46 @@ function ajustarVisibilidade(){
  const ouvintesBox = document.getElementById('ouvintesBox');
  const duracao = document.getElementById('duracao_horas');
  const ouvintes = document.getElementById('max_ouvintes');
+ const servico = tipoServico.value;
+ const somenteDivulgacao = servico === 'divulgacao_gratuita';
+ const somenteProfissional = servico === 'somente_audiodescritor' || servico === 'somente_consultor';
 
- if(tipoServico.value === 'divulgacao_gratuita'){
-  tipoEvento.value = 'publico';
-  opcaoRestrita.disabled = true;
-
+ if(somenteDivulgacao){
+  tipoEvento.value='publico';
+  opcaoRestrita.disabled=true;
+  if(visibilidadeBox) visibilidadeBox.classList.add('hidden');
   duracaoBox.classList.add('hidden');
   ouvintesBox.classList.add('hidden');
-
-  duracao.disabled = true;
-  ouvintes.disabled = true;
-
+  duracao.disabled=true;
+  ouvintes.disabled=true;
   if(acessoOuvintesBox) acessoOuvintesBox.classList.add('hidden');
   if(divulgarAcessoOuvintes){ divulgarAcessoOuvintes.value='false'; divulgarAcessoOuvintes.disabled=true; }
- } else {
-  opcaoRestrita.disabled = false;
-
+ }else{
+  opcaoRestrita.disabled=false;
+  if(visibilidadeBox) visibilidadeBox.classList.remove('hidden');
   duracaoBox.classList.remove('hidden');
-  ouvintesBox.classList.remove('hidden');
+  duracao.disabled=false;
 
-  duracao.disabled = false;
-  ouvintes.disabled = false;
+  if(somenteProfissional){
+   ouvintesBox.classList.add('hidden');
+   ouvintes.disabled=true;
+   if(acessoOuvintesBox) acessoOuvintesBox.classList.add('hidden');
+   if(divulgarAcessoOuvintes){ divulgarAcessoOuvintes.value='false'; divulgarAcessoOuvintes.disabled=true; }
+  }else{
+   ouvintesBox.classList.remove('hidden');
+   ouvintes.disabled=false;
+   if(acessoOuvintesBox) acessoOuvintesBox.classList.remove('hidden');
+   if(divulgarAcessoOuvintes) divulgarAcessoOuvintes.disabled=false;
+  }
 
-  if(acessoOuvintesBox) acessoOuvintesBox.classList.remove('hidden');
-  if(divulgarAcessoOuvintes) divulgarAcessoOuvintes.disabled=false;
-
-  if(!duracao.value) duracao.value = '2';
-  if(!ouvintes.value) ouvintes.value = '20';
+  if(!duracao.value) duracao.value='2';
+  if(!ouvintes.value) ouvintes.value='20';
  }
 }
 
 tipoServico.addEventListener('change', ajustarVisibilidade);
+ufSelect.addEventListener('change',()=>{atualizarOpcoesServico();ajustarVisibilidade();});
+atualizarOpcoesServico();
 ajustarVisibilidade();
 
 
