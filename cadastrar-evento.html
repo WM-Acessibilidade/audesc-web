@@ -33,8 +33,6 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <header>
 <a href="eventos.html">Voltar</a>
 <h1>Cadastrar evento acessível</h1>
-<p>Por questão de segurança, clique em sair ou feche o navegador quando terminar.
-</p>
 </header>
 <main>
 <section class="panel" id="emailStep">
@@ -47,10 +45,10 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 </section>
 
 <section class="panel hidden" id="formStep">
-<h2>Dados do evento</h2>
 <p id="verifiedEmailInfo"></p>
 <button id="logoutBtnForm" type="button" class="secondary">Sair / usar outro e-mail</button>
 <form id="eventoForm">
+<h2>Dados do evento</h2>
 <label for="titulo_original">Nome do evento</label>
 <input id="titulo_original" name="titulo_original" type="text" required maxlength="200">
 <label for="descricao_original">Descrição do evento</label>
@@ -83,6 +81,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <option value="120">120 ouvintes</option>
 <option value="150">150 ouvintes</option>
 <option value="200">200 ouvintes</option>
+<option value="300">300 ouvintes</option>
 </select></div>
 </div>
 
@@ -99,6 +98,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <option value="São Tomé e Príncipe">São Tomé e Príncipe</option>
 <option value="Timor-Leste">Timor-Leste</option>
 <option value="Outros">Outros</option>
+<option value="Internacional">Internacional</option>
 </select></div>
 <div id="paisOutroBox" class="hidden"><label for="pais_outro">Informe o país</label><input id="pais_outro" name="pais_outro" type="text" maxlength="100"></div>
 <div><label for="uf" id="ufLabel">Unidade administrativa</label>
@@ -216,11 +216,18 @@ function atualizarLocalizacao(){
  const pais = paisSelect.value;
  const dados = unidadesAdministrativas[pais];
  const label = document.getElementById('ufLabel');
+ const ufContainer = ufSelect.closest('div');
 
  ufSelect.innerHTML = '';
  ufSelect.appendChild(criarOpcao('', 'Selecione'));
 
- if(dados){
+ if(pais === 'Internacional'){
+  label.textContent = 'Unidade administrativa';
+  ufSelect.value = '';
+  ufSelect.disabled = true;
+  if(ufContainer) ufContainer.classList.add('hidden');
+ }else if(dados){
+  if(ufContainer) ufContainer.classList.remove('hidden');
   label.textContent = dados.rotulo;
   dados.opcoes.forEach(item=>{
    let valor = '';
@@ -236,9 +243,11 @@ function atualizarLocalizacao(){
 
    ufSelect.appendChild(criarOpcao(valor, texto));
   });
+  ufSelect.appendChild(criarOpcao('Nacional', 'Nacional'));
   ufSelect.disabled=false;
   ufSelect.value=dados.padrao || '';
  }else{
+  if(ufContainer) ufContainer.classList.remove('hidden');
   label.textContent = 'Unidade administrativa';
   ufSelect.value='';
   ufSelect.disabled=true;
@@ -258,7 +267,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const data=Object.fromEntries(new FormData(form).entries());
- if(data.pais!=='Outros'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
+ if(data.pais!=='Outros'&&data.pais!=='Internacional'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
  
  if(data.tipo_servico === 'divulgacao_gratuita'){
   delete data.duracao_horas;
