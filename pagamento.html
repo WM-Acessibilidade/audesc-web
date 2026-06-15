@@ -64,6 +64,16 @@ function formatarMoeda(valor, moeda){
  try{return new Intl.NumberFormat('pt-BR',{style:'currency',currency:moeda}).format(Number(valor||0))}
  catch(e){return moedaSimbolo(moeda)+' '+Number(valor||0).toFixed(2)}
 }
+function nomeServicoPagamento(s){
+ const mapa={
+  audesc_transmissao:'Transmissão Audesc',
+  audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',
+  somente_audiodescritor:'Somente audiodescritor',
+  somente_consultor:'Somente consultor',
+  divulgacao_gratuita:'Divulgação'
+ };
+ return mapa[s]||s||'—';
+}
 
 async function calcularPagamento(cupom=''){
  const {data}=await sb.auth.getSession();
@@ -132,7 +142,7 @@ function renderEvento(ev){
   <p><strong>Status do pagamento:</strong> ${t(ev.status_pagamento)}</p>
   <p><strong>Status da publicação:</strong> ${t(ev.status_publicacao)}</p>
   <p><strong>Status da operação:</strong> ${t(ev.status_operacao)}</p>
-  <p><strong>Tipo:</strong> ${t(ev.tipo_servico)}</p>
+  <p><strong>Tipo:</strong> ${nomeServicoPagamento(ev.tipo_servico)}</p>
   ${requerAgendaProfissional(ev)?`<p><strong>Status da agenda:</strong> ${mensagemAgenda(ev)}</p>`:''}
   <p><strong>Data:</strong> ${t(ev.data_evento?new Date(ev.data_evento).toLocaleString('pt-BR'):'')}</p>
   <p><strong>País:</strong> ${t(ev.pais)}</p>
