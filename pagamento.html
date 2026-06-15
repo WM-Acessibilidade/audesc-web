@@ -40,8 +40,23 @@ async function inicializarPaddle(){if(paddleInicializado)return;const r=await fe
 });paddleInicializado=true}
 async function abrirCheckoutPaddle(transactionId){await inicializarPaddle();Paddle.Checkout.open({transactionId})}
 
+const SERVICOS_COM_AGENDA = ['audesc_com_audiodescritor','somente_audiodescritor','somente_consultor'];
+function requerAgendaProfissional(ev){return SERVICOS_COM_AGENDA.includes(String(ev?.tipo_servico||'').trim())}
+function statusAgendaEvento(ev){return requerAgendaProfissional(ev)?String(ev?.status_agenda||'pendente').trim():'nao_aplicavel'}
+function mensagemAgenda(ev){
+ const status=statusAgendaEvento(ev);
+ if(status==='indisponivel') return 'Impossibilidade do serviço - profissional indisponível.';
+ if(status==='disponivel') return 'Disponibilidade de agenda confirmada.';
+ return 'Verificando disponibilidade de agenda.';
+}
+function pagamentoBloqueadoPorAgenda(ev){return requerAgendaProfissional(ev)&&statusAgendaEvento(ev)!=='disponivel'}
+function paisPagamento(ev){
+ const pais=String(ev?.pais||'').trim();
+ if(pais.toLowerCase()==='internacional'&&ev?.origem_transmissao) return String(ev.origem_transmissao||'').trim();
+ return pais;
+}
 function gatewayPagamento(ev){
- return String(ev?.pais||'').trim().toLowerCase()==='brasil' ? 'mercadopago' : 'paddle';
+ return paisPagamento(ev).toLowerCase()==='brasil' ? 'mercadopago' : 'paddle';
 }
 
 function moedaSimbolo(m){return m==='BRL'?'R$':(m==='EUR'?'€':'US$')}
@@ -106,9 +121,10 @@ async function acompanharConfirmacaoPagamento(){
  setMsg('Pagamento realizado, mas a confirmação ainda está sendo processada. Aguarde alguns instantes ou volte para Meus Eventos.', '');
 }
 
-async function carregar(){const id=new URLSearchParams(location.search).get('evento');if(!id){setMsg('Evento não informado.','error');return}const {data}=await sb.auth.getSession();const session=data?.session;if(!session||sessionAgeMinutes(session)>SESSION_MAX_MINUTES){await sb.auth.signOut();setMsg('Por segurança, acesse novamente a página Meus Eventos e solicite um novo link de validação.','error');return}try{const r=await fetch(API+'/meus-eventos/'+encodeURIComponent(id),{headers:{'Authorization':'Bearer '+session.access_token}});const data=await r.json();if(!r.ok)throw new Error(data.error||'Erro ao carregar evento.');eventoAtual=data.evento;await calcularPagamento();renderEvento(eventoAtual);setMsg('Confira os dados do evento e prossiga para o pagamento.','');const tx=new URLSearchParams(location.search).get('_ptxn');if(tx){setMsg('Abrindo checkout do Paddle...','');await abrirCheckoutPaddle(tx);history.replaceState({},document.title,'pagamento.html?evento='+encodeURIComponent(id))}}catch(e){setMsg('Erro: '+(e.message||'não foi possível carregar o evento.'),'error')}}
+async function carregar(){const id=new URLSearchParams(location.search).get('evento');if(!id){setMsg('Evento não informado.','error');return}const {data}=await sb.auth.getSession();const session=data?.session;if(!session||sessionAgeMinutes(session)>SESSION_MAX_MINUTES){await sb.auth.signOut();setMsg('Por segurança, acesse novamente a página Meus Eventos e solicite um novo link de validação.','error');return}try{const r=await fetch(API+'/meus-eventos/'+encodeURIComponent(id),{headers:{'Authorization':'Bearer '+session.access_token}});const data=await r.json();if(!r.ok)throw new Error(data.error||'Erro ao carregar evento.');eventoAtual=data.evento;if(!pagamentoBloqueadoPorAgenda(eventoAtual)){await calcularPagamento();}renderEvento(eventoAtual);setMsg(pagamentoBloqueadoPorAgenda(eventoAtual)?mensagemAgenda(eventoAtual):'Confira os dados do evento e prossiga para o pagamento.','');const tx=new URLSearchParams(location.search).get('_ptxn');if(tx){setMsg('Abrindo checkout do Paddle...','');await abrirCheckoutPaddle(tx);history.replaceState({},document.title,'pagamento.html?evento='+encodeURIComponent(id))}}catch(e){setMsg('Erro: '+(e.message||'não foi possível carregar o evento.'),'error')}}
 function renderEvento(ev){
  const pago=ev.status_pagamento==='pago';
+ const agendaBloqueada=pagamentoBloqueadoPorAgenda(ev);
 
  document.getElementById('conteudo').innerHTML=`
  <section class="card">
@@ -117,8 +133,10 @@ function renderEvento(ev){
   <p><strong>Status da publicação:</strong> ${t(ev.status_publicacao)}</p>
   <p><strong>Status da operação:</strong> ${t(ev.status_operacao)}</p>
   <p><strong>Tipo:</strong> ${t(ev.tipo_servico)}</p>
+  ${requerAgendaProfissional(ev)?`<p><strong>Status da agenda:</strong> ${mensagemAgenda(ev)}</p>`:''}
   <p><strong>Data:</strong> ${t(ev.data_evento?new Date(ev.data_evento).toLocaleString('pt-BR'):'')}</p>
   <p><strong>País:</strong> ${t(ev.pais)}</p>
+  ${ev.pais==='Internacional'?`<p><strong>Origem da transmissão:</strong> ${t(ev.origem_transmissao)}</p>`:''}
   <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
   <p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>
   <p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>
@@ -129,14 +147,18 @@ function renderEvento(ev){
   <p><strong>Desconto:</strong> ${formatarMoeda(calculoAtual.desconto_aplicado, calculoAtual.moeda)}</p>
   <p><strong>Valor final:</strong> ${formatarMoeda(calculoAtual.valor_final, calculoAtual.moeda)}</p>
   `:''}
-  ${pago?'<p class="msg success">Pagamento confirmado. Os dados do evento estão atualizados.</p>':`
+  ${pago?'<p class="msg success">Pagamento confirmado. Os dados do evento estão atualizados.</p>':(agendaBloqueada?`
+  <div class="msg">
+   <p><strong>${mensagemAgenda(ev)}</strong></p>
+   <p>O pagamento ficará disponível somente após confirmação da agenda profissional pela administração do Audesc.</p>
+  </div>`:`
   <div class="msg">
    <label for="cupomInput"><strong>Código promocional</strong></label><br>
    <input id="cupomInput" type="text" value="${calculoAtual?.cupom_codigo||''}" placeholder="Digite o cupom, se houver">
    <br>
    <button type="button" onclick="aplicarCupom()">Aplicar cupom</button>
    <button type="button" onclick="pagar()">Pagar agora</button>
-  </div>`}
+  </div>`)}
  </section>`;
 
  if(!pago){
@@ -152,6 +174,7 @@ async function pagar(){
   return;
  }
 
+ if(pagamentoBloqueadoPorAgenda(eventoAtual)){setMsg(mensagemAgenda(eventoAtual),'');return;}
  const gateway = gatewayPagamento(eventoAtual);
  const cupomAtual=(document.getElementById('cupomInput')?.value||calculoAtual?.cupom_codigo||'').trim();
  try{ await calcularPagamento(cupomAtual); }catch(e){ setMsg('Cupom inválido: '+(e.message||'não foi possível aplicar.'),'error'); return; }

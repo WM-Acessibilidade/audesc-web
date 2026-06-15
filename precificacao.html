@@ -37,6 +37,10 @@ button{margin:8px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:po
 <h2>Configuração dos preços</h2>
 <div id="pricingList"></div>
 
+<h2>Confirmação de agenda profissional</h2>
+<p class="small">Eventos com audiodescritor ou consultor dependem de confirmação de agenda antes do pagamento.</p>
+<div id="agendaList"></div>
+
 <h2>Criar cupom</h2>
 <div class="card">
 <label for="codigo">Código do cupom</label>
@@ -112,6 +116,8 @@ async function carregar(){
  status('status','Carregando...','');
  const prec=await api('/admin/precificacao');
  renderPricing(prec.precificacao||[]);
+ const agenda=await api('/admin/agenda-pendencias');
+ renderAgenda(agenda.eventos||[]);
  const cupons=await api('/admin/cupons');
  renderCoupons(cupons.cupons||[]);
  status('status','Dados carregados.','success');
@@ -149,6 +155,69 @@ function renderPricing(lista){
   root.appendChild(div);
  });
 }
+
+
+function nomeServico(s){
+ const mapa={
+  audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',
+  somente_audiodescritor:'Somente audiodescritor',
+  somente_consultor:'Somente consultor',
+  audesc_transmissao:'Transmissão Audesc',
+  divulgacao_gratuita:'Divulgação gratuita'
+ };
+ return mapa[s]||s||'—';
+}
+function textoAgenda(s){
+ if(s==='disponivel') return 'Disponibilidade confirmada';
+ if(s==='indisponivel') return 'Impossibilidade do serviço - profissional indisponível';
+ return 'Verificando disponibilidade de agenda';
+}
+function renderAgenda(lista){
+ const root=document.getElementById('agendaList');
+ root.innerHTML='';
+ if(!lista.length){root.innerHTML='<p>Nenhuma demanda de agenda profissional.</p>';return}
+ lista.forEach(ev=>{
+  const div=document.createElement('section');
+  div.className='card';
+  const titulo=ev.titulo_publicado||ev.titulo_original||'Evento sem título';
+  div.innerHTML=`
+   <h3>${esc(titulo)}</h3>
+   <p>
+    Serviço: ${esc(nomeServico(ev.tipo_servico))}<br>
+    E-mail: ${esc(ev.email_usuario)}<br>
+    Data: ${fmtData(ev.data_evento)}<br>
+    País: ${esc(ev.pais||'')} ${ev.origem_transmissao?'— origem: '+esc(ev.origem_transmissao):''}<br>
+    Unidade administrativa: ${esc(ev.uf||'')}<br>
+    Status da agenda: ${esc(textoAgenda(ev.status_agenda||'pendente'))}<br>
+    Status do pagamento: ${esc(ev.status_pagamento||'')}
+   </p>
+   <label>Observação da agenda</label>
+   <input data-observacao type="text" value="${esc(ev.observacao_agenda||'')}" placeholder="Observação opcional">
+   <button type="button" data-agenda="disponivel">Confirmar disponibilidade</button>
+   <button type="button" data-agenda="indisponivel">Marcar indisponível</button>
+   <button type="button" data-agenda="pendente">Voltar para pendente</button>
+   <div class="status">Pronto.</div>`;
+  div.querySelectorAll('[data-agenda]').forEach(btn=>{
+   btn.onclick=async()=>{
+    try{
+     await api('/admin/eventos/'+ev.id+'/agenda',{
+      method:'PATCH',
+      body:JSON.stringify({
+       status_agenda:btn.dataset.agenda,
+       observacao_agenda:div.querySelector('[data-observacao]').value
+      })
+     });
+     await carregar();
+    }catch(e){
+     div.querySelector('.status').textContent='Erro: '+e.message;
+     div.querySelector('.status').className='status error';
+    }
+   };
+  });
+  root.appendChild(div);
+ });
+}
+
 
 function renderCoupons(lista){
  const root=document.getElementById('couponsList');
