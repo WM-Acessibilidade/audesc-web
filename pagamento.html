@@ -142,7 +142,10 @@ function renderEvento(ev){
   <p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>
   <p><strong>Gateway de pagamento:</strong> ${gatewayPagamento(ev)==='mercadopago'?'Mercado Pago / PIX e cartões no Brasil':'Paddle / pagamento internacional'}</p>
   ${calculoAtual?`
-  <p><strong>Pacote:</strong> ${calculoAtual.pacote.ouvintes} ouvintes por ${calculoAtual.pacote.duracao_horas} hora(s)</p>
+  <p><strong>Pacote:</strong> ${calculoAtual.pacote.ouvintes?calculoAtual.pacote.ouvintes+' ouvintes por ':''}${calculoAtual.pacote.duracao_horas} hora(s)</p>
+  ${calculoAtual.pacote.detalhes?.valor_audesc!==undefined?`<p><strong>Transmissão Audesc:</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_audesc, calculoAtual.moeda)}</p>`:''}
+  ${calculoAtual.pacote.detalhes?.valor_audiodescritor!==undefined?`<p><strong>Audiodescritor:</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_audiodescritor, calculoAtual.moeda)}</p>`:''}
+  ${calculoAtual.pacote.detalhes?.valor_hora!==undefined?`<p><strong>Valor por hora:</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_hora, calculoAtual.moeda)}</p>`:''}
   <p><strong>Valor original:</strong> ${formatarMoeda(calculoAtual.valor_original, calculoAtual.moeda)}</p>
   <p><strong>Desconto:</strong> ${formatarMoeda(calculoAtual.desconto_aplicado, calculoAtual.moeda)}</p>
   <p><strong>Valor final:</strong> ${formatarMoeda(calculoAtual.valor_final, calculoAtual.moeda)}</p>

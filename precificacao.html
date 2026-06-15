@@ -37,6 +37,10 @@ button{margin:8px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:po
 <h2>Configuração dos preços</h2>
 <div id="pricingList"></div>
 
+<h2>Valores dos serviços profissionais</h2>
+<p class="small">Configure os valores por hora dos serviços de audiodescritor e consultor.</p>
+<div id="servicePricingList"></div>
+
 <h2>Confirmação de agenda profissional</h2>
 <p class="small">Eventos com audiodescritor ou consultor dependem de confirmação de agenda antes do pagamento.</p>
 <div id="agendaList"></div>
@@ -116,6 +120,8 @@ async function carregar(){
  status('status','Carregando...','');
  const prec=await api('/admin/precificacao');
  renderPricing(prec.precificacao||[]);
+ const precServicos=await api('/admin/precificacao-servicos');
+ renderServicePricing(precServicos.precificacao||[]);
  const agenda=await api('/admin/agenda-pendencias');
  renderAgenda(agenda.eventos||[]);
  const cupons=await api('/admin/cupons');
@@ -218,6 +224,22 @@ function renderAgenda(lista){
  });
 }
 
+
+function nomeServicoPrecificacao(s){const mapa={audesc_transmissao:'Transmissão Audesc',audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',somente_audiodescritor:'Somente audiodescritor',somente_consultor:'Somente consultor',divulgacao_gratuita:'Divulgação gratuita'};return mapa[s]||s||'—'}
+function renderServicePricing(lista){
+ const root=document.getElementById('servicePricingList');root.innerHTML='';
+ if(!lista.length){root.innerHTML='<p>Nenhuma precificação de serviço cadastrada.</p>';return}
+ lista.forEach(p=>{const div=document.createElement('section');div.className='card';div.innerHTML=`
+ <h3>${esc(nomeServicoPrecificacao(p.tipo_servico))} — ${moedaNome(p.moeda)}</h3>
+ <div class="grid">
+ <div><label>Valor por hora</label><input data-field="valor_hora" type="number" step="0.01" value="${p.valor_hora??p.valor_base_10_ouvintes_1_hora??0}"></div>
+ <div><label>Valor base para pacote Audesc</label><input data-field="valor_base_10_ouvintes_1_hora" type="number" step="0.01" value="${p.valor_base_10_ouvintes_1_hora??0}"></div>
+ <div><label>Acréscimo por 10 ouvintes</label><input data-field="acrescimo_por_10_ouvintes" type="number" step="0.01" value="${p.acrescimo_por_10_ouvintes??0}"></div>
+ <div><label>Ouvintes mínimos</label><input data-field="ouvintes_minimos" type="number" step="1" value="${p.ouvintes_minimos??10}"></div>
+ <div><label>Duração mínima em horas</label><input data-field="duracao_minima_horas" type="number" step="1" value="${p.duracao_minima_horas??1}"></div>
+ </div><button type="button">Salvar ${esc(nomeServicoPrecificacao(p.tipo_servico))} ${p.moeda}</button><div class="status">Pronto.</div>`;
+ div.querySelector('button').onclick=async()=>{const body={};div.querySelectorAll('[data-field]').forEach(el=>body[el.dataset.field]=el.value);try{await api('/admin/precificacao-servicos/'+p.id,{method:'PATCH',body:JSON.stringify(body)});div.querySelector('.status').textContent='Precificação do serviço salva.';div.querySelector('.status').className='status success'}catch(e){div.querySelector('.status').textContent='Erro: '+e.message;div.querySelector('.status').className='status error'}};root.appendChild(div);});
+}
 
 function renderCoupons(lista){
  const root=document.getElementById('couponsList');
