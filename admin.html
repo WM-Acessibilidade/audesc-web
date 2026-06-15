@@ -39,8 +39,6 @@ pre{white-space:pre-wrap}
 <a href="index.html">Voltar</a>
 <h1>Painel administrativo Audesc</h1>
 <p>Use este painel para revisar, editar, aprovar e liberar eventos.</p>
-<p><a href="precificacao.html">Precificação e cupons</a></p>
-<p><a href="gerenciar-emails.html">Gerenciar e-mails</a></p>
 </header>
 <main>
 <section class="panel" id="loginPanel">
@@ -105,7 +103,7 @@ const unidadesAdministrativas = {
 };
 
 function paisesAdminOptions(valorAtual){
-  const paises = ['Brasil','Angola','Cabo Verde','Guiné-Bissau','Guiné Equatorial','Moçambique','Portugal','São Tomé e Príncipe','Timor-Leste','Outros'];
+  const paises = ['Brasil','Angola','Cabo Verde','Guiné-Bissau','Guiné Equatorial','Moçambique','Portugal','São Tomé e Príncipe','Timor-Leste','Outros','Internacional'];
   return paises.map(p => `<option value="${attr(p)}" ${p === valorAtual ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('');
 }
 function rotuloLocal(pais){ return unidadesAdministrativas[pais]?.rotulo || 'Local'; }
@@ -135,20 +133,107 @@ function locaisAdminOptions(pais, valorAtual){
   }
   return out;
 }
+
+function nomeServicoAdmin(s){
+  const mapa = {
+    audesc_transmissao:'Transmissão Audesc',
+    divulgacao_gratuita:'Divulgação',
+    audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',
+    somente_audiodescritor:'Somente audiodescritor',
+    somente_consultor:'Somente consultor'
+  };
+  return mapa[s] || s || '—';
+}
+
+function servicosAdminOptions(valorAtual){
+  const servicos = [
+    ['audesc_transmissao','Transmissão Audesc'],
+    ['divulgacao_gratuita','Divulgação'],
+    ['audesc_com_audiodescritor','Serviço completo - Audesc + audiodescritor'],
+    ['somente_audiodescritor','Somente audiodescritor'],
+    ['somente_consultor','Somente consultor']
+  ];
+  return servicos.map(([valor,texto]) => `<option value="${attr(valor)}" ${valor === valorAtual ? 'selected' : ''}>${escapeHtml(texto)}</option>`).join('');
+}
+
+function ouvintesAdminOptions(valorAtual){
+  const valores = ['10','20','30','40','60','80','100','120','150','200','300'];
+  return valores.map(v => `<option value="${v}" ${v === String(valorAtual || '') ? 'selected' : ''}>${v} ouvintes</option>`).join('');
+}
+
+function origemTransmissaoOptions(valorAtual){
+  const paises = ['','Brasil','Angola','Cabo Verde','Guiné-Bissau','Guiné Equatorial','Moçambique','Portugal','São Tomé e Príncipe','Timor-Leste'];
+  return paises.map(p => `<option value="${attr(p)}" ${p === (valorAtual || '') ? 'selected' : ''}>${escapeHtml(p || 'Selecione')}</option>`).join('');
+}
+
+
 function atualizarLocalAdmin(card){
   const pais = card.querySelector('[data-field="pais"]');
   const local = card.querySelector('[data-field="uf"]');
   const label = card.querySelector('.local-admin-label');
+  const localBox = card.querySelector('.uf-admin-box');
+  const origemBox = card.querySelector('.origem-admin-box');
+  const origem = card.querySelector('[data-field="origem_transmissao"]');
   if(!pais || !local || !label) return;
+
   const atual = local.value;
   label.textContent = rotuloLocal(pais.value);
   local.innerHTML = locaisAdminOptions(pais.value, atual);
-  if(pais.value === 'Outros'){
+
+  if(pais.value === 'Internacional'){
     local.value = '';
     local.disabled = true;
-  } else {
-    local.disabled = false;
-    if([...local.options].some(o => o.value === atual)) local.value = atual;
+    if(localBox) localBox.classList.add('hidden');
+    if(origemBox) origemBox.classList.remove('hidden');
+    if(origem) origem.disabled = false;
+  }else{
+    if(localBox) localBox.classList.remove('hidden');
+    if(origemBox) origemBox.classList.add('hidden');
+    if(origem){ origem.value=''; origem.disabled=true; }
+
+    if(pais.value === 'Outros'){
+      local.value = '';
+      local.disabled = true;
+    } else {
+      local.disabled = false;
+      if([...local.options].some(o => o.value === atual)) local.value = atual;
+    }
+  }
+
+  ajustarCamposAdmin(card);
+}
+
+function ajustarCamposAdmin(card){
+  const servico = card.querySelector('[data-field="tipo_servico"]')?.value || '';
+  const tipoEventoBox = card.querySelector('.tipo-evento-admin-box');
+  const duracaoBox = card.querySelector('.duracao-admin-box');
+  const ouvintesBox = card.querySelector('.ouvintes-admin-box');
+  const tipoEvento = card.querySelector('[data-field="tipo_evento"]');
+  const duracao = card.querySelector('[data-field="duracao_horas"]');
+  const ouvintes = card.querySelector('[data-field="max_ouvintes"]');
+
+  const divulgacao = servico === 'divulgacao_gratuita';
+  const somenteProfissional = servico === 'somente_audiodescritor' || servico === 'somente_consultor';
+
+  if(divulgacao){
+    if(tipoEvento) tipoEvento.value = 'publico';
+    if(tipoEventoBox) tipoEventoBox.classList.add('hidden');
+    if(duracaoBox) duracaoBox.classList.add('hidden');
+    if(ouvintesBox) ouvintesBox.classList.add('hidden');
+    if(duracao) duracao.disabled = true;
+    if(ouvintes) ouvintes.disabled = true;
+  }else{
+    if(tipoEventoBox) tipoEventoBox.classList.remove('hidden');
+    if(duracaoBox) duracaoBox.classList.remove('hidden');
+    if(duracao) duracao.disabled = false;
+
+    if(somenteProfissional){
+      if(ouvintesBox) ouvintesBox.classList.add('hidden');
+      if(ouvintes) ouvintes.disabled = true;
+    }else{
+      if(ouvintesBox) ouvintesBox.classList.remove('hidden');
+      if(ouvintes) ouvintes.disabled = false;
+    }
   }
 }
 
@@ -163,17 +248,17 @@ function renderEvent(ev){
     <h3>${escapeHtml(ev.titulo_publicado||ev.titulo_original||'Sem título')}</h3>
     <p>
       <span class="badge ${badgeClass}">${ev.status_publicacao||'sem status'}</span>
-      <span class="badge">${ev.tipo_servico||''}</span>
+      <span class="badge">${nomeServicoAdmin(ev.tipo_servico)}</span>
       <span class="badge">${ev.tipo_evento||''}</span>
     </p>
     <p class="small">ID: ${ev.id}<br>${ageInfo}${olderThan2Days && ev.status_publicacao==='pendente' ? '<br><strong>Atenção: pendente há mais de 2 dias.</strong>' : ''}</p>
     <div class="grid">
-      <div><strong>Serviço:</strong> ${ev.tipo_servico||''}</div>
+      <div><strong>Serviço:</strong> ${nomeServicoAdmin(ev.tipo_servico)}</div>
       <div><strong>Evento:</strong> ${ev.tipo_evento||''}</div>
       <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
       <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
-      <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div><div><strong>${rotuloResumoLocal(ev.pais)}:</strong> ${nomeLocal(ev.pais, ev.uf) || ''}${ev.pais ? ' — ' + escapeHtml(ev.pais) : ''}</div>
+      <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div>${ev.pais === 'Internacional' ? `<div><strong>Origem da transmissão:</strong> ${ev.origem_transmissao||''}</div>` : ''}<div><strong>${rotuloResumoLocal(ev.pais)}:</strong> ${nomeLocal(ev.pais, ev.uf) || ''}${ev.pais ? ' — ' + escapeHtml(ev.pais) : ''}</div>
       <div><strong>Data e horário:</strong> ${formatarData(ev.data_evento)}</div>
       <div><strong>Horas de transmissão:</strong> ${ev.duracao_horas || ''}</div>
       <div><strong>Máximo de ouvintes:</strong> ${ev.max_ouvintes || ''}</div>
@@ -189,27 +274,33 @@ function renderEvent(ev){
       <div><label>Status pagamento</label><select data-field="status_pagamento">
         ${opt('pendente',ev.status_pagamento)}${opt('pago',ev.status_pagamento)}${opt('cancelado',ev.status_pagamento)}${opt('dispensado',ev.status_pagamento)}
       </select></div>
-      <div><label>Tipo serviço</label><select data-field="tipo_servico">
-        ${opt('audesc_transmissao',ev.tipo_servico)}${opt('divulgacao_gratuita',ev.tipo_servico)}
+      <div><label>Tipo de solicitação</label><select data-field="tipo_servico" class="servico-admin-select">
+        ${servicosAdminOptions(ev.tipo_servico || 'audesc_transmissao')}
+      </select></div>
+      <div class="tipo-evento-admin-box"><label>Visibilidade</label><select data-field="tipo_evento">
+        ${opt('publico',ev.tipo_evento)}${opt('privado',ev.tipo_evento)}
       </select></div>
     </div>
     <div class="grid">
       <div><label>País</label><select data-field="pais" class="pais-admin-select">
         ${paisesAdminOptions(ev.pais || 'Brasil')}
       </select></div>
-      <div><label class="local-admin-label">${rotuloLocal(ev.pais || 'Brasil')}</label><select data-field="uf" class="uf-admin-select" ${ev.pais === 'Outros' ? 'disabled' : ''}>
+      <div class="uf-admin-box"><label class="local-admin-label">${rotuloLocal(ev.pais || 'Brasil')}</label><select data-field="uf" class="uf-admin-select" ${(ev.pais === 'Outros' || ev.pais === 'Internacional') ? 'disabled' : ''}>
         ${locaisAdminOptions(ev.pais || 'Brasil', ev.uf || '')}
+      </select></div>
+      <div class="origem-admin-box ${ev.pais === 'Internacional' ? '' : 'hidden'}"><label>Origem da transmissão</label><select data-field="origem_transmissao" ${ev.pais === 'Internacional' ? '' : 'disabled'}>
+        ${origemTransmissaoOptions(ev.origem_transmissao || '')}
       </select></div>
     </div>
 
     
     <div class="grid">
       <div><label>Data e horário do evento</label><input data-field="data_evento" type="datetime-local" value="${valorDataInput(ev.data_evento)}"></div>
-      <div><label>Horas de transmissão</label><select data-field="duracao_horas">
+      <div class="duracao-admin-box"><label>Horas de transmissão</label><select data-field="duracao_horas">
         ${opt('1', String(ev.duracao_horas || ''))}${opt('2', String(ev.duracao_horas || ''))}${opt('3', String(ev.duracao_horas || ''))}${opt('4', String(ev.duracao_horas || ''))}${opt('5', String(ev.duracao_horas || ''))}${opt('6', String(ev.duracao_horas || ''))}${opt('7', String(ev.duracao_horas || ''))}${opt('8', String(ev.duracao_horas || ''))}
       </select></div>
-      <div><label>Número máximo de ouvintes</label><select data-field="max_ouvintes">
-        ${opt('10', String(ev.max_ouvintes || ''))}${opt('20', String(ev.max_ouvintes || ''))}${opt('30', String(ev.max_ouvintes || ''))}${opt('40', String(ev.max_ouvintes || ''))}${opt('60', String(ev.max_ouvintes || ''))}${opt('80', String(ev.max_ouvintes || ''))}${opt('100', String(ev.max_ouvintes || ''))}${opt('120', String(ev.max_ouvintes || ''))}${opt('150', String(ev.max_ouvintes || ''))}${opt('200', String(ev.max_ouvintes || ''))}
+      <div class="ouvintes-admin-box"><label>Número máximo de ouvintes</label><select data-field="max_ouvintes">
+        ${ouvintesAdminOptions(ev.max_ouvintes || '')}
       </select></div>
     </div>
 
@@ -229,6 +320,12 @@ function renderEvent(ev){
     <button class="deleteBtn danger" type="button">Excluir evento</button>
     <div class="status eventStatus">Pronto.</div>
   `;
+  const paisSelectAdmin = card.querySelector('.pais-admin-select');
+  if(paisSelectAdmin) paisSelectAdmin.addEventListener('change',()=>atualizarLocalAdmin(card));
+  const servicoSelectAdmin = card.querySelector('.servico-admin-select');
+  if(servicoSelectAdmin) servicoSelectAdmin.addEventListener('change',()=>ajustarCamposAdmin(card));
+  atualizarLocalAdmin(card);
+  ajustarCamposAdmin(card);
   card.querySelector('.saveBtn').onclick=()=>saveEvent(ev.id,card);
   card.querySelector('.approveBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'aprovado'},card);
   card.querySelector('.rejectBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'rejeitado'},card);
@@ -357,6 +454,16 @@ async function saveEvent(id,card){
   }
 
   if(body.pais === 'Outros') body.uf = '';
+  if(body.pais === 'Internacional') body.uf = '';
+  if(body.pais !== 'Internacional') body.origem_transmissao = '';
+  if(body.tipo_servico === 'divulgacao_gratuita'){
+    body.tipo_evento = 'publico';
+    delete body.duracao_horas;
+    delete body.max_ouvintes;
+  }
+  if(body.tipo_servico === 'somente_audiodescritor' || body.tipo_servico === 'somente_consultor'){
+    delete body.max_ouvintes;
+  }
   await quickUpdate(id,body,card);
 }
 async function quickUpdate(id,body,card,reload=true){
