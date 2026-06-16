@@ -73,7 +73,7 @@ function t(v){ return v || '—'; }
 function nomeServico(tipo){
  const mapa={
   audesc_transmissao:'Transmissão Audesc',
-  divulgacao_gratuita:'Divulgação',
+  divulgacao_gratuita:'Divulgação no Audesc',
   audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',
   somente_audiodescritor:'Somente audiodescritor',
   somente_consultor:'Somente consultor'
@@ -81,7 +81,7 @@ function nomeServico(tipo){
  return mapa[tipo] || tipo || '—';
 }
 function exigePagamento(ev){
- return ev && ev.status_pagamento !== 'pago' && ev.status_pagamento !== 'dispensado' && ev.tipo_servico !== 'divulgacao_gratuita';
+ return ev && ev.status_pagamento !== 'pago' && ev.status_pagamento !== 'dispensado';
 }
 
 function setMsg(id,msg,cls){

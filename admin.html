@@ -139,7 +139,7 @@ function locaisAdminOptions(pais, valorAtual){
 function nomeServicoAdmin(s){
   const mapa = {
     audesc_transmissao:'Transmissão Audesc',
-    divulgacao_gratuita:'Divulgação',
+    divulgacao_gratuita:'Divulgação no Audesc',
     audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',
     somente_audiodescritor:'Somente audiodescritor',
     somente_consultor:'Somente consultor'
@@ -150,7 +150,7 @@ function nomeServicoAdmin(s){
 function servicosAdminOptions(valorAtual){
   const servicos = [
     ['audesc_transmissao','Transmissão Audesc'],
-    ['divulgacao_gratuita','Divulgação'],
+    ['divulgacao_gratuita','Divulgação no Audesc'],
     ['audesc_com_audiodescritor','Serviço completo - Audesc + audiodescritor'],
     ['somente_audiodescritor','Somente audiodescritor'],
     ['somente_consultor','Somente consultor']
@@ -332,7 +332,7 @@ function renderEvent(ev){
   card.querySelector('.approveBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'aprovado'},card);
   card.querySelector('.rejectBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'rejeitado'},card);
   card.querySelector('.removeBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'removido'},card);
-  card.querySelector('.approveLiberateBtn').onclick=async()=>{await quickUpdate(ev.id,{status_publicacao:'aprovado',status_pagamento: ev.tipo_servico==='divulgacao_gratuita' ? 'dispensado' : 'pago'},card,false); await liberate(ev.id,card);};
+  card.querySelector('.approveLiberateBtn').onclick=async()=>{const body={status_publicacao:'aprovado'}; if(ev.tipo_servico!=='divulgacao_gratuita') body.status_pagamento='pago'; await quickUpdate(ev.id,body,card,false); await liberate(ev.id,card);};
   card.querySelector('.liberateBtn').onclick=()=>liberate(ev.id,card);
   const deleteBtn = card.querySelector('.deleteBtn');
   if(deleteBtn) deleteBtn.onclick=()=>deleteEvent(ev.id,card);

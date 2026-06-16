@@ -164,7 +164,7 @@ function nomeServico(s){
   somente_audiodescritor:'Somente audiodescritor',
   somente_consultor:'Somente consultor',
   audesc_transmissao:'Transmissão Audesc',
-  divulgacao_gratuita:'Divulgação'
+  divulgacao_gratuita:'Divulgação no Audesc'
  };
  return mapa[s]||s||'—';
 }
@@ -220,7 +220,7 @@ function renderAgenda(lista){
 }
 
 
-function nomeServicoPrecificacao(s){const mapa={audesc_transmissao:'Transmissão Audesc',audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',somente_audiodescritor:'Somente audiodescritor',somente_consultor:'Somente consultor',divulgacao_gratuita:'Divulgação'};return mapa[s]||s||'—'}
+function nomeServicoPrecificacao(s){const mapa={audesc_transmissao:'Transmissão Audesc',audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',somente_audiodescritor:'Somente audiodescritor',somente_consultor:'Somente consultor',divulgacao_gratuita:'Divulgação no Audesc'};return mapa[s]||s||'—'}
 function renderServicePricing(lista){
  const root=document.getElementById('servicePricingList');
  root.innerHTML='';
