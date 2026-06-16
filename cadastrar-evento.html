@@ -123,6 +123,15 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 </select></div>
 </div>
 
+<div class="grid">
+<div><label for="local_evento">Nome ou endereço do local do evento</label><input id="local_evento" name="local_evento" type="text" maxlength="300" placeholder="Exemplo: Biblioteca Nacional, Brasília, DF"></div>
+<div><label for="latitude">Latitude</label><input id="latitude" name="latitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
+<div><label for="longitude">Longitude</label><input id="longitude" name="longitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
+</div>
+<p class="small">Com a autorização do usuário, o Audesc poderá usar essas coordenadas para sugerir eventos próximos e abrir rotas em aplicativos de mapa. O navegador não abre páginas automaticamente em segundo plano.</p>
+<p><button type="button" id="usarMinhaLocalizacao">Usar minha localização atual</button><button type="button" id="buscarCoordenadasEndereco">Buscar coordenadas pelo endereço</button></p>
+<div id="localizacaoStatus" class="status" role="status" aria-live="polite">Localização ainda não informada.</div>
+
 <h2>Links do evento</h2>
 <label for="site_oficial">Site oficial</label><input id="site_oficial" name="site_oficial" type="url" placeholder="https://">
 <label for="link_ingressos">Link de ingressos</label><input id="link_ingressos" name="link_ingressos" type="url" placeholder="https://">
@@ -281,6 +290,47 @@ function atualizarLocalizacao(){
  ajustarVisibilidade();
 }
 paisSelect.addEventListener('change',atualizarLocalizacao);
+
+
+function setLocalizacaoStatus(msg, cls){const el=document.getElementById('localizacaoStatus'); if(!el)return; el.textContent=msg; el.className='status'+(cls?' '+cls:'');}
+function ajustarPaisUfPorCodigo(paisCodigo, ufCodigo){
+ const mapaPais={br:'Brasil',pt:'Portugal',ao:'Angola',mz:'Moçambique',cv:'Cabo Verde',gw:'Guiné-Bissau',gq:'Guiné Equatorial',st:'São Tomé e Príncipe',tl:'Timor-Leste'};
+ const pais=mapaPais[String(paisCodigo||'').toLowerCase()];
+ if(pais && paisSelect){paisSelect.value=pais; atualizarLocalizacao();}
+ if(pais==='Brasil' && ufCodigo && ufSelect && !ufSelect.disabled){ufSelect.value=String(ufCodigo).toUpperCase();}
+}
+async function reverseGeocode(lat, lon){
+ const url='https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&accept-language=pt-BR';
+ const r=await fetch(url); if(!r.ok) throw new Error('Não foi possível consultar o endereço.');
+ return await r.json();
+}
+async function geocodeEndereco(q){
+ const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=pt-BR&q='+encodeURIComponent(q);
+ const r=await fetch(url); if(!r.ok) throw new Error('Não foi possível buscar as coordenadas.');
+ const lista=await r.json(); if(!lista || !lista.length) throw new Error('Endereço não encontrado.');
+ return lista[0];
+}
+function preencherCoordenadas(lat, lon){
+ document.getElementById('latitude').value=Number(lat).toFixed(6);
+ document.getElementById('longitude').value=Number(lon).toFixed(6);
+}
+document.getElementById('usarMinhaLocalizacao')?.addEventListener('click',()=>{
+ if(!navigator.geolocation){setLocalizacaoStatus('Este navegador não oferece localização por GPS.','error');return;}
+ setLocalizacaoStatus('Solicitando permissão de localização...','');
+ navigator.geolocation.getCurrentPosition(async pos=>{
+  const lat=pos.coords.latitude, lon=pos.coords.longitude; preencherCoordenadas(lat,lon);
+  try{const info=await reverseGeocode(lat,lon); const a=info.address||{}; ajustarPaisUfPorCodigo(a.country_code,a.state_code||a['ISO3166-2-lvl4']?.split('-').pop()); if(!document.getElementById('local_evento').value && info.display_name) document.getElementById('local_evento').value=info.display_name; setLocalizacaoStatus('Localização preenchida com sucesso. Confira o endereço, país e unidade administrativa.','success');}
+  catch(e){setLocalizacaoStatus('Coordenadas preenchidas. Confira país e unidade administrativa manualmente.','success');}
+ },err=>{setLocalizacaoStatus('Não foi possível obter a localização: '+(err.message||'permissão negada.'),'error')},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+});
+document.getElementById('buscarCoordenadasEndereco')?.addEventListener('click',async()=>{
+ const q=document.getElementById('local_evento').value.trim();
+ if(!q){setLocalizacaoStatus('Informe o nome ou endereço do local antes de buscar.','error');return;}
+ setLocalizacaoStatus('Buscando coordenadas do endereço...','');
+ try{const info=await geocodeEndereco(q); preencherCoordenadas(info.lat, info.lon); const a=info.address||{}; ajustarPaisUfPorCodigo(a.country_code,a.state_code||a['ISO3166-2-lvl4']?.split('-').pop()); setLocalizacaoStatus('Coordenadas encontradas. Confira se correspondem ao local correto.','success');}
+ catch(e){setLocalizacaoStatus(e.message||'Não foi possível buscar as coordenadas.','error')}
+});
+
 
 document.getElementById('eventoForm').onsubmit=async(e)=>{
  e.preventDefault();
