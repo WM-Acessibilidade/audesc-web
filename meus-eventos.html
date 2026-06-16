@@ -70,6 +70,20 @@ let filtroAtual='pendentes';
 
 function t(v){ return v || '—'; }
 
+function nomeServico(tipo){
+ const mapa={
+  audesc_transmissao:'Transmissão Audesc',
+  divulgacao_gratuita:'Divulgação',
+  audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',
+  somente_audiodescritor:'Somente audiodescritor',
+  somente_consultor:'Somente consultor'
+ };
+ return mapa[tipo] || tipo || '—';
+}
+function exigePagamento(ev){
+ return ev && ev.status_pagamento !== 'pago' && ev.status_pagamento !== 'dispensado' && ev.tipo_servico !== 'divulgacao_gratuita';
+}
+
 function setMsg(id,msg,cls){
  const el=document.getElementById(id);
  if(!el) return;
@@ -220,13 +234,13 @@ function renderEventos(eventos){
     Pagamento: ${t(ev.status_pagamento)} |
     Operação: ${t(ev.status_operacao)}
    </p>
-   <p><strong>Tipo:</strong> ${t(ev.tipo_servico)}</p>
+   <p><strong>Tipo:</strong> ${nomeServico(ev.tipo_servico)}</p>
    <p><strong>Data:</strong> ${t(ev.data_evento?new Date(ev.data_evento).toLocaleString('pt-BR'):'')}</p>
    <p><strong>País:</strong> ${t(ev.pais)}</p>
    <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
    ${ev.sala_codigo?`<p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>`:''}
    ${ev.senha_transmissor?`<p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>`:''}
-   ${ev.status_pagamento !== 'pago' && ev.tipo_servico === 'audesc_transmissao'
+   ${exigePagamento(ev)
      ? `<p><a href="pagamento.html?evento=${ev.id}"><button type="button">Pagar agora</button></a></p>`
      : ''
    }
