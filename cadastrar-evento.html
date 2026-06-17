@@ -335,16 +335,48 @@ function resultadoDentroDoContexto(info, contexto){
  }
  return true;
 }
+function variantesConsultaLocal(q, contexto){
+ const variantes=[];
+ const add=v=>{v=String(v||'').trim(); if(v && !variantes.some(x=>normalizarTextoLocal(x)===normalizarTextoLocal(v))) variantes.push(v);};
+ if(contexto.complemento) add(q+', '+contexto.complemento);
+ if(contexto.pais && contexto.pais!=='Outros' && contexto.pais!=='Internacional') add(q+', '+contexto.pais);
+ add(q);
+ const nq=normalizarTextoLocal(q);
+ if(nq.includes('mpf')){
+  const expandida=q.replace(/\bmpf\b/ig,'Ministério Público Federal');
+  if(contexto.complemento) add(expandida+', '+contexto.complemento);
+  add(expandida);
+  if(contexto.complemento){add('Memorial do Ministério Público Federal, '+contexto.complemento); add('Procuradoria-Geral da República, '+contexto.complemento);}
+ }
+ if(nq.includes('dorina') || nq.includes('biblioteca braille')){
+  if(contexto.complemento) add('Biblioteca Braille Dorina Nowill, Taguatinga, '+contexto.complemento);
+  add('Biblioteca Braille Dorina Nowill, Taguatinga');
+ }
+ return variantes.slice(0,8);
+}
+async function geocodeViaBackend(q, contexto){
+ const params=new URLSearchParams({q, pais:contexto.pais||'', uf:contexto.uf||'', ufTexto:contexto.ufTexto||''});
+ const r=await fetch(API_URL+'/geocode?'+params.toString());
+ const j=await r.json().catch(()=>({}));
+ if(!r.ok) throw new Error(j.error||'Não foi possível buscar as coordenadas.');
+ const info=j.resultado;
+ if(!info) throw new Error('Local não encontrado.');
+ return {lat:info.lat, lon:info.lon, display_name:info.endereco||info.nome||'', provider:info.provedor};
+}
+async function geocodeNominatimLocal(q, contexto){
+ for(const consulta of variantesConsultaLocal(q, contexto)){
+  let url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=10&accept-language=pt-BR&q='+encodeURIComponent(consulta);
+  if(contexto.codigoPais) url+='&countrycodes='+encodeURIComponent(contexto.codigoPais);
+  const r=await fetch(url); if(!r.ok) continue;
+  const lista=await r.json();
+  const valido=(lista||[]).find(item=>resultadoDentroDoContexto(item,contexto));
+  if(valido) return valido;
+ }
+ throw new Error('Local não encontrado na região selecionada. Tente informar bairro, cidade ou endereço completo. Para resultados iguais aos do Google Maps, configure a chave GOOGLE_MAPS_API_KEY no backend.');
+}
 async function geocodeEndereco(q){
  const contexto=contextoBuscaEndereco();
- const consulta=contexto.complemento ? q + ', ' + contexto.complemento : q;
- let url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&accept-language=pt-BR&q='+encodeURIComponent(consulta);
- if(contexto.codigoPais) url+='&countrycodes='+encodeURIComponent(contexto.codigoPais);
- const r=await fetch(url); if(!r.ok) throw new Error('Não foi possível buscar as coordenadas.');
- const lista=await r.json(); if(!lista || !lista.length) throw new Error('Endereço não encontrado dentro do país e da unidade administrativa selecionados.');
- const valido=lista.find(item=>resultadoDentroDoContexto(item,contexto));
- if(!valido) throw new Error('O endereço encontrado não corresponde ao país e à unidade administrativa selecionados. Revise o local, o país ou a unidade administrativa.');
- return valido;
+ try{return await geocodeViaBackend(q, contexto);}catch(e){return await geocodeNominatimLocal(q, contexto);}
 }
 function preencherCoordenadas(lat, lon){
  document.getElementById('latitude').value=Number(lat).toFixed(6);
