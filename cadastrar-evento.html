@@ -304,11 +304,47 @@ async function reverseGeocode(lat, lon){
  const r=await fetch(url); if(!r.ok) throw new Error('Não foi possível consultar o endereço.');
  return await r.json();
 }
+function textoSelecionado(select){
+ if(!select || select.disabled) return '';
+ const opt=select.options[select.selectedIndex];
+ return opt ? opt.textContent.replace(/\s*\([^)]*\)\s*$/,'').trim() : '';
+}
+function codigoPaisNominatim(pais){
+ const mapa={'Brasil':'br','Portugal':'pt','Angola':'ao','Moçambique':'mz','Cabo Verde':'cv','Guiné-Bissau':'gw','Guiné Equatorial':'gq','São Tomé e Príncipe':'st','Timor-Leste':'tl'};
+ return mapa[pais] || '';
+}
+function contextoBuscaEndereco(){
+ const pais=document.getElementById('pais')?.value || '';
+ const uf=document.getElementById('uf')?.value || '';
+ const ufTexto=textoSelecionado(document.getElementById('uf'));
+ const partes=[];
+ if(uf && uf!=='Nacional') partes.push(ufTexto || uf);
+ if(pais && pais!=='Outros' && pais!=='Internacional') partes.push(pais);
+ return {pais, uf, ufTexto, codigoPais:codigoPaisNominatim(pais), complemento:partes.join(', ')};
+}
+function normalizarTextoLocal(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+function resultadoDentroDoContexto(info, contexto){
+ const a=info.address||{};
+ if(contexto.codigoPais && String(a.country_code||'').toLowerCase()!==contexto.codigoPais) return false;
+ if(contexto.pais==='Brasil' && contexto.uf && contexto.uf!=='Nacional'){
+  const cod=(a.state_code || (a['ISO3166-2-lvl4']||'').split('-').pop() || '').toUpperCase();
+  if(cod && cod!==contexto.uf) return false;
+  const estado=normalizarTextoLocal(a.state || a.region || '');
+  const esperado=normalizarTextoLocal(contexto.ufTexto);
+  if(!cod && esperado && estado && estado!==esperado) return false;
+ }
+ return true;
+}
 async function geocodeEndereco(q){
- const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&accept-language=pt-BR&q='+encodeURIComponent(q);
+ const contexto=contextoBuscaEndereco();
+ const consulta=contexto.complemento ? q + ', ' + contexto.complemento : q;
+ let url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&accept-language=pt-BR&q='+encodeURIComponent(consulta);
+ if(contexto.codigoPais) url+='&countrycodes='+encodeURIComponent(contexto.codigoPais);
  const r=await fetch(url); if(!r.ok) throw new Error('Não foi possível buscar as coordenadas.');
- const lista=await r.json(); if(!lista || !lista.length) throw new Error('Endereço não encontrado.');
- return lista[0];
+ const lista=await r.json(); if(!lista || !lista.length) throw new Error('Endereço não encontrado dentro do país e da unidade administrativa selecionados.');
+ const valido=lista.find(item=>resultadoDentroDoContexto(item,contexto));
+ if(!valido) throw new Error('O endereço encontrado não corresponde ao país e à unidade administrativa selecionados. Revise o local, o país ou a unidade administrativa.');
+ return valido;
 }
 function preencherCoordenadas(lat, lon){
  document.getElementById('latitude').value=Number(lat).toFixed(6);
