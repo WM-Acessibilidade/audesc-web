@@ -309,18 +309,35 @@ function textoSelecionado(select){
  const opt=select.options[select.selectedIndex];
  return opt ? opt.textContent.replace(/\s*\([^)]*\)\s*$/,'').trim() : '';
 }
-function codigoPaisNominatim(pais){
- const mapa={'Brasil':'br','Portugal':'pt','Angola':'ao','Moçambique':'mz','Cabo Verde':'cv','Guiné-Bissau':'gw','Guiné Equatorial':'gq','São Tomé e Príncipe':'st','Timor-Leste':'tl'};
+function codigoPaisISO(pais){
+ const mapa={'Brasil':'BR','Portugal':'PT','Angola':'AO','Moçambique':'MZ','Cabo Verde':'CV','Guiné-Bissau':'GW','Guiné Equatorial':'GQ','São Tomé e Príncipe':'ST','Timor-Leste':'TL'};
  return mapa[pais] || '';
+}
+function codigoUnidadeLocal(pais, uf, ufTexto){
+ const mapa={
+  Brasil:{DF:'DF'},
+  Portugal:{'Lisboa':'LIS','Porto':'POR','Açores':'ACO','Madeira':'MAD'},
+  Angola:{'Luanda':'LUA','Cabinda':'CAB'},
+  Moçambique:{'Maputo Cidade':'MPM','Maputo':'MAP'},
+  'Cabo Verde':{'Santiago':'ST','São Vicente':'SV','Sal':'SL'},
+  'Guiné-Bissau':{'Setor Autônomo de Bissau':'BS'},
+  'Guiné Equatorial':{'Bioko Norte':'BN','Bioko Sul':'BS','Litoral':'LI'},
+  'São Tomé e Príncipe':{'Água Grande':'AG','Região Autônoma do Príncipe':'PR'},
+  'Timor-Leste':{'Díli':'DI','Baucau':'BA','Oecusse':'OE'}
+ };
+ if(pais==='Brasil') return uf || '';
+ return (mapa[pais] && (mapa[pais][uf] || mapa[pais][ufTexto])) || uf || '';
 }
 function contextoBuscaEndereco(){
  const pais=document.getElementById('pais')?.value || '';
  const uf=document.getElementById('uf')?.value || '';
  const ufTexto=textoSelecionado(document.getElementById('uf'));
+ const paisCodigo=codigoPaisISO(pais);
+ const unidadeCodigo=codigoUnidadeLocal(pais,uf,ufTexto);
  const partes=[];
  if(uf && uf!=='Nacional') partes.push(ufTexto || uf);
  if(pais && pais!=='Outros' && pais!=='Internacional') partes.push(pais);
- return {pais, uf, ufTexto, codigoPais:codigoPaisNominatim(pais), complemento:partes.join(', ')};
+ return {pais, uf, ufTexto, paisCodigo, unidadeCodigo, codigoPais:paisCodigo.toLowerCase(), complemento:partes.join(', ')};
 }
 function normalizarTextoLocal(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
 function resultadoDentroDoContexto(info, contexto){
@@ -355,7 +372,7 @@ function variantesConsultaLocal(q, contexto){
  return variantes.slice(0,8);
 }
 async function geocodeViaBackend(q, contexto){
- const params=new URLSearchParams({q, pais:contexto.pais||'', uf:contexto.uf||'', ufTexto:contexto.ufTexto||''});
+ const params=new URLSearchParams({q, pais:contexto.pais||'', uf:contexto.uf||'', ufTexto:contexto.ufTexto||'', paisCodigo:contexto.paisCodigo||'', unidadeCodigo:contexto.unidadeCodigo||''});
  const r=await fetch(API_URL+'/geocode?'+params.toString());
  const j=await r.json().catch(()=>({}));
  if(!r.ok) throw new Error(j.error||'Não foi possível buscar as coordenadas.');
@@ -409,6 +426,10 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const data=Object.fromEntries(new FormData(form).entries());
+ const ctxLocalizacao=contextoBuscaEndereco();
+ data.pais_codigo=ctxLocalizacao.paisCodigo || '';
+ data.unidade_codigo=ctxLocalizacao.unidadeCodigo || '';
+ data.cidade='';
  if(data.pais!=='Outros'&&data.pais!=='Internacional'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
  if(data.pais==='Internacional'&&!data.origem_transmissao){setStatus('status','Selecione a origem da transmissão.','error');btn.disabled=false;return}
  
