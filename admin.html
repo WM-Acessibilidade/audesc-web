@@ -136,6 +136,63 @@ function locaisAdminOptions(pais, valorAtual){
   return out;
 }
 
+
+function textoSelecionado(select){
+  if(!select || select.selectedIndex < 0) return '';
+  return select.options[select.selectedIndex].textContent.trim();
+}
+function codigoPaisISO(pais){
+  const mapa={'Brasil':'BR','Portugal':'PT','Angola':'AO','Moçambique':'MZ','Cabo Verde':'CV','Guiné-Bissau':'GW','Guiné Equatorial':'GQ','São Tomé e Príncipe':'ST','Timor-Leste':'TL'};
+  return mapa[pais] || '';
+}
+function codigoUnidadeLocalAdmin(pais, uf, ufTexto){
+  const mapa={
+    Portugal:{'Lisboa':'LIS','Porto':'POR','Açores':'ACO','Madeira':'MAD'},
+    Angola:{'Luanda':'LUA','Cabinda':'CAB'},
+    Moçambique:{'Maputo Cidade':'MPM','Maputo':'MAP'},
+    'Cabo Verde':{'Santiago':'ST','São Vicente':'SV','Sal':'SL'},
+    'Guiné-Bissau':{'Setor Autônomo de Bissau':'BS'},
+    'Guiné Equatorial':{'Bioko Norte':'BN','Bioko Sul':'BS','Litoral':'LI'},
+    'São Tomé e Príncipe':{'Água Grande':'AG','Região Autônoma do Príncipe':'PR'},
+    'Timor-Leste':{'Díli':'DI','Baucau':'BA','Oecusse':'OE'}
+  };
+  if(pais === 'Brasil') return uf || '';
+  return mapa[pais]?.[uf] || mapa[pais]?.[ufTexto] || uf || '';
+}
+function contextoBuscaEnderecoAdmin(card){
+  const paisSelect=card.querySelector('[data-field="pais"]');
+  const ufSelect=card.querySelector('[data-field="uf"]');
+  const pais=paisSelect?.value || '';
+  const uf=ufSelect?.disabled ? '' : (ufSelect?.value || '');
+  const ufTexto=ufSelect?.disabled ? '' : textoSelecionado(ufSelect);
+  const paisCodigo=codigoPaisISO(pais);
+  const unidadeCodigo=codigoUnidadeLocalAdmin(pais,uf,ufTexto);
+  return {pais,uf,ufTexto,paisCodigo,unidadeCodigo};
+}
+async function buscarCoordenadasAdmin(card){
+  const localInput=card.querySelector('[data-field="local_evento"]');
+  const latInput=card.querySelector('[data-field="latitude"]');
+  const lonInput=card.querySelector('[data-field="longitude"]');
+  const st=card.querySelector('.localizacaoAdminStatus');
+  const q=(localInput?.value || '').trim();
+  if(!q){ if(st){st.textContent='Informe o nome ou endereço do local.'; st.className='status localizacaoAdminStatus error';} return; }
+  const ctx=contextoBuscaEnderecoAdmin(card);
+  const params=new URLSearchParams({q,pais:ctx.pais||'',uf:ctx.uf||'',ufTexto:ctx.ufTexto||'',paisCodigo:ctx.paisCodigo||'',unidadeCodigo:ctx.unidadeCodigo||''});
+  if(st){st.textContent='Buscando coordenadas pelo endereço...'; st.className='status localizacaoAdminStatus';}
+  try{
+    const r=await fetch(API_URL+'/geocode?'+params.toString());
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || 'Não foi possível buscar as coordenadas.');
+    const info=j.resultado || {};
+    if(!Number.isFinite(Number(info.lat)) || !Number.isFinite(Number(info.lon))) throw new Error('A busca não retornou coordenadas válidas.');
+    latInput.value=Number(info.lat).toFixed(6);
+    lonInput.value=Number(info.lon).toFixed(6);
+    if(st){st.textContent='Coordenadas encontradas. Confira se correspondem ao local correto antes de salvar.'; st.className='status localizacaoAdminStatus success';}
+  }catch(e){
+    if(st){st.textContent='Erro: '+(e.message || 'não foi possível buscar as coordenadas.'); st.className='status localizacaoAdminStatus error';}
+  }
+}
+
 function nomeServicoAdmin(s){
   const mapa = {
     audesc_transmissao:'Transmissão Audesc',
@@ -261,6 +318,9 @@ function renderEvent(ev){
       <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
       <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div>${ev.pais === 'Internacional' ? `<div><strong>Origem da transmissão:</strong> ${ev.origem_transmissao||''}</div>` : ''}<div><strong>${rotuloResumoLocal(ev.pais)}:</strong> ${nomeLocal(ev.pais, ev.uf) || ''}${ev.pais ? ' — ' + escapeHtml(ev.pais) : ''}</div>
+      <div><strong>Local do evento:</strong> ${escapeHtml(ev.local_evento || '')}</div>
+      <div><strong>Latitude:</strong> ${ev.latitude ?? ''}</div>
+      <div><strong>Longitude:</strong> ${ev.longitude ?? ''}</div>
       <div><strong>Data e horário:</strong> ${formatarData(ev.data_evento)}</div>
       <div><strong>Horas de transmissão:</strong> ${ev.duracao_horas || ''}</div>
       <div><strong>Máximo de ouvintes:</strong> ${ev.max_ouvintes || ''}</div>
@@ -295,7 +355,14 @@ function renderEvent(ev){
       </select></div>
     </div>
 
-    
+    <div class="grid">
+      <div><label>Nome ou endereço do local do evento</label><input data-field="local_evento" value="${attr(ev.local_evento || '')}" placeholder="Exemplo: Memorial MPF, Brasília, DF"></div>
+      <div><label>Latitude</label><input data-field="latitude" value="${attr(ev.latitude ?? '')}" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
+      <div><label>Longitude</label><input data-field="longitude" value="${attr(ev.longitude ?? '')}" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
+    </div>
+    <p><button class="geocodeAdminBtn secondary" type="button">Buscar coordenadas pelo endereço</button></p>
+    <div class="status localizacaoAdminStatus">Informe ou confira o local do evento.</div>
+
     <div class="grid">
       <div><label>Data e horário do evento</label><input data-field="data_evento" type="datetime-local" value="${valorDataInput(ev.data_evento)}"></div>
       <div class="duracao-admin-box"><label>Horas de transmissão</label><select data-field="duracao_horas">
@@ -326,6 +393,8 @@ function renderEvent(ev){
   if(paisSelectAdmin) paisSelectAdmin.addEventListener('change',()=>atualizarLocalAdmin(card));
   const servicoSelectAdmin = card.querySelector('.servico-admin-select');
   if(servicoSelectAdmin) servicoSelectAdmin.addEventListener('change',()=>ajustarCamposAdmin(card));
+  const geocodeBtn = card.querySelector('.geocodeAdminBtn');
+  if(geocodeBtn) geocodeBtn.addEventListener('click',()=>buscarCoordenadasAdmin(card));
   atualizarLocalAdmin(card);
   ajustarCamposAdmin(card);
   card.querySelector('.saveBtn').onclick=()=>saveEvent(ev.id,card);
@@ -454,6 +523,11 @@ async function saveEvent(id,card){
   if(body.max_ouvintes !== undefined && body.max_ouvintes !== ''){
     body.max_ouvintes = Number(body.max_ouvintes);
   }
+
+  const ctxLocalizacao=contextoBuscaEnderecoAdmin(card);
+  body.pais_codigo=ctxLocalizacao.paisCodigo || '';
+  body.unidade_codigo=ctxLocalizacao.unidadeCodigo || '';
+  body.cidade=body.cidade || '';
 
   if(body.pais === 'Outros') body.uf = '';
   if(body.pais === 'Internacional') body.uf = '';
