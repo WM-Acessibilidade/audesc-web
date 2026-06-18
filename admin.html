@@ -32,6 +32,8 @@ pre{white-space:pre-wrap}
 .badge-aprovado{background:#e8f6ec}
 .badge-rejeitado{background:#fff0f0}
 .badge-removido{background:#eee}
+.hidden{display:none!important}
+.agenda-box{border:1px solid #bbb;border-radius:10px;padding:12px;margin:14px 0;background:#fafafa}
 </style>
 </head>
 <body>
@@ -204,6 +206,66 @@ function nomeServicoAdmin(s){
   return mapa[s] || s || '—';
 }
 
+
+function servicoDependeAgenda(servico){
+  return ['audesc_com_audiodescritor','somente_audiodescritor','somente_consultor'].includes(servico || '');
+}
+function formatarMoedaAdmin(valor, moeda){
+  const n=Number(valor || 0);
+  const currency=moeda || 'BRL';
+  try{return n.toLocaleString('pt-BR',{style:'currency',currency});}catch{return String(n.toFixed(2));}
+}
+function moedaEventoAdmin(ev){
+  const pais=(ev.pais === 'Internacional' ? ev.origem_transmissao : ev.pais) || '';
+  if(pais === 'Brasil') return 'BRL';
+  if(pais === 'Portugal') return 'EUR';
+  return 'USD';
+}
+function agendaOptions(valorAtual){
+  const atual=valorAtual || 'pendente';
+  const opcoes=[['pendente','Pendente: verificar disponibilidade'],['disponivel','Disponível: liberar pagamento'],['indisponivel','Indisponível: impossibilidade do serviço']];
+  return opcoes.map(([v,t])=>`<option value="${v}" ${v===atual?'selected':''}>${escapeHtml(t)}</option>`).join('');
+}
+async function carregarValorAgenda(card,id){
+  const st=card.querySelector('.agendaAdminStatus');
+  const sugerido=card.querySelector('[data-field="valor_sugerido_agenda"]');
+  const final=card.querySelector('[data-field="valor_final_agenda"]');
+  if(!st || !sugerido || !final) return;
+  st.textContent='Calculando valor sugerido pela precificação...';
+  st.className='status agendaAdminStatus';
+  try{
+    const data=await api('/admin/eventos/'+id+'/valor-agenda');
+    sugerido.value=Number(data.valor_sugerido_agenda || 0).toFixed(2);
+    if(!final.value) final.value=Number(data.valor_final_agenda || data.valor_sugerido_agenda || 0).toFixed(2);
+    const moeda=data.moeda || 'BRL';
+    st.textContent='Valor sugerido: '+formatarMoedaAdmin(data.valor_sugerido_agenda,moeda)+'. Edite o valor final, se necessário, antes de confirmar a agenda.';
+    st.className='status agendaAdminStatus success';
+  }catch(e){
+    st.textContent='Erro ao calcular valor sugerido: '+e.message;
+    st.className='status agendaAdminStatus error';
+  }
+}
+async function salvarAgendaAdmin(id,card){
+  const st=card.querySelector('.agendaAdminStatus');
+  const body={
+    status_agenda:card.querySelector('[data-field="status_agenda"]')?.value || 'pendente',
+    observacao_agenda:card.querySelector('[data-field="observacao_agenda"]')?.value || '',
+    valor_final_agenda:card.querySelector('[data-field="valor_final_agenda"]')?.value || ''
+  };
+  if(st){st.textContent='Salvando agenda e valor final...'; st.className='status agendaAdminStatus';}
+  try{
+    const data=await api('/admin/eventos/'+id+'/agenda',{method:'PATCH',body:JSON.stringify(body)});
+    if(st){
+      const moeda=moedaEventoAdmin(data.evento || {});
+      st.textContent='Agenda salva. Valor final para pagamento: '+formatarMoedaAdmin(data.valor_final_agenda,moeda)+'.';
+      st.className='status agendaAdminStatus success';
+    }
+    await loadEvents();
+  }catch(e){
+    if(st){st.textContent='Erro: '+e.message; st.className='status agendaAdminStatus error';}
+  }
+}
+
 function servicosAdminOptions(valorAtual){
   const servicos = [
     ['audesc_transmissao','Transmissão Audesc'],
@@ -315,7 +377,7 @@ function renderEvent(ev){
       <div><strong>Serviço:</strong> ${nomeServicoAdmin(ev.tipo_servico)}</div>
       <div><strong>Evento:</strong> ${ev.tipo_evento||''}</div>
       <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
-      <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>
+      <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>${servicoDependeAgenda(ev.tipo_servico) ? `<div><strong>Agenda:</strong> ${ev.status_agenda || 'pendente'}</div><div><strong>Valor final de agenda:</strong> ${ev.valor_final_agenda != null ? formatarMoedaAdmin(ev.valor_final_agenda, moedaEventoAdmin(ev)) : 'a definir'}</div>` : ''}
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
       <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div>${ev.pais === 'Internacional' ? `<div><strong>Origem da transmissão:</strong> ${ev.origem_transmissao||''}</div>` : ''}<div><strong>${rotuloResumoLocal(ev.pais)}:</strong> ${nomeLocal(ev.pais, ev.uf) || ''}${ev.pais ? ' — ' + escapeHtml(ev.pais) : ''}</div>
       <div><strong>Local do evento:</strong> ${escapeHtml(ev.local_evento || '')}</div>
@@ -343,6 +405,25 @@ function renderEvent(ev){
         ${opt('publico',ev.tipo_evento)}${opt('privado',ev.tipo_evento)}
       </select></div>
     </div>
+    ${servicoDependeAgenda(ev.tipo_servico) ? `
+    <section class="agenda-box" aria-label="Agenda e valor do profissional">
+      <h4>Agenda e valor do profissional</h4>
+      <p class="small">Confira o valor sugerido pela precificação, edite o valor final se necessário e só depois confirme a disponibilidade de agenda.</p>
+      <div class="grid">
+        <div><label>Status da agenda</label><select data-field="status_agenda">
+          ${agendaOptions(ev.status_agenda || 'pendente')}
+        </select></div>
+        <div><label>Valor sugerido pela precificação</label><input data-field="valor_sugerido_agenda" value="${attr(ev.valor_sugerido_agenda ?? '')}" inputmode="decimal" readonly></div>
+        <div><label>Valor final para pagamento</label><input data-field="valor_final_agenda" value="${attr(ev.valor_final_agenda ?? '')}" inputmode="decimal"></div>
+      </div>
+      <label>Observação sobre a agenda</label>
+      <textarea data-field="observacao_agenda">${escapeHtml(ev.observacao_agenda || '')}</textarea>
+      <p>
+        <button class="calcularValorAgendaBtn secondary" type="button">Calcular valor sugerido</button>
+        <button class="salvarAgendaBtn ok" type="button">Salvar agenda e valor final</button>
+      </p>
+      <div class="status agendaAdminStatus">Valor de agenda ainda não conferido nesta tela.</div>
+    </section>` : ''}
     <div class="grid">
       <div><label>País</label><select data-field="pais" class="pais-admin-select">
         ${paisesAdminOptions(ev.pais || 'Brasil')}
@@ -395,6 +476,13 @@ function renderEvent(ev){
   if(servicoSelectAdmin) servicoSelectAdmin.addEventListener('change',()=>ajustarCamposAdmin(card));
   const geocodeBtn = card.querySelector('.geocodeAdminBtn');
   if(geocodeBtn) geocodeBtn.addEventListener('click',()=>buscarCoordenadasAdmin(card));
+  const calcularValorAgendaBtn = card.querySelector('.calcularValorAgendaBtn');
+  if(calcularValorAgendaBtn) calcularValorAgendaBtn.addEventListener('click',()=>carregarValorAgenda(card, ev.id));
+  const salvarAgendaBtn = card.querySelector('.salvarAgendaBtn');
+  if(salvarAgendaBtn) salvarAgendaBtn.addEventListener('click',()=>salvarAgendaAdmin(ev.id, card));
+  if(servicoDependeAgenda(ev.tipo_servico) && (ev.valor_sugerido_agenda == null || ev.valor_final_agenda == null)){
+    setTimeout(()=>carregarValorAgenda(card, ev.id), 0);
+  }
   atualizarLocalAdmin(card);
   ajustarCamposAdmin(card);
   card.querySelector('.saveBtn').onclick=()=>saveEvent(ev.id,card);
