@@ -81,6 +81,7 @@ pre{white-space:pre-wrap}
 </main>
 
 <script src="data/paises-unidades.js"></script>
+<script src="data/servicos.js"></script>
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
 let ADMIN_TOKEN='';
@@ -171,21 +172,10 @@ async function buscarCoordenadasAdmin(card){
   }
 }
 
-function nomeServicoAdmin(s){
-  const mapa = {
-    audesc_transmissao:'Transmissão Audesc',
-    divulgacao_gratuita:'Divulgação no Audesc',
-    audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',
-    somente_audiodescritor:'Somente audiodescritor',
-    somente_consultor:'Somente consultor'
-  };
-  return mapa[s] || s || '—';
-}
+function nomeServicoAdmin(s){ return window.AUDESC_SERVICOS?.nome(s) || s || '—'; }
 
 
-function servicoDependeAgenda(servico){
-  return ['audesc_com_audiodescritor','somente_audiodescritor','somente_consultor'].includes(servico || '');
-}
+function servicoDependeAgenda(servico){ return !!(window.AUDESC_SERVICOS?.requerAgenda(servico) ?? ['audesc_com_audiodescritor','somente_audiodescritor','somente_consultor'].includes(servico || '')); }
 function formatarMoedaAdmin(valor, moeda){
   const n=Number(valor || 0);
   const currency=moeda || 'BRL';
@@ -244,11 +234,11 @@ async function salvarAgendaAdmin(id,card){
 
 function servicosAdminOptions(valorAtual){
   const servicos = [
-    ['audesc_transmissao','Transmissão Audesc'],
-    ['divulgacao_gratuita','Divulgação no Audesc'],
+    ['audesc_transmissao','Transmissão Audesc (transmissor e receptores)'],
+    ['divulgacao_gratuita','Somente divulgação no Audesc'],
     ['audesc_com_audiodescritor','Serviço completo - Audesc + audiodescritor'],
-    ['somente_audiodescritor','Somente audiodescritor'],
-    ['somente_consultor','Somente consultor']
+    ['somente_audiodescritor','Audiodescritor'],
+    ['somente_consultor','Consultor']
   ];
   return servicos.map(([valor,texto]) => `<option value="${attr(valor)}" ${valor === valorAtual ? 'selected' : ''}>${escapeHtml(texto)}</option>`).join('');
 }
@@ -309,8 +299,8 @@ function ajustarCamposAdmin(card){
   const duracao = card.querySelector('[data-field="duracao_horas"]');
   const ouvintes = card.querySelector('[data-field="max_ouvintes"]');
 
-  const divulgacao = servico === 'divulgacao_gratuita';
-  const somenteProfissional = servico === 'somente_audiodescritor' || servico === 'somente_consultor';
+  const divulgacao = window.AUDESC_SERVICOS?.somenteDivulgacao(servico) ?? (servico === 'divulgacao_gratuita');
+  const somenteProfissional = window.AUDESC_SERVICOS?.somenteProfissional(servico) ?? (servico === 'somente_audiodescritor' || servico === 'somente_consultor');
 
   if(divulgacao){
     if(tipoEvento) tipoEvento.value = 'publico';

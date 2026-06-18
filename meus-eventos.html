@@ -60,6 +60,7 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 <div id="lista-eventos"></div>
 </section>
 
+<script src="data/servicos.js"></script>
 <script>
 const API='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
@@ -70,16 +71,7 @@ let filtroAtual='pendentes';
 
 function t(v){ return v || '—'; }
 
-function nomeServico(tipo){
- const mapa={
-  audesc_transmissao:'Transmissão Audesc',
-  divulgacao_gratuita:'Divulgação no Audesc',
-  audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',
-  somente_audiodescritor:'Somente audiodescritor',
-  somente_consultor:'Somente consultor'
- };
- return mapa[tipo] || tipo || '—';
-}
+function nomeServico(tipo){ return window.AUDESC_SERVICOS?.nome(tipo) || tipo || '—'; }
 function exigePagamento(ev){
  return ev && ev.status_pagamento !== 'pago' && ev.status_pagamento !== 'dispensado';
 }

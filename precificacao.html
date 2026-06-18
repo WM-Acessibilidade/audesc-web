@@ -97,6 +97,7 @@ button{margin:8px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:po
 </section>
 </main>
 
+<script src="data/servicos.js"></script>
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
 let ADMIN_TOKEN='';
@@ -158,16 +159,7 @@ function renderPricing(lista){
 }
 
 
-function nomeServico(s){
- const mapa={
-  audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',
-  somente_audiodescritor:'Somente audiodescritor',
-  somente_consultor:'Somente consultor',
-  audesc_transmissao:'Transmissão Audesc',
-  divulgacao_gratuita:'Divulgação no Audesc'
- };
- return mapa[s]||s||'—';
-}
+function nomeServico(s){ return window.AUDESC_SERVICOS?.nome(s) || s || '—'; }
 function textoAgenda(s){
  if(s==='disponivel') return 'Disponibilidade confirmada';
  if(s==='indisponivel') return 'Impossibilidade do serviço - profissional indisponível';
@@ -220,7 +212,7 @@ function renderAgenda(lista){
 }
 
 
-function nomeServicoPrecificacao(s){const mapa={audesc_transmissao:'Transmissão Audesc',audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',somente_audiodescritor:'Somente audiodescritor',somente_consultor:'Somente consultor',divulgacao_gratuita:'Divulgação no Audesc'};return mapa[s]||s||'—'}
+function nomeServico(s){return window.AUDESC_SERVICOS?.nome(s) || s || '—'}
 function renderServicePricing(lista){
  const root=document.getElementById('servicePricingList');
  root.innerHTML='';

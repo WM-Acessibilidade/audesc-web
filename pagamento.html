@@ -18,6 +18,7 @@ button{padding:12px 16px;font-size:1rem;cursor:pointer;border-radius:8px;border:
 <p><a href="meus-eventos.html">Voltar para Meus Eventos</a></p>
 <div id="status" class="msg">Carregando dados do evento...</div>
 <div id="conteudo"></div>
+<script src="data/servicos.js"></script>
 <script>
 const API='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
@@ -64,16 +65,7 @@ function formatarMoeda(valor, moeda){
  try{return new Intl.NumberFormat('pt-BR',{style:'currency',currency:moeda}).format(Number(valor||0))}
  catch(e){return moedaSimbolo(moeda)+' '+Number(valor||0).toFixed(2)}
 }
-function nomeServicoPagamento(s){
- const mapa={
-  audesc_transmissao:'Transmissão Audesc',
-  audesc_com_audiodescritor:'Serviço completo - Audesc + audiodescritor',
-  somente_audiodescritor:'Somente audiodescritor',
-  somente_consultor:'Somente consultor',
-  divulgacao_gratuita:'Divulgação no Audesc'
- };
- return mapa[s]||s||'—';
-}
+function nomeServicoPagamento(s){ return window.AUDESC_SERVICOS?.nome(s) || s || '—'; }
 
 async function calcularPagamento(cupom=''){
  const {data}=await sb.auth.getSession();
@@ -153,7 +145,7 @@ function renderEvento(ev){
   <p><strong>Gateway de pagamento:</strong> ${gatewayPagamento(ev)==='mercadopago'?'Mercado Pago / PIX e cartões no Brasil':'Paddle / pagamento internacional'}</p>
   ${calculoAtual?`
   <p><strong>Pacote:</strong> ${calculoAtual.pacote.ouvintes?calculoAtual.pacote.ouvintes+' ouvintes por ':''}${calculoAtual.pacote.duracao_horas} hora(s)</p>
-  ${calculoAtual.pacote.detalhes?.valor_audesc!==undefined?`<p><strong>Transmissão Audesc:</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_audesc, calculoAtual.moeda)}</p>`:''}
+  ${calculoAtual.pacote.detalhes?.valor_audesc!==undefined?`<p><strong>Transmissão Audesc (transmissor e receptores):</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_audesc, calculoAtual.moeda)}</p>`:''}
   ${calculoAtual.pacote.detalhes?.valor_audiodescritor!==undefined?`<p><strong>Audiodescritor:</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_audiodescritor, calculoAtual.moeda)}</p>`:''}
   ${calculoAtual.pacote.detalhes?.valor_servico!==undefined?`<p><strong>Valor do serviço:</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_servico, calculoAtual.moeda)}</p>`:''}
   ${calculoAtual.pacote.detalhes?.valor_hora!==undefined?`<p><strong>Valor por hora:</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_hora, calculoAtual.moeda)}</p>`:''}
