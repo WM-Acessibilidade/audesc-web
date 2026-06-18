@@ -139,7 +139,11 @@ function render(){
    <p class="small">
     Eventos cadastrados: ${e.total_eventos||0}<br>
     Notificações ativas: ${e.notificacoes_ativas?'sim':'não'}<br>
-    Notificações validadas: ${e.notificacoes_validadas?'sim':'não'}
+    Notificações validadas: ${e.notificacoes_validadas?'sim':'não'}<br>
+    Total de envios automáticos/administrativos: ${e.total_envios||0}<br>
+    Último envio: ${e.ultimo_envio?new Date(e.ultimo_envio).toLocaleString('pt-BR'):'nenhum'}
+    ${e.ultimo_envio_tipo?'<br>Tipo do último envio: '+esc(e.ultimo_envio_tipo):''}
+    ${e.ultimo_envio_status?'<br>Status do último envio: '+esc(e.ultimo_envio_status):''}
     ${e.observacao?'<br>Observação: '+esc(e.observacao):''}
    </p>`;
   root.appendChild(div);
