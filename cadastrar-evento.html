@@ -144,6 +144,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 </section>
 </main>
 
+<script src="data/paises-unidades.js"></script>
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
@@ -180,55 +181,10 @@ document.getElementById('sendLinkBtn').onclick=async()=>{
 };
 
 const paisSelect=document.getElementById('pais'),ufSelect=document.getElementById('uf'),paisOutroBox=document.getElementById('paisOutroBox'),paisOutroInput=document.getElementById('pais_outro'),origemTransmissaoBox=document.getElementById('origemTransmissaoBox'),origemTransmissaoSelect=document.getElementById('origem_transmissao');
-const unidadesAdministrativas = {
- Brasil: {
-  rotulo: 'Unidade federativa',
-  padrao: 'DF',
-  opcoes: [
-   ['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']
-  ]
- },
- Angola: {
-  rotulo: 'Província',
-  padrao: '',
-  opcoes: ['Bengo','Benguela','Bié','Cabinda','Cuando Cubango','Cuanza Norte','Cuanza Sul','Cunene','Huambo','Huíla','Luanda','Lunda Norte','Lunda Sul','Malanje','Moxico','Namibe','Uíge','Zaire']
- },
- 'Cabo Verde': {
-  rotulo: 'Ilha',
-  padrao: '',
-  opcoes: ['Boa Vista','Brava','Fogo','Maio','Sal','Santiago','Santo Antão','São Nicolau','São Vicente']
- },
- 'Guiné-Bissau': {
-  rotulo: 'Região',
-  padrao: '',
-  opcoes: ['Bafatá','Biombo','Bolama/Bijagós','Cacheu','Gabú','Oio','Quinara','Tombali','Setor Autônomo de Bissau']
- },
- 'Guiné Equatorial': {
-  rotulo: 'Província',
-  padrao: '',
-  opcoes: ['Annobón','Bioko Norte','Bioko Sul','Centro Sul','Djibloho','Kie-Ntem','Litoral','Wele-Nzas']
- },
- Moçambique: {
-  rotulo: 'Província',
-  padrao: '',
-  opcoes: ['Cabo Delgado','Gaza','Inhambane','Manica','Maputo','Maputo Cidade','Nampula','Niassa','Sofala','Tete','Zambézia']
- },
- Portugal: {
-  rotulo: 'Distrito ou região autônoma',
-  padrao: '',
-  opcoes: ['Aveiro','Beja','Braga','Bragança','Castelo Branco','Coimbra','Évora','Faro','Guarda','Leiria','Lisboa','Portalegre','Porto','Santarém','Setúbal','Viana do Castelo','Vila Real','Viseu','Açores','Madeira']
- },
- 'São Tomé e Príncipe': {
-  rotulo: 'Distrito ou região autônoma',
-  padrao: '',
-  opcoes: ['Água Grande','Cantagalo','Caué','Lembá','Lobata','Mé-Zóchi','Região Autônoma do Príncipe']
- },
- 'Timor-Leste': {
-  rotulo: 'Município ou região administrativa especial',
-  padrao: '',
-  opcoes: ['Aileu','Ainaro','Ataúro','Baucau','Bobonaro','Covalima','Díli','Ermera','Lautém','Liquiçá','Manatuto','Manufahi','Oecusse','Viqueque']
- }
-};
+const unidadesAdministrativas = window.AUDESC_UNIDADES_ADMINISTRATIVAS || {};
+window.AUDESC_LOCAIS?.preencherSelectPaises(paisSelect, paisSelect?.value || 'Brasil', {incluirEspeciais:true});
+if (origemTransmissaoSelect) window.AUDESC_LOCAIS?.preencherSelectPaises(origemTransmissaoSelect, origemTransmissaoSelect.value || '', {incluirVazio:true, incluirEspeciais:false});
+
 
 function criarOpcao(valor, texto){
  const opt=document.createElement('option');
@@ -294,8 +250,7 @@ paisSelect.addEventListener('change',atualizarLocalizacao);
 
 function setLocalizacaoStatus(msg, cls){const el=document.getElementById('localizacaoStatus'); if(!el)return; el.textContent=msg; el.className='status'+(cls?' '+cls:'');}
 function ajustarPaisUfPorCodigo(paisCodigo, ufCodigo){
- const mapaPais={br:'Brasil',pt:'Portugal',ao:'Angola',mz:'Moçambique',cv:'Cabo Verde',gw:'Guiné-Bissau',gq:'Guiné Equatorial',st:'São Tomé e Príncipe',tl:'Timor-Leste'};
- const pais=mapaPais[String(paisCodigo||'').toLowerCase()];
+ const pais=(window.AUDESC_LOCAIS?.paises||[]).find(p=>String(p.codigo).toLowerCase()===String(paisCodigo||'').toLowerCase())?.nome;
  if(pais && paisSelect){paisSelect.value=pais; atualizarLocalizacao();}
  if(pais==='Brasil' && ufCodigo && ufSelect && !ufSelect.disabled){ufSelect.value=String(ufCodigo).toUpperCase();}
 }
@@ -309,25 +264,8 @@ function textoSelecionado(select){
  const opt=select.options[select.selectedIndex];
  return opt ? opt.textContent.replace(/\s*\([^)]*\)\s*$/,'').trim() : '';
 }
-function codigoPaisISO(pais){
- const mapa={'Brasil':'BR','Portugal':'PT','Angola':'AO','Moçambique':'MZ','Cabo Verde':'CV','Guiné-Bissau':'GW','Guiné Equatorial':'GQ','São Tomé e Príncipe':'ST','Timor-Leste':'TL'};
- return mapa[pais] || '';
-}
-function codigoUnidadeLocal(pais, uf, ufTexto){
- const mapa={
-  Brasil:{DF:'DF'},
-  Portugal:{'Lisboa':'LIS','Porto':'POR','Açores':'ACO','Madeira':'MAD'},
-  Angola:{'Luanda':'LUA','Cabinda':'CAB'},
-  Moçambique:{'Maputo Cidade':'MPM','Maputo':'MAP'},
-  'Cabo Verde':{'Santiago':'ST','São Vicente':'SV','Sal':'SL'},
-  'Guiné-Bissau':{'Setor Autônomo de Bissau':'BS'},
-  'Guiné Equatorial':{'Bioko Norte':'BN','Bioko Sul':'BS','Litoral':'LI'},
-  'São Tomé e Príncipe':{'Água Grande':'AG','Região Autônoma do Príncipe':'PR'},
-  'Timor-Leste':{'Díli':'DI','Baucau':'BA','Oecusse':'OE'}
- };
- if(pais==='Brasil') return uf || '';
- return (mapa[pais] && (mapa[pais][uf] || mapa[pais][ufTexto])) || uf || '';
-}
+function codigoPaisISO(pais){return window.AUDESC_LOCAIS?.codigoPaisISO(pais) || '';}
+function codigoUnidadeLocal(pais, uf, ufTexto){return window.AUDESC_LOCAIS?.codigoUnidade(pais, uf, ufTexto) || uf || '';}
 function contextoBuscaEndereco(){
  const pais=document.getElementById('pais')?.value || '';
  const uf=document.getElementById('uf')?.value || '';
