@@ -116,13 +116,30 @@ function fmtData(v){return v?new Date(v).toLocaleString('pt-BR'):''}
 
 async function carregar(){
  status('status','Carregando...','');
- const precServicos=await api('/admin/precificacao-servicos');
- renderServicePricing(precServicos.precificacao||[]);
- const agenda=await api('/admin/agenda-pendencias');
- renderAgenda(agenda.eventos||[]);
- const cupons=await api('/admin/cupons');
- renderCoupons(cupons.cupons||[]);
- status('status','Dados carregados.','success');
+ let erros=[];
+ try{
+  const precServicos=await api('/admin/precificacao-servicos');
+  renderServicePricing(precServicos.precificacao||[]);
+ }catch(e){
+  erros.push('precificação dos serviços: '+e.message);
+  document.getElementById('servicePricingList').innerHTML='<p class="status error">Erro ao carregar precificação dos serviços: '+esc(e.message)+'</p>';
+ }
+ try{
+  const agenda=await api('/admin/agenda-pendencias');
+  renderAgenda(agenda.eventos||[]);
+ }catch(e){
+  erros.push('agenda: '+e.message);
+  document.getElementById('agendaList').innerHTML='<p class="status error">Erro ao carregar agenda: '+esc(e.message)+'</p>';
+ }
+ try{
+  const cupons=await api('/admin/cupons');
+  renderCoupons(cupons.cupons||[]);
+ }catch(e){
+  erros.push('cupons: '+e.message);
+  document.getElementById('couponsList').innerHTML='<p class="status error">Erro ao carregar cupons: '+esc(e.message)+'</p>';
+ }
+ if(erros.length) status('status','Carregamento parcial. Verifique: '+erros.join('; '),'error');
+ else status('status','Dados carregados.','success');
 }
 
 function renderPricing(lista){
@@ -213,18 +230,25 @@ function renderAgenda(lista){
 
 
 function nomeServico(s){return window.AUDESC_SERVICOS?.nome(s) || s || '—'}
+function nomeServicoPrecificacao(s){return nomeServico(s)}
+function ordemServico(s){return window.AUDESC_SERVICOS?.get(s)?.ordem ?? 999}
+function somenteValorHoraServico(s){
+ const cfg=window.AUDESC_SERVICOS?.get(s);
+ if(cfg) return !!(cfg.somenteDivulgacao || cfg.somenteProfissional);
+ return new Set(['divulgacao_gratuita','somente_audiodescritor','somente_consultor']).has(s);
+}
 function renderServicePricing(lista){
  const root=document.getElementById('servicePricingList');
  root.innerHTML='';
  if(!lista.length){root.innerHTML='<p>Nenhuma precificação de serviço cadastrada.</p>';return}
 
- const somenteValorHora = new Set(['divulgacao_gratuita','somente_audiodescritor','somente_consultor']);
+ lista = [...lista].sort((a,b)=>(ordemServico(a.tipo_servico)-ordemServico(b.tipo_servico)) || String(a.moeda).localeCompare(String(b.moeda)));
 
  lista.forEach(p=>{
   const div=document.createElement('section');
   div.className='card';
 
-  const usarSomenteHora = somenteValorHora.has(p.tipo_servico);
+  const usarSomenteHora = somenteValorHoraServico(p.tipo_servico);
 
   div.innerHTML=`
    <h3>${esc(nomeServicoPrecificacao(p.tipo_servico))} — ${moedaNome(p.moeda)}</h3>
