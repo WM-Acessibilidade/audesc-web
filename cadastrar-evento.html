@@ -245,6 +245,7 @@ function atualizarLocalizacao(){
  if(paisOutroInput){ paisOutroInput.required=false; paisOutroInput.value=''; }
  atualizarOpcoesServico();
  ajustarVisibilidade();
+ aplicarCamposFormulario();
 }
 paisSelect.addEventListener('change',atualizarLocalizacao);
 
@@ -397,6 +398,54 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  finally{btn.disabled=false}
 };
 
+
+let FORMULARIO_CONFIG = null;
+const CAMPOS_FORMULARIO = ['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_programacao','link_acessibilidade'];
+async function carregarConfiguracaoFormulario(){
+ try{
+  const r = await fetch(API_URL + '/formulario-config');
+  const j = await r.json();
+  if(r.ok && j.config){ FORMULARIO_CONFIG = j.config; aplicarConfiguracaoFormulario(); }
+ }catch(e){ console.warn('Não foi possível carregar configuração do formulário.', e); }
+}
+function codigoPaisAtualFormulario(){return window.AUDESC_LOCAIS?.codigoPaisISO(paisSelect.value) || '';}
+function codigoUnidadeAtualFormulario(){return codigoUnidadeLocal(paisSelect.value, ufSelect.value, textoSelecionado(ufSelect)) || ufSelect.value || '';}
+function regraFormularioAtual(){
+ if(!FORMULARIO_CONFIG) return null;
+ const pais = codigoPaisAtualFormulario();
+ const unidade = String(codigoUnidadeAtualFormulario() || '').toUpperCase();
+ return (FORMULARIO_CONFIG.regras || []).find(r => r.pais_codigo === pais && String(r.unidade_codigo || '').toUpperCase() === unidade) || null;
+}
+function servicosPermitidosFormulario(){
+ const regra = regraFormularioAtual();
+ const padrao = FORMULARIO_CONFIG?.padrao?.servicosDisponiveis;
+ return regra?.servicosDisponiveis || padrao || null;
+}
+function camposConfigFormulario(){
+ const base = FORMULARIO_CONFIG?.padrao?.campos || {};
+ const regra = regraFormularioAtual()?.campos || {};
+ return Object.assign({}, base, regra);
+}
+function setCampoVisivel(id, visivel, obrigatorio){
+ const el = document.getElementById(id);
+ const label = document.querySelector('label[for="'+id+'"]');
+ const boxMap = {tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox'};
+ const box = boxMap[id] ? document.getElementById(boxMap[id]) : null;
+ [el,label,box].filter(Boolean).forEach(x=>x.classList.toggle('hidden', !visivel));
+ if(el){ el.required = !!(visivel && obrigatorio); if(!visivel && 'disabled' in el) el.disabled = true; else if(id !== 'uf' && id !== 'origem_transmissao') el.disabled = false; }
+}
+function aplicarCamposFormulario(){
+ const cfg = camposConfigFormulario();
+ CAMPOS_FORMULARIO.forEach(id=>{
+  if(!Object.prototype.hasOwnProperty.call(cfg,id)) return;
+  setCampoVisivel(id, cfg[id].visivel !== false, !!cfg[id].obrigatorio);
+ });
+}
+function aplicarConfiguracaoFormulario(){
+ atualizarOpcoesServico();
+ ajustarVisibilidade();
+ aplicarCamposFormulario();
+}
 const tipoServico = document.getElementById('tipo_servico');
 if(window.AUDESC_SERVICOS?.htmlOptions){
   tipoServico.innerHTML = window.AUDESC_SERVICOS.htmlOptions(tipoServico.value || 'audesc_transmissao');
@@ -407,6 +456,15 @@ const acessoOuvintesBox = document.getElementById('acessoOuvintesBox');
 const divulgarAcessoOuvintes = document.getElementById('divulgar_acesso_ouvintes');
 
 function atualizarOpcoesServico(){
+ const valorAnterior = tipoServico.value || 'audesc_transmissao';
+ const permitidos = servicosPermitidosFormulario();
+ if(window.AUDESC_SERVICOS?.lista && Array.isArray(permitidos)){
+  const lista = window.AUDESC_SERVICOS.lista.filter(s => s.ativo !== false && s.apareceCadastro !== false && permitidos.includes(s.codigo));
+  tipoServico.innerHTML = lista.map(s => `<option value="${s.codigo}">${s.nome}</option>`).join('');
+  if(lista.some(s => s.codigo === valorAnterior)) tipoServico.value = valorAnterior;
+  else if(lista[0]) tipoServico.value = lista[0].codigo;
+  return;
+ }
  const brasilDf = paisSelect.value === 'Brasil' && ufSelect.value === 'DF';
  const opcoesDf = tipoServico.querySelectorAll('option[data-df-only="true"]');
  opcoesDf.forEach(opt=>{ opt.hidden=!brasilDf; opt.disabled=!brasilDf; });
@@ -459,10 +517,11 @@ function ajustarVisibilidade(){
 }
 
 tipoServico.addEventListener('change', ajustarVisibilidade);
-ufSelect.addEventListener('change',()=>{atualizarOpcoesServico();ajustarVisibilidade();});
+ufSelect.addEventListener('change',()=>{aplicarConfiguracaoFormulario();});
 atualizarLocalizacao();
 atualizarOpcoesServico();
 ajustarVisibilidade();
+carregarConfiguracaoFormulario();
 
 
 const logoutBtnForm = document.getElementById('logoutBtnForm');

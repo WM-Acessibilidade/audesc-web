@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Configuração do formulário de cadastro — Audesc</title>
+<style>
+body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;margin:0;background:#f7f7f7;color:#111}
+header,main{max-width:1000px;margin:0 auto;padding:20px}.panel{background:#fff;border:1px solid #ddd;border-radius:12px;padding:20px;margin-top:16px}
+label{display:block;font-weight:700;margin-top:12px}input,select,textarea,button{font:inherit}input,select,textarea{width:100%;box-sizing:border-box;padding:10px;margin-top:5px;border:1px solid #999;border-radius:8px;background:#fff;color:#111}textarea{min-height:110px}
+button{margin:12px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:pointer;font-weight:700;background:#111;color:#fff}.secondary{background:#555}.status{margin-top:12px;padding:10px;border-radius:8px;border:1px solid #aaa;background:#f0f0f0}.success{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}.check{display:block;font-weight:400;margin:8px 0}.check input{width:auto;margin-right:8px}.small{font-size:.95rem;color:#444}.preview{border:1px dashed #777;border-radius:10px;padding:14px;background:#fafafa}.hidden{display:none!important}
+</style>
+</head>
+<body>
+<header>
+<a href="admin.html">Voltar ao painel administrativo</a>
+<h1>Configuração do formulário de cadastro</h1>
+<p>Defina quais serviços e campos aparecem para cada país e unidade administrativa. Por padrão, a transmissão Audesc e a divulgação ficam disponíveis para todos os locais.</p>
+</header>
+<main>
+<section class="panel" id="loginPanel">
+<h2>Acesso administrativo</h2>
+<label for="adminToken">Senha administrativa</label>
+<input id="adminToken" type="password" autocomplete="current-password">
+<button id="loginBtn" type="button">Entrar</button>
+<div id="loginStatus" class="status">Informe a senha administrativa.</div>
+</section>
+
+<section class="panel hidden" id="configPanel">
+<h2>Local da regra</h2>
+<p class="small">Escolha o país e a unidade administrativa. Se não houver regra específica para esse local, valem as configurações padrão.</p>
+<div class="grid">
+<div><label for="pais">País</label><select id="pais"></select></div>
+<div><label for="uf" id="ufLabel">Unidade administrativa</label><select id="uf"></select></div>
+</div>
+<button type="button" id="carregarRegra">Carregar regra desse local</button>
+<button type="button" id="usarPadrao" class="secondary">Usar configuração padrão neste local</button>
+<div id="status" class="status" role="status" aria-live="polite">Aguardando carregamento.</div>
+
+<h2>Serviços disponíveis para este local</h2>
+<div id="servicosBox"></div>
+
+<h2>Campos do formulário</h2>
+<p class="small">Marque se o campo deve aparecer e se deve ser obrigatório. Alguns campos ainda podem ser ocultados automaticamente pelo tipo de serviço escolhido.</p>
+<div id="camposBox"></div>
+
+<h2>Pré-visualização textual</h2>
+<div id="preview" class="preview">Selecione um país e unidade administrativa para visualizar.</div>
+
+<button type="button" id="salvarBtn">Salvar configuração deste local</button>
+</section>
+</main>
+<script src="data/paises-unidades.js"></script>
+<script src="data/servicos.js"></script>
+<script>
+const API_URL='https://audesc-events-api.onrender.com';
+let ADMIN_TOKEN='';
+let config=null;
+const CAMPOS=[
+ ['descricao_original','Descrição do evento'],
+ ['tipo_evento','Visibilidade pública ou restrita'],
+ ['divulgar_acesso_ouvintes','Permitir acesso de ouvintes pela página pública'],
+ ['data_evento','Data e horário do evento'],
+ ['duracao_horas','Duração em horas'],
+ ['max_ouvintes','Quantidade máxima de ouvintes'],
+ ['local_evento','Nome ou endereço do local do evento'],
+ ['latitude','Latitude'],
+ ['longitude','Longitude'],
+ ['site_oficial','Site oficial'],
+ ['link_ingressos','Link de ingressos'],
+ ['link_programacao','Link de programação'],
+ ['link_acessibilidade','Link sobre acessibilidade / audiodescrição']
+];
+function esc(v){return String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function setStatus(msg,cls=''){const el=document.getElementById('status');el.textContent=msg;el.className='status '+cls;}
+async function api(path,options={}){const headers=Object.assign({'Content-Type':'application/json','x-admin-token':ADMIN_TOKEN},options.headers||{});const r=await fetch(API_URL+path,Object.assign({},options,{headers}));const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Erro na API');return j;}
+function criarOpcao(v,t){const o=document.createElement('option');o.value=v;o.textContent=t||v;return o;}
+const paisSelect=document.getElementById('pais'), ufSelect=document.getElementById('uf');
+function preencherPaises(){window.AUDESC_LOCAIS?.preencherSelectPaises(paisSelect,'Brasil',{incluirEspeciais:false}); atualizarUF();}
+function atualizarUF(){const pais=paisSelect.value; const dados=window.AUDESC_UNIDADES_ADMINISTRATIVAS?.[pais]; const label=document.getElementById('ufLabel'); ufSelect.innerHTML=''; ufSelect.appendChild(criarOpcao('','Selecione')); if(dados){label.textContent=dados.rotulo; dados.opcoes.forEach(item=>{const valor=Array.isArray(item)?item[0]:item; const txt=Array.isArray(item)?`${item[1]} (${item[0]})`:item; ufSelect.appendChild(criarOpcao(valor,txt));}); ufSelect.appendChild(criarOpcao('Nacional','Nacional')); ufSelect.disabled=false; ufSelect.value=dados.padrao||'';}else{label.textContent='Unidade administrativa'; ufSelect.disabled=true;}}
+function codPais(){return window.AUDESC_LOCAIS?.codigoPaisISO(paisSelect.value)||'';}
+function codUnidade(){const txt=ufSelect.options[ufSelect.selectedIndex]?.textContent?.replace(/\s*\([^)]*\)\s*$/,'')||''; return window.AUDESC_LOCAIS?.codigoUnidade(paisSelect.value,ufSelect.value,txt)||ufSelect.value||'';}
+function padrao(){return config?.padrao||{servicosDisponiveis:['audesc_transmissao','divulgacao_gratuita'],campos:{}};}
+function regraAtual(){const p=codPais(), u=codUnidade(); return (config?.regras||[]).find(r=>r.pais_codigo===p && r.unidade_codigo===u);}
+function camposEfetivos(){return Object.assign({}, padrao().campos||{}, regraAtual()?.campos||{});}
+function servicosEfetivos(){return regraAtual()?.servicosDisponiveis||padrao().servicosDisponiveis||[];}
+function renderServicos(){const ativos=new Set(servicosEfetivos()); document.getElementById('servicosBox').innerHTML=(window.AUDESC_SERVICOS?.lista||[]).filter(s=>s.ativo!==false).map(s=>`<label class="check"><input type="checkbox" name="servico" value="${esc(s.codigo)}" ${ativos.has(s.codigo)?'checked':''}>${esc(s.nome)}. <span class="small">${esc(s.categoriaNome||s.categoria||'')}</span></label>`).join('');}
+function renderCampos(){const c=camposEfetivos(); document.getElementById('camposBox').innerHTML=CAMPOS.map(([id,nome])=>{const cfg=c[id]||{visivel:true,obrigatorio:false};return `<div class="panel"><strong>${esc(nome)}</strong><label class="check"><input type="checkbox" name="campo_visivel" value="${esc(id)}" ${cfg.visivel!==false?'checked':''}>Exibir campo</label><label class="check"><input type="checkbox" name="campo_obrigatorio" value="${esc(id)}" ${cfg.obrigatorio?'checked':''}>Tornar obrigatório</label></div>`}).join('');}
+function renderPreview(){const sv=(window.AUDESC_SERVICOS?.lista||[]).filter(s=>servicosEfetivos().includes(s.codigo)).map(s=>s.nome); const c=camposEfetivos(); const campos=CAMPOS.filter(([id])=>c[id]?.visivel!==false).map(([,n])=>n); document.getElementById('preview').innerHTML=`<p><strong>Local:</strong> ${esc(paisSelect.value)} — ${esc(ufSelect.options[ufSelect.selectedIndex]?.textContent||'')}</p><p><strong>Serviços exibidos:</strong> ${esc(sv.join('; ')||'nenhum')}</p><p><strong>Campos exibidos:</strong> ${esc(campos.join('; ')||'nenhum')}</p>`;}
+function renderAll(){renderServicos();renderCampos();renderPreview();}
+async function carregar(){const j=await api('/admin/formulario-config'); config=j.config; renderAll(); setStatus('Configuração carregada.','success');}
+function lerTelaComoRegra(){const servicos=[...document.querySelectorAll('input[name="servico"]:checked')].map(i=>i.value); const campos={}; for(const [id] of CAMPOS){const vis=[...document.querySelectorAll('input[name="campo_visivel"]')].find(i=>i.value===id)?.checked!==false; const obrig=[...document.querySelectorAll('input[name="campo_obrigatorio"]')].find(i=>i.value===id)?.checked===true; campos[id]={visivel:vis,obrigatorio:obrig};} return {pais_codigo:codPais(),unidade_codigo:codUnidade(),nome:`${paisSelect.value} - ${ufSelect.options[ufSelect.selectedIndex]?.textContent||''}`,servicosDisponiveis:servicos,campos};}
+async function salvar(){if(!codPais()||!codUnidade()){setStatus('Selecione país e unidade administrativa.','error');return;} const regra=lerTelaComoRegra(); const regras=(config.regras||[]).filter(r=>!(r.pais_codigo===regra.pais_codigo && r.unidade_codigo===regra.unidade_codigo)); regras.push(regra); config.regras=regras; const j=await api('/admin/formulario-config',{method:'PATCH',body:JSON.stringify({config})}); config=j.config; renderAll(); setStatus('Configuração salva.','success');}
+function usarPadrao(){const p=codPais(),u=codUnidade(); config.regras=(config.regras||[]).filter(r=>!(r.pais_codigo===p&&r.unidade_codigo===u)); renderAll(); setStatus('Regra local removida. Ao salvar, este local usará a configuração padrão.','');}
+document.getElementById('loginBtn').onclick=async()=>{ADMIN_TOKEN=document.getElementById('adminToken').value.trim(); if(!ADMIN_TOKEN){document.getElementById('loginStatus').textContent='Informe a senha.';return;} document.getElementById('loginPanel').classList.add('hidden'); document.getElementById('configPanel').classList.remove('hidden'); preencherPaises(); try{await carregar();}catch(e){setStatus('Erro: '+e.message,'error');}};
+paisSelect.addEventListener('change',()=>{atualizarUF();renderAll();}); ufSelect.addEventListener('change',renderAll); document.getElementById('carregarRegra').onclick=renderAll; document.getElementById('usarPadrao').onclick=usarPadrao; document.getElementById('salvarBtn').onclick=()=>salvar().catch(e=>setStatus('Erro: '+e.message,'error')); document.getElementById('servicosBox').addEventListener('change',renderPreview); document.getElementById('camposBox').addEventListener('change',renderPreview);
+</script>
+</body>
+</html>
