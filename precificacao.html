@@ -34,13 +34,10 @@ button{margin:8px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:po
 </section>
 
 <section class="panel" id="contentPanel" style="display:none">
-<h2>Valores dos serviços profissionais</h2>
-<p class="small">Configure os valores por hora dos serviços de audiodescritor e consultor.</p>
+<h2>Valores padrão dos serviços</h2>
+<p class="small">Configure os valores padrão dos serviços do Audesc. Ajustes de agenda e valor final de eventos específicos devem ser feitos no painel do administrador.</p>
 <div id="servicePricingList"></div>
 
-<h2>Confirmação de agenda profissional</h2>
-<p class="small">Eventos com audiodescritor ou consultor dependem de confirmação de agenda antes do pagamento.</p>
-<div id="agendaList"></div>
 
 <h2>Criar cupom</h2>
 <div class="card">
@@ -125,13 +122,6 @@ async function carregar(){
   document.getElementById('servicePricingList').innerHTML='<p class="status error">Erro ao carregar precificação dos serviços: '+esc(e.message)+'</p>';
  }
  try{
-  const agenda=await api('/admin/agenda-pendencias');
-  renderAgenda(agenda.eventos||[]);
- }catch(e){
-  erros.push('agenda: '+e.message);
-  document.getElementById('agendaList').innerHTML='<p class="status error">Erro ao carregar agenda: '+esc(e.message)+'</p>';
- }
- try{
   const cupons=await api('/admin/cupons');
   renderCoupons(cupons.cupons||[]);
  }catch(e){
@@ -175,58 +165,6 @@ function renderPricing(lista){
  });
 }
 
-
-function nomeServico(s){ return window.AUDESC_SERVICOS?.nome(s) || s || '—'; }
-function textoAgenda(s){
- if(s==='disponivel') return 'Disponibilidade confirmada';
- if(s==='indisponivel') return 'Impossibilidade do serviço - profissional indisponível';
- return 'Verificando disponibilidade de agenda';
-}
-function renderAgenda(lista){
- const root=document.getElementById('agendaList');
- root.innerHTML='';
- if(!lista.length){root.innerHTML='<p>Nenhuma demanda de agenda profissional.</p>';return}
- lista.forEach(ev=>{
-  const div=document.createElement('section');
-  div.className='card';
-  const titulo=ev.titulo_publicado||ev.titulo_original||'Evento sem título';
-  div.innerHTML=`
-   <h3>${esc(titulo)}</h3>
-   <p>
-    Serviço: ${esc(nomeServico(ev.tipo_servico))}<br>
-    E-mail: ${esc(ev.email_usuario)}<br>
-    Data: ${fmtData(ev.data_evento)}<br>
-    País: ${esc(ev.pais||'')} ${ev.origem_transmissao?'— origem: '+esc(ev.origem_transmissao):''}<br>
-    Unidade administrativa: ${esc(ev.uf||'')}<br>
-    Status da agenda: ${esc(textoAgenda(ev.status_agenda||'pendente'))}<br>
-    Status do pagamento: ${esc(ev.status_pagamento||'')}
-   </p>
-   <label>Observação da agenda</label>
-   <input data-observacao type="text" value="${esc(ev.observacao_agenda||'')}" placeholder="Observação opcional">
-   <button type="button" data-agenda="disponivel">Confirmar disponibilidade</button>
-   <button type="button" data-agenda="indisponivel">Marcar indisponível</button>
-   <button type="button" data-agenda="pendente">Voltar para pendente</button>
-   <div class="status">Pronto.</div>`;
-  div.querySelectorAll('[data-agenda]').forEach(btn=>{
-   btn.onclick=async()=>{
-    try{
-     await api('/admin/eventos/'+ev.id+'/agenda',{
-      method:'PATCH',
-      body:JSON.stringify({
-       status_agenda:btn.dataset.agenda,
-       observacao_agenda:div.querySelector('[data-observacao]').value
-      })
-     });
-     await carregar();
-    }catch(e){
-     div.querySelector('.status').textContent='Erro: '+e.message;
-     div.querySelector('.status').className='status error';
-    }
-   };
-  });
-  root.appendChild(div);
- });
-}
 
 
 function nomeServico(s){return window.AUDESC_SERVICOS?.nome(s) || s || '—'}
