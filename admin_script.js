@@ -19,10 +19,10 @@ function paisesAdminOptions(valorAtual){
   const paises = window.AUDESC_LOCAIS?.nomesPaises(true) || ['Brasil','Outros','Internacional'];
   return paises.map(p => `<option value="${attr(p)}" ${p === valorAtual ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('');
 }
-function rotuloLocal(pais){ return unidadesAdministrativas[pais]?.rotulo || 'Local'; }
+function rotuloLocal(pais){ return pais === 'Internacional' ? 'Origem da transmissão' : (unidadesAdministrativas[pais]?.rotulo || 'Local'); }
 
 function rotuloResumoLocal(pais){
-  return unidadesAdministrativas[pais]?.rotulo || 'Local';
+  return pais === 'Internacional' ? 'Origem da transmissão' : (unidadesAdministrativas[pais]?.rotulo || 'Local');
 }
 
 function nomeLocal(pais, valor){
@@ -57,12 +57,15 @@ function codigoUnidadeLocalAdmin(pais, uf, ufTexto){return window.AUDESC_LOCAIS?
 function contextoBuscaEnderecoAdmin(card){
   const paisSelect=card.querySelector('[data-field="pais"]');
   const ufSelect=card.querySelector('[data-field="uf"]');
+  const origemSelect=card.querySelector('[data-field="origem_transmissao"]');
   const pais=paisSelect?.value || '';
+  const origem=origemSelect?.value || '';
+  const paisReferencia=pais === 'Internacional' ? origem : pais;
   const uf=ufSelect?.disabled ? '' : (ufSelect?.value || '');
   const ufTexto=ufSelect?.disabled ? '' : textoSelecionado(ufSelect);
-  const paisCodigo=codigoPaisISO(pais);
-  const unidadeCodigo=codigoUnidadeLocalAdmin(pais,uf,ufTexto);
-  return {pais,uf,ufTexto,paisCodigo,unidadeCodigo};
+  const paisCodigo=codigoPaisISO(paisReferencia);
+  const unidadeCodigo=pais === 'Internacional' ? '' : codigoUnidadeLocalAdmin(paisReferencia,uf,ufTexto);
+  return {pais:paisReferencia || pais,uf,ufTexto,paisCodigo,unidadeCodigo};
 }
 async function buscarCoordenadasAdmin(card){
   const localInput=card.querySelector('[data-field="local_evento"]');
@@ -188,11 +191,11 @@ function atualizarLocalAdmin(card){
     local.disabled = true;
     if(localBox) localBox.classList.add('hidden');
     if(origemBox) origemBox.classList.remove('hidden');
-    if(origem) origem.disabled = false;
+    if(origem){ origem.disabled = false; origem.required = true; }
   }else{
     if(localBox) localBox.classList.remove('hidden');
     if(origemBox) origemBox.classList.add('hidden');
-    if(origem){ origem.value=''; origem.disabled=true; }
+    if(origem){ origem.value=''; origem.disabled=true; origem.required=false; }
 
     if(pais.value === 'Outros'){
       local.value = '';
@@ -310,7 +313,7 @@ function renderEvent(ev){
       <div><label>País</label><select data-field="pais" class="pais-admin-select">
         ${paisesAdminOptions(ev.pais || 'Brasil')}
       </select></div>
-      <div class="uf-admin-box"><label class="local-admin-label">${rotuloLocal(ev.pais || 'Brasil')}</label><select data-field="uf" class="uf-admin-select" ${(ev.pais === 'Outros' || ev.pais === 'Internacional') ? 'disabled' : ''}>
+      <div class="uf-admin-box ${ev.pais === 'Internacional' ? 'hidden' : ''}"><label class="local-admin-label">${rotuloLocal(ev.pais || 'Brasil')}</label><select data-field="uf" class="uf-admin-select" ${(ev.pais === 'Outros' || ev.pais === 'Internacional') ? 'disabled' : ''}>
         ${locaisAdminOptions(ev.pais || 'Brasil', ev.uf || '')}
       </select></div>
       <div class="origem-admin-box ${ev.pais === 'Internacional' ? '' : 'hidden'}"><label>Origem da transmissão</label><select data-field="origem_transmissao" ${ev.pais === 'Internacional' ? '' : 'disabled'}>
