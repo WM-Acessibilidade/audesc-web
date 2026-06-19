@@ -50,9 +50,9 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <form id="eventoForm">
 <h2>Dados do evento</h2>
 <label for="titulo_original">Nome do evento</label>
-<input id="titulo_original" name="titulo_original" type="text" required maxlength="200">
+<input id="titulo_original" name="titulo_original" type="text" required maxlength="150" minlength="10" aria-describedby="titulo_original_contador"><div id="titulo_original_contador" class="small" role="status" aria-live="polite">0 de 150 caracteres utilizados.</div>
 <label for="descricao_original">Descrição do evento</label>
-<textarea id="descricao_original" name="descricao_original" maxlength="5000"></textarea>
+<textarea id="descricao_original" name="descricao_original" maxlength="1500" minlength="100" aria-describedby="descricao_original_contador"></textarea><div id="descricao_original_contador" class="small" role="status" aria-live="polite">0 de 1500 caracteres utilizados.</div>
 
 <div class="grid">
 <div><label for="tipo_servico">Tipo de solicitação</label><select id="tipo_servico" name="tipo_servico"><option value="audesc_transmissao">Transmissão Audesc (transmissor e receptores)</option><option value="divulgacao_gratuita">Somente divulgação no Audesc</option>
@@ -246,6 +246,7 @@ function atualizarLocalizacao(){
  atualizarOpcoesServico();
  ajustarVisibilidade();
  aplicarCamposFormulario();
+ aplicarLimitesTextoFormulario();
 }
 paisSelect.addEventListener('change',atualizarLocalizacao);
 
@@ -366,6 +367,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const data=Object.fromEntries(new FormData(form).entries());
+ try{ validarLimitesAntesDeEnviar(); }catch(err){ setStatus('status', err.message, 'error'); btn.disabled=false; return; }
  const ctxLocalizacao=contextoBuscaEndereco();
  data.pais_codigo=ctxLocalizacao.paisCodigo || '';
  data.unidade_codigo=ctxLocalizacao.unidadeCodigo || '';
@@ -392,7 +394,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
   const status = document.getElementById('status');
   status.className = 'status success';
   status.innerHTML = 'Evento recebido. Você pode continuar cadastrando eventos. Assim que terminar, acesse <a href="meus-eventos.html">Meus Eventos</a> para efetuar o pagamento.';
-  form.reset();atualizarLocalizacao();
+  form.reset();atualizarLocalizacao();aplicarLimitesTextoFormulario();
   status.focus();
  }catch(err){setStatus('status','Erro: '+(err.message||'não foi possível enviar.'),'error')}
  finally{btn.disabled=false}
@@ -425,6 +427,44 @@ function camposConfigFormulario(){
  const base = FORMULARIO_CONFIG?.padrao?.campos || {};
  const regra = regraFormularioAtual()?.campos || {};
  return Object.assign({}, base, regra);
+}
+function limitesConfigFormulario(){
+ const base = FORMULARIO_CONFIG?.padrao?.limites || {
+  titulo_original:{limitarMinimo:true,minimo:10,limitarMaximo:true,maximo:150},
+  descricao_original:{limitarMinimo:true,minimo:100,limitarMaximo:true,maximo:1500}
+ };
+ const regra = regraFormularioAtual()?.limites || {};
+ return Object.assign({}, base, regra);
+}
+function aplicarLimiteCampo(id, cfg, rotulo){
+ const el=document.getElementById(id); if(!el) return;
+ const contador=document.getElementById(id+'_contador');
+ const minimo=Number(cfg?.minimo||0), maximo=Number(cfg?.maximo||0);
+ if(cfg?.limitarMaximo!==false && maximo>0) el.setAttribute('maxlength', String(maximo)); else el.removeAttribute('maxlength');
+ if(cfg?.limitarMinimo!==false && minimo>0) el.setAttribute('minlength', String(minimo)); else el.removeAttribute('minlength');
+ function atualizar(){
+  const n=el.value.length;
+  let msg = cfg?.limitarMaximo!==false && maximo>0 ? `${n} de ${maximo} caracteres utilizados.` : `${n} caracteres utilizados.`;
+  if(cfg?.limitarMinimo!==false && minimo>0 && n>0 && n<minimo) msg += ` Mínimo recomendado: ${minimo}.`;
+  if(contador) contador.textContent=msg;
+ }
+ el.oninput=atualizar; atualizar();
+}
+function aplicarLimitesTextoFormulario(){
+ const l=limitesConfigFormulario();
+ aplicarLimiteCampo('titulo_original', l.titulo_original || {}, 'nome do evento');
+ aplicarLimiteCampo('descricao_original', l.descricao_original || {}, 'descrição do evento');
+}
+function validarLimitesAntesDeEnviar(){
+ const l=limitesConfigFormulario();
+ const pares=[['titulo_original','o nome do evento',true],['descricao_original','a descrição do evento',!!camposConfigFormulario().descricao_original?.obrigatorio]];
+ for(const [id,nome,obrigatorio] of pares){
+  const el=document.getElementById(id); if(!el) continue;
+  const cfg=l[id]||{}; const valor=el.value.trim(); const minimo=Number(cfg.minimo||0); const maximo=Number(cfg.maximo||0);
+  if(obrigatorio && !valor){ el.focus(); throw new Error(`Informe ${nome}.`); }
+  if((valor || obrigatorio) && cfg.limitarMinimo!==false && minimo>0 && valor.length<minimo){ el.focus(); throw new Error(`${nome} deve ter pelo menos ${minimo} caracteres.`); }
+  if(cfg.limitarMaximo!==false && maximo>0 && valor.length>maximo){ el.focus(); throw new Error(`${nome} não pode ultrapassar ${maximo} caracteres.`); }
+ }
 }
 function setCampoVisivel(id, visivel, obrigatorio){
  const el = document.getElementById(id);
