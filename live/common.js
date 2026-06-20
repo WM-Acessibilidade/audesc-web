@@ -69,19 +69,19 @@
       script.onload = () => {
         const loaded = getLiveKitGlobal();
         if (loaded) {
-          setStatus('diagnosticBox', 'Biblioteca do LiveKit carregada com sucesso.', 'success');
+          setStatus('diagnosticBox', 'Recursos de transmissão carregados com sucesso.', 'success');
           resolve(loaded);
         } else {
-          reject(new Error('Biblioteca carregada, mas sem objeto global compatível.'));
+          reject(new Error('Recurso de transmissão carregado, mas sem componente compatível.'));
         }
       };
-      script.onerror = () => reject(new Error('Falha ao carregar script local do LiveKit.'));
+      script.onerror = () => reject(new Error('Falha ao carregar recurso local de transmissão.'));
       document.head.appendChild(script);
     });
   }
   function criarRoom(LK) {
     if (typeof LK.Room === 'function') return new LK.Room();
-    throw new Error('Classe Room não encontrada na biblioteca do LiveKit.');
+    throw new Error('Componente de sala não encontrado no recurso de transmissão.');
   }
   function saveState(key, data) {
     try { localStorage.setItem(STORAGE_PREFIX + ':' + key, JSON.stringify(data)); } catch (e) {}
