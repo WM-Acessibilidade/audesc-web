@@ -124,6 +124,21 @@ async function acompanharConfirmacaoPagamento(){
 }
 
 async function carregar(){const id=new URLSearchParams(location.search).get('evento');if(!id){setMsg('Evento não informado.','error');return}const {data}=await sb.auth.getSession();const session=data?.session;if(!session||sessionAgeMinutes(session)>SESSION_MAX_MINUTES){await sb.auth.signOut();setMsg('Por segurança, acesse novamente a página Meus Eventos e solicite um novo link de validação.','error');return}try{const r=await fetch(API+'/meus-eventos/'+encodeURIComponent(id),{headers:{'Authorization':'Bearer '+session.access_token}});const data=await r.json();if(!r.ok)throw new Error(data.error||'Erro ao carregar evento.');eventoAtual=data.evento;if(!pagamentoBloqueadoPorAgenda(eventoAtual)){await calcularPagamento();}renderEvento(eventoAtual);setMsg(pagamentoBloqueadoPorAgenda(eventoAtual)?mensagemAgenda(eventoAtual):'Confira os dados do evento e prossiga para o pagamento.','');const tx=new URLSearchParams(location.search).get('_ptxn');if(tx){setMsg('Abrindo checkout do Paddle...','');await abrirCheckoutPaddle(tx);history.replaceState({},document.title,'pagamento.html?evento='+encodeURIComponent(id))}}catch(e){setMsg('Erro: '+(e.message||'não foi possível carregar o evento.'),'error')}}
+function rotuloUnidadePagamento(ev){
+ const locais=window.AUDESC_UNIDADES_ADMINISTRATIVAS||{};
+ return locais[ev.pais]?.rotulo || 'Unidade administrativa';
+}
+function localizacaoResumoPagamento(ev){
+ let html='';
+ if(ev.pais) html+=`<p><strong>País:</strong> ${t(ev.pais)}</p>`;
+ if(ev.pais==='Internacional'){
+  if(ev.origem_transmissao) html+=`<p><strong>Origem da transmissão:</strong> ${t(ev.origem_transmissao)}</p>`;
+ } else if(ev.uf && ev.uf!=='Não se aplica' && ev.uf!=='Nacional'){
+  html+=`<p><strong>${rotuloUnidadePagamento(ev)}:</strong> ${t(ev.uf)}</p>`;
+ }
+ return html;
+}
+
 function renderEvento(ev){
  const pago=ev.status_pagamento==='pago';
  const agendaBloqueada=pagamentoBloqueadoPorAgenda(ev);

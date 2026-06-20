@@ -210,6 +210,21 @@ function eventosFiltrados(visiveis, pendentes, liberados){
  return pendentes;
 }
 
+function rotuloUnidadeEvento(ev){
+ const locais=window.AUDESC_UNIDADES_ADMINISTRATIVAS||{};
+ return locais[ev.pais]?.rotulo || 'Unidade administrativa';
+}
+function localizacaoResumoCard(ev){
+ let html='';
+ if(ev.pais) html+=`<p><strong>País:</strong> ${t(ev.pais)}</p>`;
+ if(ev.pais==='Internacional'){
+  if(ev.origem_transmissao) html+=`<p><strong>Origem da transmissão:</strong> ${t(ev.origem_transmissao)}</p>`;
+ } else if(ev.uf && ev.uf!=='Não se aplica' && ev.uf!=='Nacional'){
+  html+=`<p><strong>${rotuloUnidadeEvento(ev)}:</strong> ${t(ev.uf)}</p>`;
+ }
+ return html;
+}
+
 function renderEventos(eventos){
  const ocultos=obterEventosOcultos();
  const visiveis=eventos.filter(ev=>!ocultos.includes(ev.id));
@@ -228,8 +243,7 @@ function renderEventos(eventos){
    </p>
    <p><strong>Tipo:</strong> ${nomeServico(ev.tipo_servico)}</p>
    <p><strong>Data:</strong> ${t(ev.data_evento?new Date(ev.data_evento).toLocaleString('pt-BR'):'')}</p>
-   <p><strong>País:</strong> ${t(ev.pais)}</p>
-   <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
+   ${localizacaoResumoCard(ev)}
    ${ev.local_evento?`<p><strong>Local:</strong> ${t(ev.local_evento)}</p>`:''}
    ${ev.sala_codigo?`<p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>`:''}
    ${ev.senha_transmissor?`<p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>`:''}
