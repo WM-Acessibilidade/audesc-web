@@ -34,6 +34,15 @@ pre{white-space:pre-wrap}
 .badge-removido{background:#eee}
 .hidden{display:none!important}
 .agenda-box{border:1px solid #bbb;border-radius:10px;padding:12px;margin:14px 0;background:#fafafa}
+
+@media (max-width: 700px){
+  header,main{padding:12px}
+  .panel,.card{padding:14px;border-radius:10px;margin-top:12px}
+  .grid,.toolbar{grid-template-columns:1fr}
+  button{display:block;width:100%;margin:8px 0 0 0;text-align:center}
+  .badge{display:block;margin:6px 0}
+  input,textarea,select{font-size:16px}
+}
 </style>
 </head>
 <body>
@@ -193,6 +202,13 @@ async function buscarCoordenadasAdmin(card){
 }
 
 function nomeServicoAdmin(s){ return window.AUDESC_SERVICOS?.nome(s) || s || '—'; }
+function nomeVisibilidadeAdmin(v){
+  const valor = String(v || '').toLowerCase();
+  if(valor === 'publico' || valor === 'público') return 'Pública';
+  if(valor === 'privado' || valor === 'restrita') return 'Restrita';
+  return v || '';
+}
+function optTexto(value,current,texto){return `<option value="${attr(value)}" ${value===current?'selected':''}>${escapeHtml(texto)}</option>`}
 
 let FORMULARIO_CONFIG_ADMIN = null;
 async function carregarConfigFormularioAdmin(){
@@ -408,12 +424,12 @@ function renderEvent(ev){
     <p>
       <span class="badge ${badgeClass}">${ev.status_publicacao||'sem status'}</span>
       <span class="badge">${nomeServicoAdmin(ev.tipo_servico)}</span>
-      <span class="badge">${ev.tipo_evento||''}</span>
+      <span class="badge">${nomeVisibilidadeAdmin(ev.tipo_evento)}</span>
     </p>
     <p class="small">ID: ${ev.id}<br>${ageInfo}${olderThan2Days && ev.status_publicacao==='pendente' ? '<br><strong>Atenção: pendente há mais de 2 dias.</strong>' : ''}</p>
     <div class="grid">
       <div><strong>Serviço:</strong> ${nomeServicoAdmin(ev.tipo_servico)}</div>
-      <div><strong>Evento:</strong> ${ev.tipo_evento||''}</div>
+      <div><strong>Visibilidade:</strong> ${nomeVisibilidadeAdmin(ev.tipo_evento)}</div>
       <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
       <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>${servicoDependeAgenda(ev.tipo_servico) ? `<div><strong>Agenda:</strong> ${ev.status_agenda || 'pendente'}</div><div><strong>Valor final de agenda:</strong> ${ev.valor_final_agenda != null ? formatarMoedaAdmin(ev.valor_final_agenda, moedaEventoAdmin(ev)) : 'a definir'}</div>` : ''}
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
@@ -440,7 +456,7 @@ function renderEvent(ev){
         ${servicosAdminOptions(ev.tipo_servico || 'audesc_transmissao')}
       </select></div>
       <div class="tipo-evento-admin-box"><label>Visibilidade</label><select data-field="tipo_evento">
-        ${opt('publico',ev.tipo_evento)}${opt('privado',ev.tipo_evento)}
+        ${optTexto('publico',ev.tipo_evento,'Pública')}${optTexto('privado',ev.tipo_evento,'Restrita')}
       </select></div>
     </div>
     ${servicoDependeAgenda(ev.tipo_servico) ? `
@@ -475,7 +491,7 @@ function renderEvent(ev){
     </div>
 
     <div class="grid">
-      <div><label>Nome ou endereço do local do evento</label><input data-field="local_evento" value="${attr(ev.local_evento || '')}" placeholder="Exemplo: Memorial MPF, Brasília, DF"></div>
+      <div><label>Nome ou endereço do local do evento</label><input data-field="local_evento" value="${attr(ev.local_evento || '')}"></div>
       <div><label>Latitude</label><input data-field="latitude" value="${attr(ev.latitude ?? '')}" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
       <div><label>Longitude</label><input data-field="longitude" value="${attr(ev.longitude ?? '')}" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
     </div>
