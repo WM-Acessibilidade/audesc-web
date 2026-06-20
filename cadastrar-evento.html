@@ -368,6 +368,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const data=Object.fromEntries(new FormData(form).entries());
+ aplicarRegrasServicoNoPayload(data);
  try{ validarLimitesAntesDeEnviar(); }catch(err){ setStatus('status', err.message, 'error'); btn.disabled=false; return; }
  const ctxLocalizacao=contextoBuscaEndereco();
  data.pais_codigo=ctxLocalizacao.paisCodigo || '';
@@ -402,6 +403,16 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
 };
 
 
+function aplicarRegrasServicoNoPayload(data){
+ const campos = typeof CAMPOS_FORMULARIO !== 'undefined' ? CAMPOS_FORMULARIO : ['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'];
+ for(const id of campos){
+  const regra = typeof regraCampoServicoAtual === 'function' ? regraCampoServicoAtual(id) : null;
+  if(!regra) continue;
+  if(regra.comportamento === 'fixo') data[id] = regra.valor ?? '';
+  if(regra.comportamento === 'oculto_sem_valor') delete data[id];
+ }
+}
+
 let FORMULARIO_CONFIG = null;
 const CAMPOS_FORMULARIO = ['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
 async function carregarConfiguracaoFormulario(){
@@ -429,6 +440,19 @@ function camposConfigFormulario(){
  const regra = regraFormularioAtual()?.campos || {};
  return Object.assign({}, base, regra);
 }
+function regrasServicoFormulario(){
+ const base = FORMULARIO_CONFIG?.padrao?.regrasPorServico || {};
+ const regra = regraFormularioAtual()?.regrasPorServico || {};
+ return Object.assign({}, base, regra);
+}
+function regraCampoServicoAtual(id){
+ const servico = document.getElementById('tipo_servico')?.value || '';
+ return regrasServicoFormulario()?.[servico]?.campos?.[id] || null;
+}
+function comportamentoCampoServico(id){return regraCampoServicoAtual(id)?.comportamento || 'usuario';}
+function valorFixoCampoServico(id){return regraCampoServicoAtual(id)?.valor;}
+function campoOcultoSemValor(id){return comportamentoCampoServico(id)==='oculto_sem_valor';}
+function campoValorFixo(id){return comportamentoCampoServico(id)==='fixo';}
 function limitesConfigFormulario(){
  const base = FORMULARIO_CONFIG?.padrao?.limites || {
   titulo_original:{limitarMinimo:true,minimo:10,limitarMaximo:true,maximo:150},
@@ -468,12 +492,20 @@ function validarLimitesAntesDeEnviar(){
  }
 }
 function setCampoVisivel(id, visivel, obrigatorio){
+ const regraServico = regraCampoServicoAtual(id);
+ const comportamento = regraServico?.comportamento || 'usuario';
+ if(comportamento === 'fixo' || comportamento === 'oculto_sem_valor') visivel = false;
  const el = document.getElementById(id);
  const label = document.querySelector('label[for="'+id+'"]');
  const boxMap = {tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox'};
  const box = boxMap[id] ? document.getElementById(boxMap[id]) : null;
  [el,label,box].filter(Boolean).forEach(x=>x.classList.toggle('hidden', !visivel));
- if(el){ el.required = !!(visivel && obrigatorio); if(!visivel && 'disabled' in el) el.disabled = true; else if(id !== 'uf' && id !== 'origem_transmissao') el.disabled = false; }
+ if(el){
+  if(comportamento === 'fixo') el.value = String(regraServico.valor ?? '');
+  if(comportamento === 'oculto_sem_valor') el.value = '';
+  el.required = !!(visivel && obrigatorio);
+  if(!visivel && 'disabled' in el) el.disabled = true; else if(id !== 'uf' && id !== 'origem_transmissao') el.disabled = false;
+ }
 }
 function aplicarCamposFormulario(){
  const cfg = camposConfigFormulario();
@@ -561,6 +593,14 @@ function ajustarVisibilidade(){
   acessoOuvintesBox.classList.add('hidden');
   if(divulgarAcessoOuvintes){ divulgarAcessoOuvintes.value='false'; divulgarAcessoOuvintes.disabled=true; }
  }
+ // Regras configuradas por serviço prevalecem sobre as regras antigas fixas.
+ ['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].forEach(id=>{
+  const regra = regraCampoServicoAtual(id);
+  if(!regra) return;
+  const el=document.getElementById(id); const boxMap={tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox'}; const box=document.getElementById(boxMap[id]);
+  if(regra.comportamento==='fixo'){ if(el) el.value=String(regra.valor??''); if(box) box.classList.add('hidden'); if(el) el.disabled=true; }
+  if(regra.comportamento==='oculto_sem_valor'){ if(el) el.value=''; if(box) box.classList.add('hidden'); if(el) el.disabled=true; }
+ });
 }
 
 tipoServico.addEventListener('change', ajustarVisibilidade);

@@ -178,6 +178,50 @@ async function buscarCoordenadasAdmin(card){
 
 function nomeServicoAdmin(s){ return window.AUDESC_SERVICOS?.nome(s) || s || '—'; }
 
+let FORMULARIO_CONFIG_ADMIN = null;
+async function carregarConfigFormularioAdmin(){
+  try{
+    const j = await api('/admin/formulario-config');
+    FORMULARIO_CONFIG_ADMIN = j.config || null;
+  }catch(e){ console.warn('Não foi possível carregar a configuração do formulário.', e); }
+}
+function regraFormularioAdmin(card){
+  if(!FORMULARIO_CONFIG_ADMIN) return null;
+  const ctx = contextoBuscaEnderecoAdmin(card);
+  const pais = ctx.paisCodigo || '';
+  const unidade = String(ctx.unidadeCodigo || '').toUpperCase();
+  return (FORMULARIO_CONFIG_ADMIN.regras || []).find(r => r.pais_codigo === pais && String(r.unidade_codigo || '').toUpperCase() === unidade) || null;
+}
+function regrasServicoAdmin(card){
+  const base = FORMULARIO_CONFIG_ADMIN?.padrao?.regrasPorServico || {};
+  const regra = regraFormularioAdmin(card)?.regrasPorServico || {};
+  return Object.assign({}, base, regra);
+}
+function regraCampoAdmin(card, campo){
+  const servico = card.querySelector('[data-field="tipo_servico"]')?.value || '';
+  return regrasServicoAdmin(card)?.[servico]?.campos?.[campo] || null;
+}
+function aplicarRegraCampoAdmin(card, campo){
+  const regra = regraCampoAdmin(card, campo);
+  if(!regra) return;
+  const el = card.querySelector(`[data-field="${campo}"]`);
+  const boxes = {tipo_evento:'.tipo-evento-admin-box',duracao_horas:'.duracao-admin-box',max_ouvintes:'.ouvintes-admin-box'};
+  const box = boxes[campo] ? card.querySelector(boxes[campo]) : null;
+  if(regra.comportamento === 'fixo'){
+    if(el) el.value = String(regra.valor ?? '');
+    if(box) box.classList.add('hidden');
+    if(el) el.disabled = true;
+  }
+  if(regra.comportamento === 'oculto_sem_valor'){
+    if(el) el.value = '';
+    if(box) box.classList.add('hidden');
+    if(el) el.disabled = true;
+  }
+}
+function aplicarRegrasServicoAdmin(card){
+  ['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].forEach(campo => aplicarRegraCampoAdmin(card, campo));
+}
+
 
 function servicoDependeAgenda(servico){ return !!(window.AUDESC_SERVICOS?.requerAgenda(servico) ?? ['audesc_com_audiodescritor','somente_audiodescritor','somente_consultor'].includes(servico || '')); }
 function formatarMoedaAdmin(valor, moeda){
@@ -326,6 +370,7 @@ function ajustarCamposAdmin(card){
       if(ouvintes) ouvintes.disabled = false;
     }
   }
+  aplicarRegrasServicoAdmin(card);
 }
 
 function renderEvent(ev){
@@ -591,6 +636,12 @@ async function saveEvent(id,card){
   if(body.pais === 'Outros') body.uf = '';
   if(body.pais === 'Internacional') body.uf = '';
   if(body.pais !== 'Internacional') body.origem_transmissao = '';
+  ['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].forEach(campo=>{
+    const regra = regraCampoAdmin(card, campo);
+    if(!regra) return;
+    if(regra.comportamento === 'fixo') body[campo] = regra.valor ?? '';
+    if(regra.comportamento === 'oculto_sem_valor') delete body[campo];
+  });
   if(body.tipo_servico === 'divulgacao_gratuita'){
     body.tipo_evento = 'publico';
     delete body.duracao_horas;
@@ -640,11 +691,12 @@ async function deleteEvent(id,card){
   }
 }
 
-document.getElementById('loginBtn').onclick=()=>{
+document.getElementById('loginBtn').onclick=async()=>{
   ADMIN_TOKEN=document.getElementById('adminToken').value.trim();
   if(!ADMIN_TOKEN){status('loginStatus','Informe a senha.','error');return}
   document.getElementById('loginPanel').style.display='none';
   document.getElementById('eventsPanel').style.display='block';
+  await carregarConfigFormularioAdmin();
   loadEvents();
 };
 document.getElementById('refreshBtn').onclick=loadEvents;
