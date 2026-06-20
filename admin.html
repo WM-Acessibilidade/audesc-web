@@ -132,6 +132,22 @@ function locaisAdminOptions(pais, valorAtual){
   return out;
 }
 
+function resumoLocalizacaoAdmin(ev){
+  const partes = [];
+  partes.push(`<div><strong>País:</strong> ${escapeHtml(ev.pais || '')}</div>`);
+  if(ev.pais === 'Internacional'){
+    if(ev.origem_transmissao){
+      partes.push(`<div><strong>Origem da transmissão:</strong> ${escapeHtml(ev.origem_transmissao)}</div>`);
+    }
+    return partes.join('');
+  }
+  const nome = nomeLocal(ev.pais, ev.uf);
+  if(nome){
+    partes.push(`<div><strong>${escapeHtml(rotuloResumoLocal(ev.pais))}:</strong> ${escapeHtml(nome)}</div>`);
+  }
+  return partes.join('');
+}
+
 
 function textoSelecionado(select){
   if(!select || select.selectedIndex < 0) return '';
@@ -281,6 +297,13 @@ async function salvarAgendaAdmin(id,card){
 }
 
 function servicosAdminOptions(valorAtual){
+  if(window.AUDESC_SERVICOS?.lista){
+    const lista = window.AUDESC_SERVICOS.lista
+      .filter(s => s.ativo !== false)
+      .slice()
+      .sort((a,b)=>(a.ordem ?? 999)-(b.ordem ?? 999));
+    return lista.map(s => `<option value="${attr(s.codigo)}" ${s.codigo === valorAtual ? 'selected' : ''}>${escapeHtml(s.nome)}</option>`).join('');
+  }
   const servicos = [
     ['audesc_transmissao','Transmissão Audesc (transmissor e receptores)'],
     ['divulgacao_gratuita','Somente divulgação no Audesc'],
@@ -394,7 +417,7 @@ function renderEvent(ev){
       <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
       <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>${servicoDependeAgenda(ev.tipo_servico) ? `<div><strong>Agenda:</strong> ${ev.status_agenda || 'pendente'}</div><div><strong>Valor final de agenda:</strong> ${ev.valor_final_agenda != null ? formatarMoedaAdmin(ev.valor_final_agenda, moedaEventoAdmin(ev)) : 'a definir'}</div>` : ''}
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
-      <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div>${ev.pais === 'Internacional' ? `<div><strong>Origem da transmissão:</strong> ${ev.origem_transmissao||''}</div>` : ''}<div><strong>${rotuloResumoLocal(ev.pais)}:</strong> ${nomeLocal(ev.pais, ev.uf) || ''}${ev.pais ? ' — ' + escapeHtml(ev.pais) : ''}</div>
+      <div><strong>E-mail:</strong> ${escapeHtml(ev.email_usuario||'')}</div>${resumoLocalizacaoAdmin(ev)}
       <div><strong>Local do evento:</strong> ${escapeHtml(ev.local_evento || '')}</div>
       <div><strong>Latitude:</strong> ${ev.latitude ?? ''}</div>
       <div><strong>Longitude:</strong> ${ev.longitude ?? ''}</div>
@@ -402,9 +425,9 @@ function renderEvent(ev){
       <div><strong>Horas de transmissão:</strong> ${ev.duracao_horas || ''}</div>
       <div><strong>Máximo de ouvintes:</strong> ${ev.max_ouvintes || ''}</div>
     </div>
-    <label>Título publicado</label>
+    <label>Nome do evento</label>
     <input data-field="titulo_publicado" value="${attr(ev.titulo_publicado||ev.titulo_original||'')}">
-    <label>Descrição publicada</label>
+    <label>Descrição do evento</label>
     <textarea data-field="descricao_publicada">${escapeHtml(ev.descricao_publicada||ev.descricao_original||'')}</textarea>
     <div class="grid">
       <div><label>Status publicação</label><select data-field="status_publicacao">
