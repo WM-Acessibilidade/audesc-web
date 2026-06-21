@@ -168,7 +168,7 @@
 <script>
 (function() {
   const C = window.AudescLiveCommon;
-  let LK = null, room = null, localTrack = null, localPublication = null, roomCode = '', eventName = '', transmitterName = '', eventPassword = '', messagesBlocked = false, anotherTransmitterDetected = false, checkingTransmitterPresence = false;
+  let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '', eventPassword = '', messagesBlocked = false, anotherTransmitterDetected = false, checkingTransmitterPresence = false;
   let receiverList = [], messages = [], selectedReceiver = null, activeSession = false; anotherTransmitterDetected = false; checkingTransmitterPresence = false; messagesBlocked = false;
 
   C.attachBeforeUnload(() => activeSession);
@@ -318,15 +318,8 @@
   }
 
   function cleanupAudioSources(stopComputer = false) {
-    try {
-      if (localTrack) {
-        const rawTrack = localTrack.mediaStreamTrack || localTrack;
-        if (rawTrack && rawTrack.stop) rawTrack.stop();
-        else if (localTrack.stop) localTrack.stop();
-      }
-    } catch (e) {}
+    try { if (localTrack && localTrack.stop) localTrack.stop(); } catch (e) {}
     localTrack = null;
-    localPublication = null;
     currentPublishedSource = '';
     if (mixedOutputTrack) {
       try { mixedOutputTrack.stop(); } catch (e) {}
@@ -360,31 +353,7 @@
       return null;
     }
     try {
-      const displayOptions = {
-        video: {
-          displaySurface: 'browser'
-        },
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false
-        },
-        preferCurrentTab: true,
-        selfBrowserSurface: 'exclude',
-        surfaceSwitching: 'exclude',
-        systemAudio: 'exclude',
-        windowAudio: 'exclude'
-      };
-      let stream;
-      try {
-        stream = await navigator.mediaDevices.getDisplayMedia(displayOptions);
-      } catch (primaryError) {
-        stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-      }
-      stream.getVideoTracks().forEach(track => {
-        try { track.stop(); } catch (e) {}
-        try { stream.removeTrack(track); } catch (e) {}
-      });
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       const audioTracks = stream.getAudioTracks();
       if (!audioTracks.length) {
         stopStream(stream);
@@ -473,72 +442,21 @@
     return mixedOutputTrack;
   }
 
-
-  function getRawMediaTrack(track) {
-    return track && (track.mediaStreamTrack || track);
-  }
-
-  function createLocalAudioTrackForPublishing(mediaTrack) {
-    if (LK && typeof LK.LocalAudioTrack === 'function') {
-      try { return new LK.LocalAudioTrack(mediaTrack); } catch (e) {}
-    }
-    return mediaTrack;
-  }
-
-  async function unpublishAllLocalAudioTracks() {
-    if (!room || !room.localParticipant) return;
-    const participant = room.localParticipant;
-    const candidates = [];
-    if (localPublication && localPublication.track) candidates.push(localPublication.track);
-    if (localTrack) candidates.push(localTrack);
-
-    ['audioTrackPublications', 'trackPublications', 'tracks'].forEach(prop => {
-      const collection = participant[prop];
-      if (!collection) return;
-      const values = typeof collection.values === 'function' ? Array.from(collection.values()) : Object.values(collection);
-      values.forEach(pub => {
-        if (!pub) return;
-        const track = pub.track || pub.audioTrack || pub;
-        const raw = getRawMediaTrack(track);
-        if ((raw && raw.kind === 'audio') || track.kind === 'audio') candidates.push(track);
-      });
-    });
-
-    for (const track of candidates) {
-      if (!track) continue;
-      try { participant.unpublishTrack(track); continue; } catch (e) {}
-      const raw = getRawMediaTrack(track);
-      try { if (raw) participant.unpublishTrack(raw); } catch (e) {}
-    }
-
-    try {
-      if (typeof participant.setMicrophoneEnabled === 'function') {
-        await participant.setMicrophoneEnabled(false);
-      }
-    } catch (e) {}
-
-    for (const track of candidates) {
-      const raw = getRawMediaTrack(track);
-      try { if (raw && raw.stop) raw.stop(); } catch (e) {}
-      try { if (track.stop) track.stop(); } catch (e) {}
-    }
-    localTrack = null;
-    localPublication = null;
-  }
-
   async function publishConfiguredAudio() {
     if (!room || !room.localParticipant) return;
     const sourceKey = getAudioMode() + ':' + ((document.getElementById('microphoneSelect') || {}).value || '') + ':' + (computerStream ? 'computer' : 'no-computer');
     try {
-      await unpublishAllLocalAudioTracks();
-      const mediaTrack = await createConfiguredAudioTrack();
-      const publishableTrack = createLocalAudioTrackForPublishing(mediaTrack);
-      localTrack = publishableTrack;
-      const publishOptions = { name: 'audesc-audio-final' };
-      if (LK && LK.Track && LK.Track.Source && LK.Track.Source.Microphone) {
-        publishOptions.source = LK.Track.Source.Microphone;
+      if (localTrack) {
+        try {
+          if (room.localParticipant.unpublishTrack) {
+            const mediaTrack = localTrack.mediaStreamTrack || localTrack;
+            room.localParticipant.unpublishTrack(mediaTrack);
+          }
+        } catch (e) {}
       }
-      localPublication = await room.localParticipant.publishTrack(publishableTrack, publishOptions);
+      const track = await createConfiguredAudioTrack();
+      localTrack = track;
+      await room.localParticipant.publishTrack(track);
       currentPublishedSource = sourceKey;
       const mode = getAudioMode();
       const text = mode === 'mixed'
