@@ -398,16 +398,14 @@
     }
   }
 
-  async function createConfiguredAudioTrack() {
-    const mode = getAudioMode();
+  async function createConfiguredAudioTrack(options = {}) {
+    const forceMicrophoneOnly = !!options.forceMicrophoneOnly;
+    const mode = forceMicrophoneOnly ? 'microphone' : getAudioMode();
     currentAudioMode = mode;
 
     if ((mode === 'computer' || mode === 'mixed') && !computerStream) {
-      await captureComputerAudio();
-    }
-    if ((mode === 'computer' || mode === 'mixed') && !computerStream) {
-      if (mode === 'computer') throw new Error('Áudio do computador não selecionado.');
-      announceAudio('Transmissão configurada apenas com microfone, pois o áudio do computador não foi selecionado.', 'warning');
+      if (mode === 'computer') throw new Error('Áudio do computador não selecionado. Use o botão para selecionar o áudio do computador antes de mudar para esta fonte.');
+      announceAudio('Transmissão configurada apenas com microfone, pois o áudio do computador ainda não foi selecionado.', 'warning');
     }
 
     cleanupAudioSources(false);
@@ -442,9 +440,11 @@
     return mixedOutputTrack;
   }
 
-  async function publishConfiguredAudio() {
+  async function publishConfiguredAudio(options = {}) {
     if (!room || !room.localParticipant) return;
-    const sourceKey = getAudioMode() + ':' + ((document.getElementById('microphoneSelect') || {}).value || '') + ':' + (computerStream ? 'computer' : 'no-computer');
+    const forceMicrophoneOnly = !!options.forceMicrophoneOnly;
+    const modeForKey = forceMicrophoneOnly ? 'microphone' : getAudioMode();
+    const sourceKey = modeForKey + ':' + ((document.getElementById('microphoneSelect') || {}).value || '') + ':' + (computerStream ? 'computer' : 'no-computer');
     try {
       if (localTrack) {
         try {
@@ -454,11 +454,11 @@
           }
         } catch (e) {}
       }
-      const track = await createConfiguredAudioTrack();
+      const track = await createConfiguredAudioTrack({ forceMicrophoneOnly });
       localTrack = track;
       await room.localParticipant.publishTrack(track);
       currentPublishedSource = sourceKey;
-      const mode = getAudioMode();
+      const mode = forceMicrophoneOnly ? 'microphone' : getAudioMode();
       const text = mode === 'mixed'
         ? 'Fonte de áudio atual: microfone + áudio do computador.'
         : mode === 'computer'
@@ -494,7 +494,13 @@
     document.querySelectorAll('input[name="audioSourceMode"]').forEach(radio => {
       radio.addEventListener('change', async () => {
         updateAudioSettingsVisibility();
+        const mode = getAudioMode();
         if (room && activeSession) {
+          if ((mode === 'computer' || mode === 'mixed') && !computerStream) {
+            C.setStatus('computerAudioStatus', 'Selecione o áudio do computador antes de aplicar esta fonte.', 'warning');
+            C.setStatus('diagnosticBox', 'Diagnóstico: aguardando seleção manual do áudio do computador.', 'warning');
+            return;
+          }
           try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao alterar fonte de áudio.'), 'warning'); }
         }
       });
@@ -688,7 +694,7 @@
       }
     }
 
-    await publishConfiguredAudio();
+    await publishConfiguredAudio({ forceMicrophoneOnly: true });
     updateReceiverList();
     broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked });
     document.getElementById('eventBadge').textContent = 'Evento: ' + eventName;
