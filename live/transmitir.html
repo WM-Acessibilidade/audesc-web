@@ -110,6 +110,52 @@
         </label>
         <p class="hint">Ao marcar esta opção, os ouvintes serão avisados da indisponibilidade do audiodescritor(a) para interagir com mensagens no momento.</p>
         <p class="hint">Por padrão, o alerta sonoro fica desativado para o audiodescritor(a), pois podem chegar mensagens de vários ouvintes.</p>
+
+        <hr aria-hidden="true">
+        <h3>Fontes de áudio</h3>
+        <fieldset class="field">
+          <legend>Modo de transmissão de áudio</legend>
+          <label><input type="radio" name="audioSourceMode" value="microphone" checked> Apenas microfone</label><br>
+          <label><input type="radio" name="audioSourceMode" value="computer"> Apenas áudio do computador</label><br>
+          <label><input type="radio" name="audioSourceMode" value="mixed"> Microfone + áudio do computador</label>
+        </fieldset>
+
+        <label class="field" id="microphoneSelectField">
+          <span>Microfone</span>
+          <select id="microphoneSelect">
+            <option value="">Microfone padrão</option>
+          </select>
+        </label>
+        <button id="refreshMicrophonesBtn" class="ghost" type="button">Atualizar lista de microfones</button>
+
+        <div id="computerAudioControls" hidden>
+          <button id="captureComputerAudioBtn" class="secondary" type="button">Selecionar áudio do computador</button>
+          <button id="stopComputerAudioBtn" class="ghost" type="button" hidden>Remover áudio do computador</button>
+          <p class="hint">Ao selecionar uma aba, janela ou tela, marque a opção de compartilhar áudio quando o navegador oferecer essa escolha.</p>
+          <div id="computerAudioStatus" class="status">Áudio do computador não selecionado.</div>
+        </div>
+
+        <label class="field" id="micVolumeField">
+          <span>Volume do microfone: <span id="micVolumeValue">100%</span></span>
+          <input id="micVolumeControl" type="range" min="0" max="200" value="100">
+        </label>
+
+        <label class="field" id="computerVolumeField" hidden>
+          <span>Volume do áudio do computador: <span id="computerVolumeValue">100%</span></span>
+          <input id="computerVolumeControl" type="range" min="0" max="200" value="100">
+        </label>
+
+        <label class="field">
+          <span>
+            <input id="monitorAudioEnabled" type="checkbox">
+            Monitorar meu áudio
+          </span>
+        </label>
+        <audio id="audioMonitor" controls hidden></audio>
+        <div id="audioSourceStatus" class="status" aria-live="polite">Fonte de áudio atual: apenas microfone.</div>
+
+        <hr aria-hidden="true">
+        <h3>Diagnóstico da transmissão</h3>
         <div id="diagnosticBox" class="status">Diagnóstico: recursos de transmissão ainda não carregados.</div>
       </div>
     </details>
@@ -127,6 +173,16 @@
 
   C.attachBeforeUnload(() => activeSession);
   let messageAudioContext = null;
+  let audioContext = null;
+  let micStream = null;
+  let computerStream = null;
+  let mixedStream = null;
+  let mixedOutputTrack = null;
+  let micGainNode = null;
+  let computerGainNode = null;
+  let audioDestination = null;
+  let currentAudioMode = 'microphone';
+  let currentPublishedSource = '';
 
   function isSoundAlertEnabled() {
     const checkbox = document.getElementById('soundAlertEnabled');
@@ -212,6 +268,284 @@
         }
       });
     }
+  }
+
+
+  function announceAudio(text, tone = '') {
+    C.setStatus('audioSourceStatus', text, tone);
+  }
+
+  function getAudioMode() {
+    const checked = document.querySelector('input[name="audioSourceMode"]:checked');
+    return checked ? checked.value : 'microphone';
+  }
+
+  function setGainFromControl(node, controlId, valueId) {
+    const control = document.getElementById(controlId);
+    const value = document.getElementById(valueId);
+    if (!control) return;
+    const volume = Number(control.value || 100);
+    if (value) value.textContent = volume + '%';
+    if (node) node.gain.value = volume / 100;
+  }
+
+  function ensureAudioContextForMixing() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) throw new Error('Este navegador não oferece suporte à mistura de áudio.');
+    if (!audioContext) audioContext = new AudioContextClass();
+    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+    return audioContext;
+  }
+
+  async function listMicrophones() {
+    const select = document.getElementById('microphoneSelect');
+    if (!select || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    const currentValue = select.value;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const inputs = devices.filter(device => device.kind === 'audioinput');
+      select.innerHTML = '<option value="">Microfone padrão</option>' + inputs.map((device, index) => {
+        const label = device.label || ('Microfone ' + (index + 1));
+        return '<option value="' + device.deviceId + '">' + label + '</option>';
+      }).join('');
+      if ([...select.options].some(option => option.value === currentValue)) select.value = currentValue;
+    } catch (e) {}
+  }
+
+  function stopStream(stream) {
+    if (!stream) return;
+    try { stream.getTracks().forEach(track => track.stop()); } catch (e) {}
+  }
+
+  function cleanupAudioSources(stopComputer = false) {
+    try { if (localTrack && localTrack.stop) localTrack.stop(); } catch (e) {}
+    localTrack = null;
+    currentPublishedSource = '';
+    if (mixedOutputTrack) {
+      try { mixedOutputTrack.stop(); } catch (e) {}
+      mixedOutputTrack = null;
+    }
+    if (micStream) { stopStream(micStream); micStream = null; }
+    if (stopComputer && computerStream) {
+      stopStream(computerStream);
+      computerStream = null;
+      const stopBtn = document.getElementById('stopComputerAudioBtn');
+      if (stopBtn) stopBtn.hidden = true;
+      C.setStatus('computerAudioStatus', 'Áudio do computador não selecionado.');
+    }
+    mixedStream = null;
+    audioDestination = null;
+    micGainNode = null;
+    computerGainNode = null;
+  }
+
+  async function getMicrophoneStreamIfNeeded(mode) {
+    if (mode === 'computer') return null;
+    const select = document.getElementById('microphoneSelect');
+    const deviceId = select && select.value ? select.value : '';
+    const constraints = { audio: deviceId ? { deviceId: { exact: deviceId } } : true };
+    return navigator.mediaDevices.getUserMedia(constraints);
+  }
+
+  async function captureComputerAudio() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+      C.setStatus('computerAudioStatus', 'Este navegador não oferece captura de áudio do computador.', 'warning');
+      return null;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      const audioTracks = stream.getAudioTracks();
+      if (!audioTracks.length) {
+        stopStream(stream);
+        C.setStatus('computerAudioStatus', 'Nenhum áudio foi compartilhado. Ao selecionar a aba, janela ou tela, marque a opção de compartilhar áudio.', 'warning');
+        return null;
+      }
+      if (computerStream) stopStream(computerStream);
+      computerStream = stream;
+      audioTracks[0].addEventListener('ended', () => {
+        computerStream = null;
+        const stopBtn = document.getElementById('stopComputerAudioBtn');
+        if (stopBtn) stopBtn.hidden = true;
+        C.setStatus('computerAudioStatus', 'Áudio do computador removido da transmissão.', 'warning');
+        announceAudio('Áudio do computador removido da transmissão.', 'warning');
+        if (room && activeSession) publishConfiguredAudio().catch(error => {
+          C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao atualizar fonte de áudio.'), 'warning');
+        });
+      });
+      const stopBtn = document.getElementById('stopComputerAudioBtn');
+      if (stopBtn) stopBtn.hidden = false;
+      C.setStatus('computerAudioStatus', 'Áudio do computador selecionado.', 'success');
+      announceAudio('Áudio do computador selecionado.', 'success');
+      return computerStream;
+    } catch (e) {
+      C.setStatus('computerAudioStatus', 'A seleção do áudio do computador foi cancelada ou não pôde ser concluída.', 'warning');
+      return null;
+    }
+  }
+
+  function setMonitorStream(stream) {
+    const monitor = document.getElementById('audioMonitor');
+    const checkbox = document.getElementById('monitorAudioEnabled');
+    if (!monitor) return;
+    if (checkbox && checkbox.checked && stream) {
+      monitor.srcObject = stream;
+      monitor.hidden = false;
+      monitor.play().catch(() => {});
+    } else {
+      monitor.pause();
+      monitor.srcObject = null;
+      monitor.hidden = true;
+    }
+  }
+
+  async function createConfiguredAudioTrack(options = {}) {
+    const forceMicrophoneOnly = !!options.forceMicrophoneOnly;
+    const mode = forceMicrophoneOnly ? 'microphone' : getAudioMode();
+    currentAudioMode = mode;
+
+    if ((mode === 'computer' || mode === 'mixed') && !computerStream) {
+      if (mode === 'computer') throw new Error('Áudio do computador não selecionado. Use o botão para selecionar o áudio do computador antes de mudar para esta fonte.');
+      announceAudio('Transmissão configurada apenas com microfone, pois o áudio do computador ainda não foi selecionado.', 'warning');
+    }
+
+    cleanupAudioSources(false);
+
+    const effectiveMode = (mode === 'computer' && !computerStream) ? 'microphone' : mode;
+    const ctx = ensureAudioContextForMixing();
+    const destination = ctx.createMediaStreamDestination();
+    audioDestination = destination;
+
+    if (effectiveMode === 'microphone' || effectiveMode === 'mixed') {
+      micStream = await getMicrophoneStreamIfNeeded(effectiveMode);
+      if (micStream) {
+        const micSource = ctx.createMediaStreamSource(micStream);
+        micGainNode = ctx.createGain();
+        setGainFromControl(micGainNode, 'micVolumeControl', 'micVolumeValue');
+        micSource.connect(micGainNode).connect(destination);
+      }
+    }
+
+    if ((effectiveMode === 'computer' || effectiveMode === 'mixed') && computerStream) {
+      const computerAudioStream = new MediaStream(computerStream.getAudioTracks());
+      const computerSource = ctx.createMediaStreamSource(computerAudioStream);
+      computerGainNode = ctx.createGain();
+      setGainFromControl(computerGainNode, 'computerVolumeControl', 'computerVolumeValue');
+      computerSource.connect(computerGainNode).connect(destination);
+    }
+
+    mixedStream = destination.stream;
+    mixedOutputTrack = mixedStream.getAudioTracks()[0];
+    if (!mixedOutputTrack) throw new Error('Nenhuma fonte de áudio ativa foi encontrada.');
+    setMonitorStream(mixedStream);
+    return mixedOutputTrack;
+  }
+
+  async function publishConfiguredAudio(options = {}) {
+    if (!room || !room.localParticipant) return;
+    const forceMicrophoneOnly = !!options.forceMicrophoneOnly;
+    const modeForKey = forceMicrophoneOnly ? 'microphone' : getAudioMode();
+    const sourceKey = modeForKey + ':' + ((document.getElementById('microphoneSelect') || {}).value || '') + ':' + (computerStream ? 'computer' : 'no-computer');
+    try {
+      if (localTrack) {
+        try {
+          if (room.localParticipant.unpublishTrack) {
+            const mediaTrack = localTrack.mediaStreamTrack || localTrack;
+            room.localParticipant.unpublishTrack(mediaTrack);
+          }
+        } catch (e) {}
+      }
+      const track = await createConfiguredAudioTrack({ forceMicrophoneOnly });
+      localTrack = track;
+      await room.localParticipant.publishTrack(track);
+      currentPublishedSource = sourceKey;
+      const mode = forceMicrophoneOnly ? 'microphone' : getAudioMode();
+      const text = mode === 'mixed'
+        ? 'Fonte de áudio atual: microfone + áudio do computador.'
+        : mode === 'computer'
+          ? 'Fonte de áudio atual: apenas áudio do computador.'
+          : 'Fonte de áudio atual: apenas microfone.';
+      announceAudio(text, 'success');
+      C.setStatus('muteStatus', mode === 'computer' ? 'Transmissão ativa com áudio do computador.' : 'Microfone ativo.', 'success');
+    } catch (error) {
+      announceAudio('Não foi possível configurar a fonte de áudio. ' + (error && error.message ? error.message : ''), 'warning');
+      throw error;
+    }
+  }
+
+  function updateAudioSettingsVisibility() {
+    const mode = getAudioMode();
+    const micField = document.getElementById('microphoneSelectField');
+    const micVolumeField = document.getElementById('micVolumeField');
+    const computerControls = document.getElementById('computerAudioControls');
+    const computerVolumeField = document.getElementById('computerVolumeField');
+    if (micField) micField.hidden = mode === 'computer';
+    if (micVolumeField) micVolumeField.hidden = mode === 'computer';
+    if (computerControls) computerControls.hidden = mode === 'microphone';
+    if (computerVolumeField) computerVolumeField.hidden = mode === 'microphone';
+    const text = mode === 'mixed'
+      ? 'Fonte de áudio selecionada: microfone + áudio do computador.'
+      : mode === 'computer'
+        ? 'Fonte de áudio selecionada: apenas áudio do computador.'
+        : 'Fonte de áudio selecionada: apenas microfone.';
+    announceAudio(text);
+  }
+
+  function setupAudioSourceControls() {
+    document.querySelectorAll('input[name="audioSourceMode"]').forEach(radio => {
+      radio.addEventListener('change', async () => {
+        updateAudioSettingsVisibility();
+        const mode = getAudioMode();
+        if (room && activeSession) {
+          if ((mode === 'computer' || mode === 'mixed') && !computerStream) {
+            C.setStatus('computerAudioStatus', 'Selecione o áudio do computador antes de aplicar esta fonte.', 'warning');
+            C.setStatus('diagnosticBox', 'Diagnóstico: aguardando seleção manual do áudio do computador.', 'warning');
+            return;
+          }
+          try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao alterar fonte de áudio.'), 'warning'); }
+        }
+      });
+    });
+
+    const refreshBtn = document.getElementById('refreshMicrophonesBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', listMicrophones);
+
+    const micSelect = document.getElementById('microphoneSelect');
+    if (micSelect) micSelect.addEventListener('change', async () => {
+      if (room && activeSession) {
+        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao trocar microfone.'), 'warning'); }
+      }
+    });
+
+    const captureBtn = document.getElementById('captureComputerAudioBtn');
+    if (captureBtn) captureBtn.addEventListener('click', async () => {
+      const stream = await captureComputerAudio();
+      if (stream && room && activeSession) {
+        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao adicionar áudio do computador.'), 'warning'); }
+      }
+    });
+
+    const stopBtn = document.getElementById('stopComputerAudioBtn');
+    if (stopBtn) stopBtn.addEventListener('click', async () => {
+      if (computerStream) stopStream(computerStream);
+      computerStream = null;
+      stopBtn.hidden = true;
+      C.setStatus('computerAudioStatus', 'Áudio do computador removido da transmissão.', 'warning');
+      if (room && activeSession) {
+        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao remover áudio do computador.'), 'warning'); }
+      }
+    });
+
+    const micVolume = document.getElementById('micVolumeControl');
+    if (micVolume) micVolume.addEventListener('input', () => setGainFromControl(micGainNode, 'micVolumeControl', 'micVolumeValue'));
+
+    const computerVolume = document.getElementById('computerVolumeControl');
+    if (computerVolume) computerVolume.addEventListener('input', () => setGainFromControl(computerGainNode, 'computerVolumeControl', 'computerVolumeValue'));
+
+    const monitor = document.getElementById('monitorAudioEnabled');
+    if (monitor) monitor.addEventListener('change', () => setMonitorStream(mixedStream));
+
+    updateAudioSettingsVisibility();
+    listMicrophones();
   }
 
 
@@ -360,8 +694,7 @@
       }
     }
 
-    localTrack = await LK.createLocalAudioTrack();
-    await room.localParticipant.publishTrack(localTrack);
+    await publishConfiguredAudio({ forceMicrophoneOnly: true });
     updateReceiverList();
     broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked });
     document.getElementById('eventBadge').textContent = 'Evento: ' + eventName;
@@ -434,16 +767,20 @@
     addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos ouvintes marcados' : 'a todos os ouvintes') + ': Impossibilidade de auxílio no momento.');
   });
   document.getElementById('muteBtn').addEventListener('click', async () => {
-    if (!localTrack) return;
     const btn = document.getElementById('muteBtn');
-    const shouldMute = !localTrack.isMuted;
+    if (currentAudioMode === 'computer') {
+      C.setStatus('muteStatus', 'A transmissão está usando apenas áudio do computador. Não há microfone para silenciar.', 'warning');
+      return;
+    }
+    if (!micGainNode) return;
+    const shouldMute = micGainNode.gain.value > 0;
     if (shouldMute) {
-      await localTrack.mute();
+      micGainNode.gain.value = 0;
       btn.classList.add('mute-active');
       btn.textContent = 'Microfone silenciado';
       C.setStatus('muteStatus', 'ATENÇÃO: microfone silenciado.', 'warning');
     } else {
-      await localTrack.unmute();
+      setGainFromControl(micGainNode, 'micVolumeControl', 'micVolumeValue');
       btn.classList.remove('mute-active');
       btn.textContent = 'Silenciar microfone';
       C.setStatus('muteStatus', 'Microfone ativo.', 'success');
@@ -452,8 +789,7 @@
   document.getElementById('endBtn').addEventListener('click', () => {
     const ok = window.confirm('Deseja encerrar a transmissão e fechar a sala?');
     if (!ok) return;
-    try { if (localTrack) localTrack.stop(); } catch (e) {}
-    localTrack = null;
+    cleanupAudioSources(true);
     if (room) room.disconnect();
     room = null; receiverList=[]; messages=[]; selectedReceiver=null;
     renderParticipants(); renderMessages();
@@ -463,6 +799,7 @@
   });
 
   setupSoundAlertControls();
+  setupAudioSourceControls();
 
   const lastRoomForForm = loadLastTransmitterRoom();
   if (lastRoomForForm && lastRoomForForm.roomCode) {
