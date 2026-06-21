@@ -353,7 +353,31 @@
       return null;
     }
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      const displayOptions = {
+        video: {
+          displaySurface: 'browser'
+        },
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        },
+        preferCurrentTab: true,
+        selfBrowserSurface: 'exclude',
+        surfaceSwitching: 'exclude',
+        systemAudio: 'exclude',
+        windowAudio: 'exclude'
+      };
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getDisplayMedia(displayOptions);
+      } catch (primaryError) {
+        stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      }
+      stream.getVideoTracks().forEach(track => {
+        try { track.stop(); } catch (e) {}
+        try { stream.removeTrack(track); } catch (e) {}
+      });
       const audioTracks = stream.getAudioTracks();
       if (!audioTracks.length) {
         stopStream(stream);
