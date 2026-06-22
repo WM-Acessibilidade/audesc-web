@@ -132,6 +132,16 @@
           <button id="captureComputerAudioBtn" class="secondary" type="button">Selecionar áudio do computador</button>
           <button id="stopComputerAudioBtn" class="ghost" type="button" hidden>Remover áudio do computador</button>
           <p class="hint">Ao selecionar uma aba, janela ou tela, marque a opção de compartilhar áudio quando o navegador oferecer essa escolha.</p>
+
+          <label class="field" id="systemAudioInputField">
+            <span>Dispositivo de áudio do sistema ou virtual</span>
+            <select id="systemAudioInputSelect">
+              <option value="">Selecione um dispositivo de entrada</option>
+            </select>
+          </label>
+          <button id="captureSystemAudioBtn" class="ghost" type="button">Usar dispositivo selecionado como áudio do computador</button>
+          <p class="hint">Use esta opção quando o computador oferecer fontes como Mixagem estéreo, Stereo Mix, VB-Cable ou outro cabo virtual de áudio.</p>
+
           <div id="computerAudioStatus" class="status">Áudio do computador não selecionado.</div>
         </div>
 
@@ -389,17 +399,26 @@
   }
 
   async function listMicrophones() {
-    const select = document.getElementById('microphoneSelect');
-    if (!select || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
-    const currentValue = select.value;
+    const micSelect = document.getElementById('microphoneSelect');
+    const systemSelect = document.getElementById('systemAudioInputSelect');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+    const currentMicValue = micSelect ? micSelect.value : '';
+    const currentSystemValue = systemSelect ? systemSelect.value : '';
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       const inputs = devices.filter(device => device.kind === 'audioinput');
-      select.innerHTML = '<option value="">Microfone padrão</option>' + inputs.map((device, index) => {
-        const label = device.label || ('Microfone ' + (index + 1));
+      const options = inputs.map((device, index) => {
+        const label = device.label || ('Dispositivo de entrada ' + (index + 1));
         return '<option value="' + device.deviceId + '">' + label + '</option>';
       }).join('');
-      if ([...select.options].some(option => option.value === currentValue)) select.value = currentValue;
+      if (micSelect) {
+        micSelect.innerHTML = '<option value="">Microfone padrão</option>' + options;
+        if ([...micSelect.options].some(option => option.value === currentMicValue)) micSelect.value = currentMicValue;
+      }
+      if (systemSelect) {
+        systemSelect.innerHTML = '<option value="">Selecione um dispositivo de entrada</option>' + options;
+        if ([...systemSelect.options].some(option => option.value === currentSystemValue)) systemSelect.value = currentSystemValue;
+      }
     } catch (e) {}
   }
 
@@ -438,6 +457,59 @@
     return navigator.mediaDevices.getUserMedia(constraints);
   }
 
+  function setComputerAudioStream(stream, statusText, diagnosticText) {
+    if (computerStream && computerStream !== stream) stopStream(computerStream);
+    computerStream = stream;
+    const audioTracks = computerStream ? computerStream.getAudioTracks() : [];
+    audioTracks.forEach(track => {
+      track.addEventListener('ended', () => {
+        computerStream = null;
+        const stopBtn = document.getElementById('stopComputerAudioBtn');
+        if (stopBtn) stopBtn.hidden = true;
+        C.setStatus('computerAudioStatus', 'Áudio do computador removido da transmissão.', 'warning');
+        announceAudio('Áudio do computador removido da transmissão.', 'warning');
+        if (room && activeSession) publishConfiguredAudio().catch(error => {
+          C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao atualizar fonte de áudio.'), 'warning');
+        });
+      });
+    });
+    const stopBtn = document.getElementById('stopComputerAudioBtn');
+    if (stopBtn) stopBtn.hidden = false;
+    C.setStatus('computerAudioStatus', statusText || 'Áudio do computador selecionado.', 'success');
+    announceAudio(statusText || 'Áudio do computador selecionado.', 'success');
+    updateAudioDiagnostics(diagnosticText || 'Áudio do computador capturado com sucesso.');
+    return computerStream;
+  }
+
+  async function captureSystemAudioInput() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      C.setStatus('computerAudioStatus', 'Este navegador não oferece acesso a dispositivos de áudio.', 'warning');
+      updateAudioDiagnostics('Este navegador não oferece acesso a dispositivos de áudio.');
+      return null;
+    }
+    const select = document.getElementById('systemAudioInputSelect');
+    const deviceId = select && select.value ? select.value : '';
+    if (!deviceId) {
+      C.setStatus('computerAudioStatus', 'Selecione um dispositivo de entrada do sistema ou virtual.', 'warning');
+      updateAudioDiagnostics('Nenhum dispositivo de entrada do sistema ou virtual foi selecionado.');
+      return null;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: deviceId } } });
+      if (!stream.getAudioTracks().length) {
+        stopStream(stream);
+        C.setStatus('computerAudioStatus', 'O dispositivo selecionado não entregou trilha de áudio.', 'warning');
+        updateAudioDiagnostics('O dispositivo selecionado não entregou trilha de áudio.');
+        return null;
+      }
+      return setComputerAudioStream(stream, 'Dispositivo de áudio do sistema selecionado.', 'Dispositivo de áudio do sistema capturado com sucesso.');
+    } catch (e) {
+      C.setStatus('computerAudioStatus', 'Não foi possível usar o dispositivo selecionado como áudio do computador.', 'warning');
+      updateAudioDiagnostics('Não foi possível usar o dispositivo selecionado como áudio do computador.');
+      return null;
+    }
+  }
+
   async function captureComputerAudio() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
       C.setStatus('computerAudioStatus', 'Este navegador não oferece captura de áudio do computador.', 'warning');
@@ -453,24 +525,7 @@
         updateAudioDiagnostics('Nenhuma trilha de áudio foi encontrada na fonte selecionada.');
         return null;
       }
-      if (computerStream) stopStream(computerStream);
-      computerStream = stream;
-      audioTracks[0].addEventListener('ended', () => {
-        computerStream = null;
-        const stopBtn = document.getElementById('stopComputerAudioBtn');
-        if (stopBtn) stopBtn.hidden = true;
-        C.setStatus('computerAudioStatus', 'Áudio do computador removido da transmissão.', 'warning');
-        announceAudio('Áudio do computador removido da transmissão.', 'warning');
-        if (room && activeSession) publishConfiguredAudio().catch(error => {
-          C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao atualizar fonte de áudio.'), 'warning');
-        });
-      });
-      const stopBtn = document.getElementById('stopComputerAudioBtn');
-      if (stopBtn) stopBtn.hidden = false;
-      C.setStatus('computerAudioStatus', 'Áudio do computador selecionado.', 'success');
-      announceAudio('Áudio do computador selecionado.', 'success');
-      updateAudioDiagnostics('Áudio do computador capturado com sucesso.');
-      return computerStream;
+      return setComputerAudioStream(stream, 'Áudio do computador selecionado.', 'Áudio do computador capturado com sucesso.');
     } catch (e) {
       C.setStatus('computerAudioStatus', 'A seleção do áudio do computador foi cancelada ou não pôde ser concluída.', 'warning');
       updateAudioDiagnostics('A seleção do áudio do computador foi cancelada ou não pôde ser concluída.');
@@ -617,6 +672,14 @@
       const stream = await captureComputerAudio();
       if (stream && room && activeSession) {
         try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao adicionar áudio do computador.'), 'warning'); }
+      }
+    });
+
+    const captureSystemBtn = document.getElementById('captureSystemAudioBtn');
+    if (captureSystemBtn) captureSystemBtn.addEventListener('click', async () => {
+      const stream = await captureSystemAudioInput();
+      if (stream && room && activeSession) {
+        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao adicionar dispositivo de áudio do sistema.'), 'warning'); }
       }
     });
 
