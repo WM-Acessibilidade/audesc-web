@@ -734,7 +734,7 @@
     room.on('participantConnected', () => { updateReceiverList(); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }); });
     room.on('participantDisconnected', () => { updateReceiverList(); });
     room.on('reconnected', () => { C.setStatus('transmitterStatus', 'Status: reconectado à sala com sucesso.', 'success'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }); });
-    room.on('disconnected', () => { updateReceiverList(); });
+    room.on('disconnected', () => { activeSession = false; updateReceiverList(); updateAudioDiagnostics('Sala desconectada.'); });
     room.on('dataReceived', (payload, participant) => {
       const msg = C.decodePayload(payload); if (!msg) return;
       const from = participant ? participant.identity : 'Sistema';
@@ -798,6 +798,7 @@
       }
     }
 
+    activeSession = true;
     await publishConfiguredAudio({ forceMicrophoneOnly: true });
     updateReceiverList();
     broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked });
