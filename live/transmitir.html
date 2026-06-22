@@ -155,6 +155,16 @@
         <div id="audioSourceStatus" class="status" aria-live="polite">Fonte de áudio atual: apenas microfone.</div>
 
         <hr aria-hidden="true">
+        <h3>Estado das fontes de áudio</h3>
+        <div id="audioStateBox" class="status" aria-live="polite">
+          <p><strong>Microfone:</strong> <span id="micStateText">Não testado.</span></p>
+          <p><strong>Áudio do computador:</strong> <span id="computerStateText">Não selecionado.</span></p>
+          <p><strong>Trilha enviada para transmissão:</strong> <span id="publishedTrackStateText">Nenhuma.</span></p>
+          <p><strong>Publicação na sala:</strong> <span id="roomPublishStateText">Inativa.</span></p>
+        </div>
+        <button id="testAudioSourcesBtn" class="ghost" type="button">Testar fontes de áudio</button>
+
+        <hr aria-hidden="true">
         <h3>Diagnóstico da transmissão</h3>
         <div id="diagnosticBox" class="status">Diagnóstico: recursos de transmissão ainda não carregados.</div>
       </div>
@@ -273,6 +283,87 @@
 
   function announceAudio(text, tone = '') {
     C.setStatus('audioSourceStatus', text, tone);
+    updateAudioDiagnostics();
+  }
+
+  function audioTrackStateFromStream(stream) {
+    if (!stream) return { ok: false, text: 'Não selecionado.' };
+    const tracks = stream.getAudioTracks ? stream.getAudioTracks() : [];
+    if (!tracks.length) return { ok: false, text: 'Nenhuma trilha de áudio encontrada.' };
+    const liveTracks = tracks.filter(track => track.readyState === 'live');
+    if (!liveTracks.length) return { ok: false, text: 'Trilha de áudio encerrada.' };
+    const muted = liveTracks.some(track => track.muted);
+    return { ok: true, text: muted ? 'Conectado, mas sem áudio detectável no momento.' : 'Conectado.' };
+  }
+
+  function describeSelectedAudioMode() {
+    const mode = getAudioMode();
+    if (mode === 'mixed') return 'Microfone + áudio do computador';
+    if (mode === 'computer') return 'Áudio do computador';
+    return 'Microfone';
+  }
+
+  function updateAudioDiagnostics(extraMessage = '') {
+    const micState = document.getElementById('micStateText');
+    const computerState = document.getElementById('computerStateText');
+    const publishedState = document.getElementById('publishedTrackStateText');
+    const roomState = document.getElementById('roomPublishStateText');
+
+    if (micState) {
+      const micInfo = audioTrackStateFromStream(micStream);
+      micState.textContent = micInfo.ok ? micInfo.text : (activeSession ? 'Não conectado nesta configuração.' : micInfo.text);
+    }
+
+    if (computerState) {
+      const computerInfo = audioTrackStateFromStream(computerStream);
+      computerState.textContent = computerInfo.text;
+    }
+
+    if (publishedState) {
+      const trackLive = localTrack && (localTrack.readyState === 'live' || (localTrack.mediaStreamTrack && localTrack.mediaStreamTrack.readyState === 'live'));
+      publishedState.textContent = trackLive ? describeSelectedAudioMode() : 'Nenhuma.';
+    }
+
+    if (roomState) {
+      roomState.textContent = room && activeSession && localTrack ? 'Ativa.' : 'Inativa.';
+    }
+
+    if (extraMessage) C.setStatus('diagnosticBox', 'Diagnóstico: ' + extraMessage);
+  }
+
+  async function testAudioSources() {
+    const results = [];
+    const mode = getAudioMode();
+
+    if (mode !== 'computer') {
+      if (micStream && audioTrackStateFromStream(micStream).ok) {
+        results.push('Microfone conectado.');
+      } else if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          const testStream = await getMicrophoneStreamIfNeeded('microphone');
+          const info = audioTrackStateFromStream(testStream);
+          results.push(info.ok ? 'Microfone disponível.' : 'Microfone sem trilha de áudio disponível.');
+          if (testStream && testStream !== micStream) stopStream(testStream);
+        } catch (error) {
+          results.push('Microfone não autorizado ou indisponível: ' + (error && error.message ? error.message : 'falha desconhecida.'));
+        }
+      } else {
+        results.push('Este navegador não oferece acesso ao microfone.');
+      }
+    } else {
+      results.push('Microfone não exigido no modo atual.');
+    }
+
+    if (mode === 'computer' || mode === 'mixed') {
+      const computerInfo = audioTrackStateFromStream(computerStream);
+      results.push(computerInfo.ok ? 'Áudio do computador conectado.' : 'Áudio do computador não selecionado ou sem trilha de áudio.');
+    } else {
+      results.push('Áudio do computador não exigido no modo atual.');
+    }
+
+    results.push(room && activeSession ? 'Sala conectada.' : 'Sala ainda não conectada.');
+    results.push(localTrack ? 'Existe trilha publicada ou preparada para transmissão.' : 'Nenhuma trilha publicada no momento.');
+    updateAudioDiagnostics(results.join(' '));
   }
 
   function getAudioMode() {
@@ -350,6 +441,7 @@
   async function captureComputerAudio() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
       C.setStatus('computerAudioStatus', 'Este navegador não oferece captura de áudio do computador.', 'warning');
+      updateAudioDiagnostics('Este navegador não oferece captura de áudio do computador.');
       return null;
     }
     try {
@@ -358,6 +450,7 @@
       if (!audioTracks.length) {
         stopStream(stream);
         C.setStatus('computerAudioStatus', 'Nenhum áudio foi compartilhado. Ao selecionar a aba, janela ou tela, marque a opção de compartilhar áudio.', 'warning');
+        updateAudioDiagnostics('Nenhuma trilha de áudio foi encontrada na fonte selecionada.');
         return null;
       }
       if (computerStream) stopStream(computerStream);
@@ -376,9 +469,11 @@
       if (stopBtn) stopBtn.hidden = false;
       C.setStatus('computerAudioStatus', 'Áudio do computador selecionado.', 'success');
       announceAudio('Áudio do computador selecionado.', 'success');
+      updateAudioDiagnostics('Áudio do computador capturado com sucesso.');
       return computerStream;
     } catch (e) {
       C.setStatus('computerAudioStatus', 'A seleção do áudio do computador foi cancelada ou não pôde ser concluída.', 'warning');
+      updateAudioDiagnostics('A seleção do áudio do computador foi cancelada ou não pôde ser concluída.');
       return null;
     }
   }
@@ -466,6 +561,7 @@
           : 'Fonte de áudio atual: apenas microfone.';
       announceAudio(text, 'success');
       C.setStatus('muteStatus', mode === 'computer' ? 'Transmissão ativa com áudio do computador.' : 'Microfone ativo.', 'success');
+      updateAudioDiagnostics('Trilha de áudio publicada na sala.');
     } catch (error) {
       announceAudio('Não foi possível configurar a fonte de áudio. ' + (error && error.message ? error.message : ''), 'warning');
       throw error;
@@ -542,9 +638,17 @@
     if (computerVolume) computerVolume.addEventListener('input', () => setGainFromControl(computerGainNode, 'computerVolumeControl', 'computerVolumeValue'));
 
     const monitor = document.getElementById('monitorAudioEnabled');
-    if (monitor) monitor.addEventListener('change', () => setMonitorStream(mixedStream));
+    if (monitor) monitor.addEventListener('change', () => { setMonitorStream(mixedStream); updateAudioDiagnostics(); });
+
+    const testAudioBtn = document.getElementById('testAudioSourcesBtn');
+    if (testAudioBtn) testAudioBtn.addEventListener('click', () => {
+      testAudioSources().catch(error => {
+        updateAudioDiagnostics(error && error.message ? error.message : 'Falha ao testar fontes de áudio.');
+      });
+    });
 
     updateAudioSettingsVisibility();
+    updateAudioDiagnostics();
     listMicrophones();
   }
 
@@ -703,6 +807,7 @@
     C.setText('receiverLinkBox', C.montarLinkReceptor(roomCode));
     C.switchStep('step-room');
     C.setStatus('transmitterStatus', reconnect ? 'Status: sala restaurada e transmissão reconectada.' : 'Status: transmissão iniciada com sucesso.', 'success');
+    updateAudioDiagnostics('Transmissão iniciada com sucesso.');
     persist();
     saveLastTransmitterRoom();
   }
@@ -796,6 +901,7 @@
     C.clearState('transmitter');
     C.switchStep('step-form');
     C.setStatus('transmitterStatus', 'Status: transmissão encerrada.', 'warning');
+    updateAudioDiagnostics('Transmissão encerrada.');
   });
 
   setupSoundAlertControls();
