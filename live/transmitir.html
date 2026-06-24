@@ -63,6 +63,7 @@
         <button id="endBtn" class="secondary" type="button">Encerrar transmissão</button>
       </div>
 <div id="muteStatus" class="status warning">Microfone ativo.</div>
+      <div id="transmissionTimeStatus" class="status">Janela de transmissão: aguardando verificação.</div>
     </section>
 
     <details class="collapse" id="participantsDetails">
@@ -192,6 +193,8 @@
   let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '', eventPassword = '', messagesBlocked = false, anotherTransmitterDetected = false, checkingTransmitterPresence = false;
   let receiverList = [], messages = [], selectedReceiver = null, activeSession = false; anotherTransmitterDetected = false; checkingTransmitterPresence = false; messagesBlocked = false;
   let maxOuvintesPermitidos = null;
+  let transmissionWindowTimer = null;
+  let lastTransmissionWindow = null;
 
   C.attachBeforeUnload(() => activeSession);
   let messageAudioContext = null;
@@ -806,6 +809,81 @@
     addMessage('Sistema', 'Entrada recusada por limite de ouvintes: ' + alvo + '. Limite atual: ' + maxOuvintesPermitidos + '.');
   }
 
+  async function consultarJanelaTransmissao(){
+    if(!roomCode) return null;
+    try{
+      const r = await fetch(EVENTS_API_URL + '/public/salas/' + encodeURIComponent(roomCode) + '/janela-transmissao');
+      const j = await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(j.error || 'Não foi possível consultar a janela de transmissão.');
+      lastTransmissionWindow = j;
+      return j;
+    }catch(e){
+      return null;
+    }
+  }
+
+  function atualizarStatusJanelaTransmissao(j){
+    if(!j || !j.configurado){
+      C.setStatus('transmissionTimeStatus', 'Janela de transmissão: sem restrição de horário configurada.', 'warning');
+      return;
+    }
+    if(!j.permitido_permanecer || j.apos_encerramento){
+      C.setStatus('transmissionTimeStatus', 'Janela de transmissão encerrada.', 'warning');
+      return;
+    }
+    if(j.antes_da_liberacao){
+      C.setStatus('transmissionTimeStatus', j.mensagem || 'Transmissão ainda não liberada.', 'warning');
+      return;
+    }
+    const mins = Number(j.minutos_restantes || 0);
+    C.setStatus('transmissionTimeStatus', 'Restam ' + mins + ' minuto(s) para o encerramento da transmissão.', mins <= 5 ? 'warning' : 'success');
+  }
+
+  async function validarJanelaTransmissaoAntesDeEntrar(){
+    const j = await consultarJanelaTransmissao();
+    if(!j) return;
+    atualizarStatusJanelaTransmissao(j);
+    if(j.configurado && !j.permitido_entrar){
+      throw new Error(j.mensagem || 'A transmissão não está liberada neste horário.');
+    }
+  }
+
+  function pararMonitoramentoJanelaTransmissao(){
+    if(transmissionWindowTimer){
+      clearInterval(transmissionWindowTimer);
+      transmissionWindowTimer = null;
+    }
+  }
+
+  async function encerrarPorJanelaTransmissao(){
+    C.setStatus('transmitterStatus', 'Status: transmissão encerrada automaticamente por término da janela autorizada.', 'warning');
+    C.setStatus('transmissionTimeStatus', 'Janela de transmissão encerrada.', 'warning');
+    try { await broadcastPayload({type:'transmission-window-ended', mensagem:'A transmissão foi encerrada porque a janela autorizada terminou.'}); } catch(e) {}
+    cleanupAudioSources(true);
+    if(room) room.disconnect();
+    room = null; receiverList=[]; messages=[]; selectedReceiver=null; activeSession = false;
+    renderParticipants(); renderMessages();
+    C.clearState('transmitter');
+    C.switchStep('step-form');
+    updateAudioDiagnostics('Transmissão encerrada automaticamente por término da janela autorizada.');
+  }
+
+  async function iniciarMonitoramentoJanelaTransmissao(){
+    pararMonitoramentoJanelaTransmissao();
+    const verificar = async () => {
+      if(!activeSession) return;
+      const j = await consultarJanelaTransmissao();
+      if(!j) return;
+      atualizarStatusJanelaTransmissao(j);
+      if(j.configurado && !j.permitido_permanecer){
+        pararMonitoramentoJanelaTransmissao();
+        await encerrarPorJanelaTransmissao();
+      }
+    };
+    await verificar();
+    transmissionWindowTimer = setInterval(verificar, 30000);
+  }
+
   async function broadcastPayload(payload, targetNames) {
     if (!room || !room.localParticipant) return;
     try {
@@ -820,6 +898,7 @@
       return;
     }
     LK = await C.carregarLiveKit();
+    await validarJanelaTransmissaoAntesDeEntrar();
     const tokenData = await C.pedirToken(roomCode, transmitterName, 'transmitter', eventPassword);
     const isAdminAccess = tokenData && tokenData.acesso === 'admin';
     if (tokenData.room) roomCode = tokenData.room;
@@ -833,7 +912,7 @@
     });
     room.on('participantDisconnected', () => { updateReceiverList(); });
     room.on('reconnected', () => { C.setStatus('transmitterStatus', 'Status: reconectado à sala com sucesso.', 'success'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }); });
-    room.on('disconnected', () => { activeSession = false; updateReceiverList(); updateAudioDiagnostics('Sala desconectada.'); });
+    room.on('disconnected', () => { activeSession = false; pararMonitoramentoJanelaTransmissao(); updateReceiverList(); updateAudioDiagnostics('Sala desconectada.'); });
     room.on('dataReceived', (payload, participant) => {
       const msg = C.decodePayload(payload); if (!msg) return;
       const from = participant ? participant.identity : 'Sistema';
@@ -996,6 +1075,7 @@
   document.getElementById('endBtn').addEventListener('click', () => {
     const ok = window.confirm('Deseja encerrar a transmissão e fechar a sala?');
     if (!ok) return;
+    pararMonitoramentoJanelaTransmissao();
     cleanupAudioSources(true);
     if (room) room.disconnect();
     room = null; receiverList=[]; messages=[]; selectedReceiver=null;

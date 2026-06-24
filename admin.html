@@ -455,6 +455,7 @@ function renderEvent(ev){
       <div><strong>Horas de transmissão:</strong> ${ev.duracao_horas || ''}</div>
       <div><strong>Máximo de ouvintes:</strong> ${ev.max_ouvintes || ''}</div>
       <div><strong>Margem extra de ouvintes:</strong> ${ev.max_ouvintes_extra || 0}</div>
+      <div><strong>Margem de transmissão:</strong> ${ev.margem_transmissao_minutos ?? 15} minuto(s)</div>
     </div>
     <label>Nome do evento</label>
     <input data-field="titulo_publicado" value="${attr(ev.titulo_publicado||ev.titulo_original||'')}">
@@ -522,6 +523,7 @@ function renderEvent(ev){
         ${ouvintesAdminOptions(ev.max_ouvintes || '')}
       </select></div>
       <div class="ouvintes-extra-admin-box"><label>Ouvintes extras permitidos pelo administrador</label><input data-field="max_ouvintes_extra" type="number" min="0" max="500" step="1" value="${attr(ev.max_ouvintes_extra || 0)}"><p class="small">Margem de tolerância além do número máximo escolhido no cadastro.</p></div>
+      <div class="margem-transmissao-admin-box"><label>Margem de transmissão em minutos</label><input data-field="margem_transmissao_minutos" type="number" min="0" max="180" step="1" value="${attr(ev.margem_transmissao_minutos ?? 15)}"><p class="small">Usada antes do início e após o término contratado. Padrão: 15 minutos.</p></div>
     </div>
 
     <div class="grid">
@@ -686,6 +688,11 @@ async function saveEvent(id,card){
     body.max_ouvintes_extra = Math.max(0, Number(body.max_ouvintes_extra || 0));
   } else if(body.max_ouvintes_extra !== undefined) {
     body.max_ouvintes_extra = 0;
+  }
+  if(body.margem_transmissao_minutos !== undefined && body.margem_transmissao_minutos !== ''){
+    body.margem_transmissao_minutos = Math.max(0, Math.min(180, Number(body.margem_transmissao_minutos || 15)));
+  } else if(body.margem_transmissao_minutos !== undefined) {
+    body.margem_transmissao_minutos = 15;
   }
 
   const ctxLocalizacao=contextoBuscaEnderecoAdmin(card);

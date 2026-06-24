@@ -47,6 +47,7 @@
         <button id="leaveBtn" class="secondary" type="button">Sair</button>
       </div>
 <div id="receiverStatus2" class="status">Status: conectado e ouvindo automaticamente.</div>
+      <div id="receiverTimeStatus" class="status">Janela de transmissão: aguardando verificação.</div>
     </section>
 
     <section class="panel">
@@ -100,6 +101,7 @@
   const C = window.AudescLiveCommon;
   const EVENTS_API_URL = 'https://audesc-events-api.onrender.com';
   let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false, messagesBlocked = false;
+  let transmissionWindowTimer = null;
   const audioEl = document.getElementById('remoteAudio');
 
   function gerarNomeOuvintePadrao() {
@@ -235,10 +237,76 @@
     }
   }
 
+  async function consultarJanelaTransmissao(){
+    if(!roomCode) return null;
+    try{
+      const r = await fetch(EVENTS_API_URL + '/public/salas/' + encodeURIComponent(roomCode) + '/janela-transmissao');
+      const j = await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(j.error || 'Não foi possível consultar a janela de transmissão.');
+      return j;
+    }catch(e){
+      return null;
+    }
+  }
+
+  function atualizarStatusJanelaTransmissao(j){
+    if(!j || !j.configurado){
+      C.setStatus('receiverTimeStatus', 'Janela de transmissão: sem restrição de horário configurada.', 'warning');
+      return;
+    }
+    if(!j.permitido_permanecer || j.apos_encerramento){
+      C.setStatus('receiverTimeStatus', 'Janela de transmissão encerrada.', 'warning');
+      return;
+    }
+    if(j.antes_da_liberacao){
+      C.setStatus('receiverTimeStatus', j.mensagem || 'Transmissão ainda não liberada.', 'warning');
+      return;
+    }
+    const mins = Number(j.minutos_restantes || 0);
+    C.setStatus('receiverTimeStatus', 'Restam ' + mins + ' minuto(s) para o encerramento da transmissão.', mins <= 5 ? 'warning' : 'success');
+  }
+
+  async function validarJanelaTransmissaoAntesDeEntrar(){
+    const j = await consultarJanelaTransmissao();
+    if(!j) return;
+    atualizarStatusJanelaTransmissao(j);
+    if(j.configurado && !j.permitido_entrar){
+      throw new Error(j.mensagem || 'A transmissão não está liberada neste horário.');
+    }
+  }
+
+  function pararMonitoramentoJanelaTransmissao(){
+    if(transmissionWindowTimer){
+      clearInterval(transmissionWindowTimer);
+      transmissionWindowTimer = null;
+    }
+  }
+
+  async function iniciarMonitoramentoJanelaTransmissao(){
+    pararMonitoramentoJanelaTransmissao();
+    const verificar = async () => {
+      if(!activeSession) return;
+      const j = await consultarJanelaTransmissao();
+      if(!j) return;
+      atualizarStatusJanelaTransmissao(j);
+      if(j.configurado && !j.permitido_permanecer){
+        pararMonitoramentoJanelaTransmissao();
+        C.setStatus('receiverStatus2', 'Status: transmissão encerrada pelo término da janela autorizada.', 'warning');
+        try { if(room) room.disconnect(); } catch(e) {}
+        activeSession = false;
+        C.clearState('receiver');
+        C.switchStep('step-form');
+      }
+    };
+    await verificar();
+    transmissionWindowTimer = setInterval(verificar, 30000);
+  }
+
   async function connectRoom(reconnect=false) {
     if (!reconnect) { resetMessages(); messagesBlocked = false; }
     LK = await C.carregarLiveKit();
     await consultarLimiteAntesDeEntrar();
+    await validarJanelaTransmissaoAntesDeEntrar();
     const tokenData = await C.pedirToken(roomCode, receiverName, 'receiver');
     if (tokenData.room) roomCode = tokenData.room;
     if (tokenData.evento && (!eventName || eventName === 'Evento ao vivo')) eventName = tokenData.evento;
@@ -270,7 +338,8 @@
         C.setStatus('receiverStatus2', 'Status: a sala atingiu o número máximo de ouvintes permitido para este evento.', 'warning');
         C.setStatus('receiverStatus', 'Status: entrada não permitida. Limite de ouvintes atingido.', 'warning');
         addMessage('Sistema', msg.mensagem || 'A sala atingiu o número máximo de ouvintes permitido para este evento.');
-        try { if (room) room.disconnect(); } catch(e) {}
+        try { pararMonitoramentoJanelaTransmissao();
+    if (room) room.disconnect(); } catch(e) {}
         room = null;
         activeSession = false;
         C.switchStep('step-form');
@@ -295,12 +364,13 @@
       }
       sendMessage({ type:'receiver-hello', name: receiverName });
     });
-    room.on('disconnected', () => { C.setStatus('receiverStatus2', 'Status: conexão encerrada.', 'warning'); });
+    room.on('disconnected', () => { pararMonitoramentoJanelaTransmissao(); C.setStatus('receiverStatus2', 'Status: conexão encerrada.', 'warning'); });
     await room.connect(C.livekitUrl, tokenData.token);
     if (typeof room.startAudio === 'function') {
       try { await room.startAudio(); } catch (e) {}
     }
     activeSession = true;
+    await iniciarMonitoramentoJanelaTransmissao();
     C.switchStep('step-room');
     updateBadges();
     C.setStatus('receiverStatus', reconnect ? 'Status: sala restaurada e reconectada.' : 'Status: entrada realizada com sucesso.', 'success');
@@ -342,6 +412,7 @@
   document.getElementById('leaveBtn').addEventListener('click', () => {
     const ok = window.confirm('Deseja sair da sala agora?');
     if (!ok) return;
+    pararMonitoramentoJanelaTransmissao();
     if (room) room.disconnect();
     room = null;
     activeSession = false; messagesBlocked = false;
