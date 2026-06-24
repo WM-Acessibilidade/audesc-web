@@ -188,8 +188,10 @@
 <script>
 (function() {
   const C = window.AudescLiveCommon;
+  const EVENTS_API_URL = 'https://audesc-events-api.onrender.com';
   let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '', eventPassword = '', messagesBlocked = false, anotherTransmitterDetected = false, checkingTransmitterPresence = false;
   let receiverList = [], messages = [], selectedReceiver = null, activeSession = false; anotherTransmitterDetected = false; checkingTransmitterPresence = false; messagesBlocked = false;
+  let maxOuvintesPermitidos = null;
 
   C.attachBeforeUnload(() => activeSession);
   let messageAudioContext = null;
@@ -774,6 +776,36 @@
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  async function carregarLimiteOuvintes(){
+    maxOuvintesPermitidos = null;
+    if(!roomCode) return null;
+    try{
+      const r = await fetch(EVENTS_API_URL + '/public/salas/' + encodeURIComponent(roomCode) + '/limite-ouvintes');
+      const j = await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(j.error || 'Não foi possível consultar o limite de ouvintes.');
+      maxOuvintesPermitidos = Number.isFinite(Number(j.limite_ouvintes)) ? Number(j.limite_ouvintes) : null;
+      return j;
+    }catch(e){
+      maxOuvintesPermitidos = null;
+      return null;
+    }
+  }
+
+  function verificarLimiteOuvintes(novoOuvinte){
+    updateReceiverList();
+    if(!maxOuvintesPermitidos || maxOuvintesPermitidos < 1) return;
+    const total = receiverList.length;
+    if(total <= maxOuvintesPermitidos) return;
+    const alvo = novoOuvinte || receiverList[receiverList.length - 1];
+    if(!alvo) return;
+    broadcastPayload({
+      type:'listener-limit-exceeded',
+      limite:maxOuvintesPermitidos,
+      mensagem:'A sala atingiu o número máximo de ouvintes permitido para este evento.'
+    }, [alvo]);
+    addMessage('Sistema', 'Entrada recusada por limite de ouvintes: ' + alvo + '. Limite atual: ' + maxOuvintesPermitidos + '.');
+  }
+
   async function broadcastPayload(payload, targetNames) {
     if (!room || !room.localParticipant) return;
     try {
@@ -794,7 +826,11 @@
     if (tokenData.evento && (!eventName || eventName === 'Evento ao vivo')) eventName = tokenData.evento;
     if (room) { room.disconnect(); room = null; }
     room = C.criarRoom(LK);
-    room.on('participantConnected', () => { updateReceiverList(); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }); });
+    room.on('participantConnected', (participant) => {
+      updateReceiverList();
+      broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked });
+      verificarLimiteOuvintes(participant && participant.identity);
+    });
     room.on('participantDisconnected', () => { updateReceiverList(); });
     room.on('reconnected', () => { C.setStatus('transmitterStatus', 'Status: reconectado à sala com sucesso.', 'success'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }); });
     room.on('disconnected', () => { activeSession = false; updateReceiverList(); updateAudioDiagnostics('Sala desconectada.'); });
@@ -862,8 +898,10 @@
     }
 
     activeSession = true;
+    await carregarLimiteOuvintes();
     await publishConfiguredAudio({ forceMicrophoneOnly: true });
     updateReceiverList();
+    verificarLimiteOuvintes();
     broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked });
     document.getElementById('eventBadge').textContent = 'Evento: ' + eventName;
     document.getElementById('transmitterBadge').textContent = 'Audiodescritor(a): ' + transmitterName;

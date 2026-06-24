@@ -239,15 +239,21 @@ function aplicarRegraCampoAdmin(card, campo){
   const el = card.querySelector(`[data-field="${campo}"]`);
   const boxes = {tipo_evento:'.tipo-evento-admin-box',duracao_horas:'.duracao-admin-box',max_ouvintes:'.ouvintes-admin-box'};
   const box = boxes[campo] ? card.querySelector(boxes[campo]) : null;
+  const extraBox = campo === 'max_ouvintes' ? card.querySelector('.ouvintes-extra-admin-box') : null;
+  const extraEl = campo === 'max_ouvintes' ? card.querySelector('[data-field="max_ouvintes_extra"]') : null;
   if(regra.comportamento === 'fixo'){
     if(el) el.value = String(regra.valor ?? '');
     if(box) box.classList.add('hidden');
+    if(extraBox) extraBox.classList.add('hidden');
     if(el) el.disabled = true;
+    if(extraEl) extraEl.disabled = true;
   }
   if(regra.comportamento === 'oculto_sem_valor'){
     if(el) el.value = '';
     if(box) box.classList.add('hidden');
+    if(extraBox) extraBox.classList.add('hidden');
     if(el) el.disabled = true;
+    if(extraEl) extraEl.disabled = true;
   }
 }
 function aplicarRegrasServicoAdmin(card){
@@ -382,9 +388,11 @@ function ajustarCamposAdmin(card){
   const tipoEventoBox = card.querySelector('.tipo-evento-admin-box');
   const duracaoBox = card.querySelector('.duracao-admin-box');
   const ouvintesBox = card.querySelector('.ouvintes-admin-box');
+  const ouvintesExtraBox = card.querySelector('.ouvintes-extra-admin-box');
   const tipoEvento = card.querySelector('[data-field="tipo_evento"]');
   const duracao = card.querySelector('[data-field="duracao_horas"]');
   const ouvintes = card.querySelector('[data-field="max_ouvintes"]');
+  const ouvintesExtra = card.querySelector('[data-field="max_ouvintes_extra"]');
 
   const divulgacao = window.AUDESC_SERVICOS?.somenteDivulgacao(servico) ?? (servico === 'divulgacao_gratuita');
   const somenteProfissional = window.AUDESC_SERVICOS?.somenteProfissional(servico) ?? (servico === 'somente_audiodescritor' || servico === 'somente_consultor');
@@ -394,8 +402,10 @@ function ajustarCamposAdmin(card){
     if(tipoEventoBox) tipoEventoBox.classList.add('hidden');
     if(duracaoBox) duracaoBox.classList.add('hidden');
     if(ouvintesBox) ouvintesBox.classList.add('hidden');
+    if(ouvintesExtraBox) ouvintesExtraBox.classList.add('hidden');
     if(duracao) duracao.disabled = true;
     if(ouvintes) ouvintes.disabled = true;
+    if(ouvintesExtra) ouvintesExtra.disabled = true;
   }else{
     if(tipoEventoBox) tipoEventoBox.classList.remove('hidden');
     if(duracaoBox) duracaoBox.classList.remove('hidden');
@@ -403,10 +413,14 @@ function ajustarCamposAdmin(card){
 
     if(somenteProfissional){
       if(ouvintesBox) ouvintesBox.classList.add('hidden');
+      if(ouvintesExtraBox) ouvintesExtraBox.classList.add('hidden');
       if(ouvintes) ouvintes.disabled = true;
+      if(ouvintesExtra) ouvintesExtra.disabled = true;
     }else{
       if(ouvintesBox) ouvintesBox.classList.remove('hidden');
+      if(ouvintesExtraBox) ouvintesExtraBox.classList.remove('hidden');
       if(ouvintes) ouvintes.disabled = false;
+      if(ouvintesExtra) ouvintesExtra.disabled = false;
     }
   }
   aplicarRegrasServicoAdmin(card);
@@ -440,6 +454,7 @@ function renderEvent(ev){
       <div><strong>Data e horário:</strong> ${formatarData(ev.data_evento)}</div>
       <div><strong>Horas de transmissão:</strong> ${ev.duracao_horas || ''}</div>
       <div><strong>Máximo de ouvintes:</strong> ${ev.max_ouvintes || ''}</div>
+      <div><strong>Margem extra de ouvintes:</strong> ${ev.max_ouvintes_extra || 0}</div>
     </div>
     <label>Nome do evento</label>
     <input data-field="titulo_publicado" value="${attr(ev.titulo_publicado||ev.titulo_original||'')}">
@@ -506,6 +521,7 @@ function renderEvent(ev){
       <div class="ouvintes-admin-box"><label>Número máximo de ouvintes</label><select data-field="max_ouvintes">
         ${ouvintesAdminOptions(ev.max_ouvintes || '')}
       </select></div>
+      <div class="ouvintes-extra-admin-box"><label>Ouvintes extras permitidos pelo administrador</label><input data-field="max_ouvintes_extra" type="number" min="0" max="500" step="1" value="${attr(ev.max_ouvintes_extra || 0)}"><p class="small">Margem de tolerância além do número máximo escolhido no cadastro.</p></div>
     </div>
 
     <div class="grid">
@@ -666,6 +682,11 @@ async function saveEvent(id,card){
   if(body.max_ouvintes !== undefined && body.max_ouvintes !== ''){
     body.max_ouvintes = Number(body.max_ouvintes);
   }
+  if(body.max_ouvintes_extra !== undefined && body.max_ouvintes_extra !== ''){
+    body.max_ouvintes_extra = Math.max(0, Number(body.max_ouvintes_extra || 0));
+  } else if(body.max_ouvintes_extra !== undefined) {
+    body.max_ouvintes_extra = 0;
+  }
 
   const ctxLocalizacao=contextoBuscaEnderecoAdmin(card);
   body.pais_codigo=ctxLocalizacao.paisCodigo || '';
@@ -685,9 +706,11 @@ async function saveEvent(id,card){
     body.tipo_evento = 'publico';
     delete body.duracao_horas;
     delete body.max_ouvintes;
+    delete body.max_ouvintes_extra;
   }
   if(body.tipo_servico === 'somente_audiodescritor' || body.tipo_servico === 'somente_consultor'){
     delete body.max_ouvintes;
+    delete body.max_ouvintes_extra;
   }
   await quickUpdate(id,body,card);
 }

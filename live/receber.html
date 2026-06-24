@@ -98,6 +98,7 @@
 <script>
 (function() {
   const C = window.AudescLiveCommon;
+  const EVENTS_API_URL = 'https://audesc-events-api.onrender.com';
   let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false, messagesBlocked = false;
   const audioEl = document.getElementById('remoteAudio');
 
@@ -223,9 +224,21 @@
       return false;
     }
   }
+  async function consultarLimiteAntesDeEntrar(){
+    try{
+      const r = await fetch(EVENTS_API_URL + '/public/salas/' + encodeURIComponent(roomCode) + '/limite-ouvintes');
+      const j = await r.json().catch(()=>({}));
+      if(!r.ok) return null;
+      return j;
+    }catch(e){
+      return null;
+    }
+  }
+
   async function connectRoom(reconnect=false) {
     if (!reconnect) { resetMessages(); messagesBlocked = false; }
     LK = await C.carregarLiveKit();
+    await consultarLimiteAntesDeEntrar();
     const tokenData = await C.pedirToken(roomCode, receiverName, 'receiver');
     if (tokenData.room) roomCode = tokenData.room;
     if (tokenData.evento && (!eventName || eventName === 'Evento ao vivo')) eventName = tokenData.evento;
@@ -253,6 +266,16 @@
     });
     room.on('dataReceived', (payload, participant) => {
       const msg = C.decodePayload(payload); if (!msg) return;
+      if (msg.type === 'listener-limit-exceeded') {
+        C.setStatus('receiverStatus2', 'Status: a sala atingiu o número máximo de ouvintes permitido para este evento.', 'warning');
+        C.setStatus('receiverStatus', 'Status: entrada não permitida. Limite de ouvintes atingido.', 'warning');
+        addMessage('Sistema', msg.mensagem || 'A sala atingiu o número máximo de ouvintes permitido para este evento.');
+        try { if (room) room.disconnect(); } catch(e) {}
+        room = null;
+        activeSession = false;
+        C.switchStep('step-form');
+        return;
+      }
       if (msg.type === 'transmitter-info') {
         transmitterName = msg.transmitterName || transmitterName;
         eventName = msg.eventName || eventName;
