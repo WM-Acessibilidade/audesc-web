@@ -540,6 +540,7 @@ function renderEvent(ev){
     <button class="removeBtn danger" type="button">Remover da publicação</button>
     <button class="approveLiberateBtn ok" type="button">Aprovar + liberar</button>
     <button class="liberateBtn secondary" type="button">Liberar / gerar acesso</button>
+    <button class="regenerateOrderBtn secondary" type="button">Regerar ordem de transmissão</button>
     <button class="deleteBtn danger" type="button">Excluir evento</button>
     <div class="status eventStatus">Pronto.</div>
   `;
@@ -564,6 +565,8 @@ function renderEvent(ev){
   card.querySelector('.removeBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'removido'},card);
   card.querySelector('.approveLiberateBtn').onclick=async()=>{const body={status_publicacao:'aprovado'}; if(ev.tipo_servico!=='divulgacao_gratuita') body.status_pagamento='pago'; await quickUpdate(ev.id,body,card,false); await liberate(ev.id,card);};
   card.querySelector('.liberateBtn').onclick=()=>liberate(ev.id,card);
+  const regenerateBtn = card.querySelector('.regenerateOrderBtn');
+  if(regenerateBtn) regenerateBtn.onclick=()=>regenerateOrder(ev.id,card);
   const deleteBtn = card.querySelector('.deleteBtn');
   if(deleteBtn) deleteBtn.onclick=()=>deleteEvent(ev.id,card);
   return card;
@@ -736,6 +739,19 @@ async function liberate(id,card){
   try{
     const data=await api('/liberar-evento/'+id,{method:'POST'});
     st.textContent='Evento liberado. '+(data.senha_transmissor?('Senha: '+data.senha_transmissor+' | Sala: '+data.sala_codigo):'');
+    st.className='status eventStatus success';
+    await loadEvents();
+  }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
+}
+
+async function regenerateOrder(id,card){
+  const st=card.querySelector('.eventStatus');
+  const confirmed = confirm('Deseja tentar gerar novamente a ordem de transmissão na planilha Google para este evento? Use esta opção quando a liberação tiver ficado parcial por falha temporária no Google Sheets.');
+  if(!confirmed) return;
+  st.textContent='Gerando ordem de transmissão...'; st.className='status eventStatus';
+  try{
+    const data=await api('/admin/eventos/'+id+'/regerar-ordem',{method:'POST'});
+    st.textContent='Ordem de transmissão gerada. '+(data.senha_transmissor?('Senha: '+data.senha_transmissor+' | Sala: '+data.sala_codigo):'');
     st.className='status eventStatus success';
     await loadEvents();
   }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
