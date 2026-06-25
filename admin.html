@@ -533,14 +533,18 @@ function renderEvent(ev){
       <div><label>Programação</label><input data-field="link_programacao" value="${attr(ev.link_programacao)}"></div>
       <div><label>Acessibilidade</label><input data-field="link_acessibilidade" value="${attr(ev.link_acessibilidade)}"></div>
     </div>
-    <p><strong>Sala:</strong> ${ev.sala_codigo||'ainda não gerada'}<br><strong>Senha:</strong> ${ev.senha_transmissor||'ainda não gerada'}</p>
+    <div class="grid">
+      <div><label>Código da sala</label><input data-field="sala_codigo" value="${attr(ev.sala_codigo || '')}" placeholder="Será gerado automaticamente se ficar vazio"></div>
+      <div><label>Senha do transmissor</label><input data-field="senha_transmissor" value="${attr(ev.senha_transmissor || '')}" placeholder="Será gerada automaticamente se ficar vazia"></div>
+    </div>
+    <p class="small"><strong>Sincronização com a planilha Google:</strong> ${ev.planilha_liberacao_status || 'não registrada'}${ev.planilha_liberacao_erro ? '<br>Erro: '+escapeHtml(ev.planilha_liberacao_erro) : ''}</p>
     <button class="saveBtn" type="button">Salvar edições</button>
     <button class="approveBtn ok" type="button">Aprovar publicação</button>
     <button class="rejectBtn danger" type="button">Rejeitar</button>
     <button class="removeBtn danger" type="button">Remover da publicação</button>
     <button class="approveLiberateBtn ok" type="button">Aprovar + liberar</button>
     <button class="liberateBtn secondary" type="button">Liberar / gerar acesso</button>
-    <button class="regenerateOrderBtn secondary" type="button">Regerar ordem de transmissão</button>
+    <button class="regerarOrdemBtn secondary" type="button">Gerar ou sincronizar ordem de transmissão</button>
     <button class="deleteBtn danger" type="button">Excluir evento</button>
     <div class="status eventStatus">Pronto.</div>
   `;
@@ -565,8 +569,8 @@ function renderEvent(ev){
   card.querySelector('.removeBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'removido'},card);
   card.querySelector('.approveLiberateBtn').onclick=async()=>{const body={status_publicacao:'aprovado'}; if(ev.tipo_servico!=='divulgacao_gratuita') body.status_pagamento='pago'; await quickUpdate(ev.id,body,card,false); await liberate(ev.id,card);};
   card.querySelector('.liberateBtn').onclick=()=>liberate(ev.id,card);
-  const regenerateBtn = card.querySelector('.regenerateOrderBtn');
-  if(regenerateBtn) regenerateBtn.onclick=()=>regenerateOrder(ev.id,card);
+  const regerarOrdemBtn = card.querySelector('.regerarOrdemBtn');
+  if(regerarOrdemBtn) regerarOrdemBtn.onclick=()=>regerarOrdem(ev.id,card);
   const deleteBtn = card.querySelector('.deleteBtn');
   if(deleteBtn) deleteBtn.onclick=()=>deleteEvent(ev.id,card);
   return card;
@@ -744,14 +748,13 @@ async function liberate(id,card){
   }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
 }
 
-async function regenerateOrder(id,card){
+async function regerarOrdem(id,card){
   const st=card.querySelector('.eventStatus');
-  const confirmed = confirm('Deseja tentar gerar novamente a ordem de transmissão na planilha Google para este evento? Use esta opção quando a liberação tiver ficado parcial por falha temporária no Google Sheets.');
-  if(!confirmed) return;
-  st.textContent='Gerando ordem de transmissão...'; st.className='status eventStatus';
+  st.textContent='Gerando ou sincronizando ordem de transmissão...'; st.className='status eventStatus';
   try{
     const data=await api('/admin/eventos/'+id+'/regerar-ordem',{method:'POST'});
-    st.textContent='Ordem de transmissão gerada. '+(data.senha_transmissor?('Senha: '+data.senha_transmissor+' | Sala: '+data.sala_codigo):'');
+    const msg = data.mensagem || 'Ordem processada.';
+    st.textContent = msg + (data.senha_transmissor ? (' Senha: '+data.senha_transmissor+' | Sala: '+data.sala_codigo) : '');
     st.className='status eventStatus success';
     await loadEvents();
   }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
