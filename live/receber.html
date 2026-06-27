@@ -101,6 +101,7 @@
   const C = window.AudescLiveCommon;
   const EVENTS_API_URL = 'https://audesc-events-api.onrender.com';
   let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false, messagesBlocked = false;
+  let receiverWindowTimer = null;
   const audioEl = document.getElementById('remoteAudio');
 
   function gerarNomeOuvintePadrao() {
