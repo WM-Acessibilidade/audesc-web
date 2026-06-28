@@ -545,6 +545,8 @@ function renderEvent(ev){
     <button class="approveLiberateBtn ok" type="button">Aprovar + liberar</button>
     <button class="liberateBtn secondary" type="button">Liberar / gerar acesso</button>
     <button class="regerarOrdemBtn secondary" type="button">Gerar ou sincronizar ordem de transmissão</button>
+    <button class="sincronizarPlanilhaBtn secondary" type="button">Sincronizar ordem com a planilha Google</button>
+    <button class="diagnosticoPlanilhaBtn secondary" type="button">Testar conexão com Google Sheets</button>
     <button class="deleteBtn danger" type="button">Excluir evento</button>
     <div class="status eventStatus">Pronto.</div>
   `;
@@ -571,6 +573,10 @@ function renderEvent(ev){
   card.querySelector('.liberateBtn').onclick=()=>liberate(ev.id,card);
   const regerarOrdemBtn = card.querySelector('.regerarOrdemBtn');
   if(regerarOrdemBtn) regerarOrdemBtn.onclick=()=>regerarOrdem(ev.id,card);
+  const sincronizarPlanilhaBtn = card.querySelector('.sincronizarPlanilhaBtn');
+  if(sincronizarPlanilhaBtn) sincronizarPlanilhaBtn.onclick=()=>sincronizarPlanilha(ev.id,card);
+  const diagnosticoPlanilhaBtn = card.querySelector('.diagnosticoPlanilhaBtn');
+  if(diagnosticoPlanilhaBtn) diagnosticoPlanilhaBtn.onclick=()=>diagnosticarPlanilha(card);
   const deleteBtn = card.querySelector('.deleteBtn');
   if(deleteBtn) deleteBtn.onclick=()=>deleteEvent(ev.id,card);
   return card;
@@ -758,6 +764,48 @@ async function regerarOrdem(id,card){
     st.className='status eventStatus success';
     await loadEvents();
   }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
+}
+
+async function sincronizarPlanilha(id,card){
+  const st=card.querySelector('.eventStatus');
+  st.textContent='Sincronizando ordem com a planilha Google...'; st.className='status eventStatus';
+  try{
+    const data=await api('/admin/eventos/'+id+'/sincronizar-planilha',{method:'POST'});
+    st.textContent = (data.mensagem || 'Ordem sincronizada com a planilha Google.') + (data.sala_codigo ? (' Sala: '+data.sala_codigo) : '');
+    st.className='status eventStatus success';
+    await loadEvents();
+  }catch(e){
+    st.textContent='Erro na sincronização com Google Sheets: '+e.message;
+    st.className='status eventStatus error';
+  }
+}
+
+function resumoDiagnosticoPlanilha(data){
+  const linhas=[];
+  linhas.push(data.ok ? 'Google Sheets: conexão funcionando.' : 'Google Sheets: conexão com problema.');
+  if(data.configuracao){
+    if(data.configuracao.faltantes && data.configuracao.faltantes.length) linhas.push('Variáveis faltantes: '+data.configuracao.faltantes.join(', ')+'.');
+    linhas.push('Chave privada com formato aparente válido: '+(data.configuracao.private_key_formato_aparente ? 'sim' : 'não')+'.');
+    if(data.configuracao.sheet_name) linhas.push('Aba configurada: '+data.configuracao.sheet_name+'.');
+  }
+  if(data.autenticacao) linhas.push('Autenticação: '+(data.autenticacao.ok ? 'ok' : (data.autenticacao.erro || 'falhou'))+'.');
+  if(data.planilha) linhas.push('Planilha: '+(data.planilha.ok ? ('ok'+(data.planilha.titulo ? ' ('+data.planilha.titulo+')' : '')) : (data.planilha.erro || 'falhou'))+'.');
+  if(data.leitura) linhas.push('Leitura da aba: '+(data.leitura.ok ? 'ok' : (data.leitura.erro || 'falhou'))+'.');
+  if(data.erro) linhas.push('Erro: '+data.erro);
+  return linhas.join(' ');
+}
+
+async function diagnosticarPlanilha(card){
+  const st=card.querySelector('.eventStatus');
+  st.textContent='Testando conexão com Google Sheets...'; st.className='status eventStatus';
+  try{
+    const data=await api('/admin/google-sheets/diagnostico');
+    st.textContent=resumoDiagnosticoPlanilha(data);
+    st.className='status eventStatus success';
+  }catch(e){
+    st.textContent='Diagnóstico Google Sheets: '+e.message;
+    st.className='status eventStatus error';
+  }
 }
 
 async function deleteEvent(id,card){
