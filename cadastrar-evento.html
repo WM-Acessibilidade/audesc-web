@@ -50,17 +50,17 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <form id="eventoForm">
 <h2>Dados do evento</h2>
 <label for="titulo_original">Nome do evento</label>
-<input id="titulo_original" name="titulo_original" type="text" required maxlength="150" minlength="10" aria-describedby="titulo_original_contador"><div id="titulo_original_contador" class="small" role="status" aria-live="polite">0 de 150 caracteres utilizados.</div>
+<input id="titulo_original" name="titulo_original" type="text" required maxlength="200">
 <label for="descricao_original">Descrição do evento</label>
-<textarea id="descricao_original" name="descricao_original" maxlength="1500" minlength="100" aria-describedby="descricao_original_contador"></textarea><div id="descricao_original_contador" class="small" role="status" aria-live="polite">0 de 1500 caracteres utilizados.</div>
+<textarea id="descricao_original" name="descricao_original" maxlength="5000"></textarea>
 
 <div class="grid">
-<div><label for="tipo_servico">Tipo de solicitação</label><select id="tipo_servico" name="tipo_servico"><option value="audesc_transmissao">Transmissão Audesc (transmissor e receptores)</option><option value="divulgacao_gratuita">Somente divulgação no Audesc</option>
+<div><label for="tipo_servico">Tipo de solicitação</label><select id="tipo_servico" name="tipo_servico"><option value="audesc_transmissao">Contratar transmissão pelo Audesc</option><option value="divulgacao_gratuita">Somente divulgar evento com audiodescrição</option>
 <option value="audesc_com_audiodescritor" data-df-only="true">Serviço completo - Audesc + audiodescritor</option>
-<option value="somente_audiodescritor" data-df-only="true">Audiodescritor</option>
-<option value="somente_consultor" data-df-only="true">Consultor</option>
+<option value="somente_audiodescritor" data-df-only="true">Somente audiodescritor</option>
+<option value="somente_consultor" data-df-only="true">Somente consultor</option>
 </select></div>
-<div id="visibilidadeBox"><label for="tipo_evento">Visibilidade</label><select id="tipo_evento" name="tipo_evento"><option value="publico">Pública, com divulgação no Audesc</option><option value="privado">Restrita, sem divulgação pública</option></select></div>
+<div id="visibilidadeBox"><label for="tipo_evento">Visibilidade</label><select id="tipo_evento" name="tipo_evento"><option value="publico">Público, com divulgação no Audesc</option><option value="privado">Restrita, sem divulgação pública</option></select></div>
 </div>
 
 <div id="acessoOuvintesBox">
@@ -123,19 +123,9 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 </select></div>
 </div>
 
-<div class="grid">
-<div><label for="local_evento">Nome ou endereço do local do evento</label><input id="local_evento" name="local_evento" type="text" maxlength="300" placeholder="Exemplo: Biblioteca Nacional, Brasília, DF"></div>
-<div><label for="latitude">Latitude</label><input id="latitude" name="latitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
-<div><label for="longitude">Longitude</label><input id="longitude" name="longitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
-</div>
-<p class="small">Com a autorização do usuário, o Audesc poderá usar essas coordenadas para sugerir eventos próximos e abrir rotas em aplicativos de mapa.</p>
-<p><button type="button" id="usarMinhaLocalizacao">Usar minha localização atual</button><button type="button" id="buscarCoordenadasEndereco">Buscar coordenadas pelo endereço</button></p>
-<div id="localizacaoStatus" class="status" role="status" aria-live="polite">Localização ainda não informada.</div>
-
 <h2>Links do evento</h2>
 <label for="site_oficial">Site oficial</label><input id="site_oficial" name="site_oficial" type="url" placeholder="https://">
 <label for="link_ingressos">Link de ingressos</label><input id="link_ingressos" name="link_ingressos" type="url" placeholder="https://">
-<label for="link_inscricao">Link de inscrição</label><input id="link_inscricao" name="link_inscricao" type="url" placeholder="https://">
 <label for="link_programacao">Link de programação</label><input id="link_programacao" name="link_programacao" type="url" placeholder="https://">
 <label for="link_acessibilidade">Link sobre acessibilidade / audiodescrição</label><input id="link_acessibilidade" name="link_acessibilidade" type="url" placeholder="https://">
 <div class="hidden" aria-hidden="true"><label for="website">Não preencha</label><input id="website" name="website" type="text" tabindex="-1" autocomplete="off"></div>
@@ -145,8 +135,6 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 </section>
 </main>
 
-<script src="data/paises-unidades.js"></script>
-<script src="data/servicos.js"></script>
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
@@ -183,10 +171,79 @@ document.getElementById('sendLinkBtn').onclick=async()=>{
 };
 
 const paisSelect=document.getElementById('pais'),ufSelect=document.getElementById('uf'),paisOutroBox=document.getElementById('paisOutroBox'),paisOutroInput=document.getElementById('pais_outro'),origemTransmissaoBox=document.getElementById('origemTransmissaoBox'),origemTransmissaoSelect=document.getElementById('origem_transmissao');
-const unidadesAdministrativas = window.AUDESC_UNIDADES_ADMINISTRATIVAS || {};
-window.AUDESC_LOCAIS?.preencherSelectPaises(paisSelect, paisSelect?.value || 'Brasil', {incluirEspeciais:true});
-if (origemTransmissaoSelect) window.AUDESC_LOCAIS?.preencherSelectPaises(origemTransmissaoSelect, origemTransmissaoSelect.value || '', {incluirVazio:true, incluirEspeciais:false});
+const unidadesAdministrativas = {
+ Brasil: {
+  rotulo: 'Unidade federativa',
+  padrao: 'DF',
+  opcoes: [
+   ['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']
+  ]
+ },
+ Angola: {
+  rotulo: 'Província',
+  padrao: '',
+  opcoes: ['Bengo','Benguela','Bié','Cabinda','Cuando Cubango','Cuanza Norte','Cuanza Sul','Cunene','Huambo','Huíla','Luanda','Lunda Norte','Lunda Sul','Malanje','Moxico','Namibe','Uíge','Zaire']
+ },
+ 'Cabo Verde': {
+  rotulo: 'Ilha',
+  padrao: '',
+  opcoes: ['Boa Vista','Brava','Fogo','Maio','Sal','Santiago','Santo Antão','São Nicolau','São Vicente']
+ },
+ 'Guiné-Bissau': {
+  rotulo: 'Região',
+  padrao: '',
+  opcoes: ['Bafatá','Biombo','Bolama/Bijagós','Cacheu','Gabú','Oio','Quinara','Tombali','Setor Autônomo de Bissau']
+ },
+ 'Guiné Equatorial': {
+  rotulo: 'Província',
+  padrao: '',
+  opcoes: ['Annobón','Bioko Norte','Bioko Sul','Centro Sul','Djibloho','Kie-Ntem','Litoral','Wele-Nzas']
+ },
+ Moçambique: {
+  rotulo: 'Província',
+  padrao: '',
+  opcoes: ['Cabo Delgado','Gaza','Inhambane','Manica','Maputo','Maputo Cidade','Nampula','Niassa','Sofala','Tete','Zambézia']
+ },
+ Portugal: {
+  rotulo: 'Distrito ou região autônoma',
+  padrao: '',
+  opcoes: ['Aveiro','Beja','Braga','Bragança','Castelo Branco','Coimbra','Évora','Faro','Guarda','Leiria','Lisboa','Portalegre','Porto','Santarém','Setúbal','Viana do Castelo','Vila Real','Viseu','Açores','Madeira']
+ },
+ 'São Tomé e Príncipe': {
+  rotulo: 'Distrito ou região autônoma',
+  padrao: '',
+  opcoes: ['Água Grande','Cantagalo','Caué','Lembá','Lobata','Mé-Zóchi','Região Autônoma do Príncipe']
+ },
+ 'Timor-Leste': {
+  rotulo: 'Município ou região administrativa especial',
+  padrao: '',
+  opcoes: ['Aileu','Ainaro','Ataúro','Baucau','Bobonaro','Covalima','Díli','Ermera','Lautém','Liquiçá','Manatuto','Manufahi','Oecusse','Viqueque']
+ }
+};
 
+
+function codigoPaisTimezone(nome){
+ const mapa={Brasil:'BR',Portugal:'PT',Angola:'AO',Moçambique:'MZ','Cabo Verde':'CV','Guiné-Bissau':'GW','Guiné Equatorial':'GQ','São Tomé e Príncipe':'ST','Timor-Leste':'TL'};
+ return mapa[nome] || '';
+}
+function timezonePorLocalFrontend(pais, unidade, origem){
+ const paisRef = pais === 'Internacional' ? origem : pais;
+ const codigo = codigoPaisTimezone(paisRef);
+ const porPais={BR:'America/Sao_Paulo',PT:'Europe/Lisbon',AO:'Africa/Luanda',MZ:'Africa/Maputo',CV:'Atlantic/Cape_Verde',GW:'Africa/Bissau',GQ:'Africa/Malabo',ST:'Africa/Sao_Tome',TL:'Asia/Dili'};
+ const br={AC:'America/Rio_Branco',AM:'America/Manaus',RO:'America/Porto_Velho',RR:'America/Boa_Vista',MT:'America/Cuiaba',MS:'America/Campo_Grande',DF:'America/Sao_Paulo'};
+ const pt={ACO:'Atlantic/Azores',Açores:'Atlantic/Azores',Azores:'Atlantic/Azores',MAD:'Europe/Lisbon',Madeira:'Europe/Lisbon'};
+ if(codigo==='BR' && br[unidade]) return br[unidade];
+ if(codigo==='PT' && pt[unidade]) return pt[unidade];
+ return porPais[codigo] || 'America/Sao_Paulo';
+}
+function formatarDataComTimezone(valor, timezone){
+ if(!valor) return '';
+ const d=new Date(valor);
+ if(Number.isNaN(d.getTime())) return '';
+ try{
+  return d.toLocaleString('pt-BR',{timeZone:timezone||'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}) + (timezone ? ' ('+timezone+')' : '');
+ }catch(e){ return d.toLocaleString('pt-BR'); }
+}
 
 function criarOpcao(valor, texto){
  const opt=document.createElement('option');
@@ -245,119 +302,9 @@ function atualizarLocalizacao(){
  if(paisOutroBox) paisOutroBox.classList.add('hidden');
  if(paisOutroInput){ paisOutroInput.required=false; paisOutroInput.value=''; }
  atualizarOpcoesServico();
- aplicarCamposFormulario();
  ajustarVisibilidade();
- aplicarLimitesTextoFormulario();
 }
 paisSelect.addEventListener('change',atualizarLocalizacao);
-
-
-function setLocalizacaoStatus(msg, cls){const el=document.getElementById('localizacaoStatus'); if(!el)return; el.textContent=msg; el.className='status'+(cls?' '+cls:'');}
-function ajustarPaisUfPorCodigo(paisCodigo, ufCodigo){
- const pais=(window.AUDESC_LOCAIS?.paises||[]).find(p=>String(p.codigo).toLowerCase()===String(paisCodigo||'').toLowerCase())?.nome;
- if(pais && paisSelect){paisSelect.value=pais; atualizarLocalizacao();}
- if(pais==='Brasil' && ufCodigo && ufSelect && !ufSelect.disabled){ufSelect.value=String(ufCodigo).toUpperCase();}
-}
-async function reverseGeocode(lat, lon){
- const url='https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&accept-language=pt-BR';
- const r=await fetch(url); if(!r.ok) throw new Error('Não foi possível consultar o endereço.');
- return await r.json();
-}
-function textoSelecionado(select){
- if(!select || select.disabled) return '';
- const opt=select.options[select.selectedIndex];
- return opt ? opt.textContent.replace(/\s*\([^)]*\)\s*$/,'').trim() : '';
-}
-function codigoPaisISO(pais){return window.AUDESC_LOCAIS?.codigoPaisISO(pais) || '';}
-function codigoUnidadeLocal(pais, uf, ufTexto){return window.AUDESC_LOCAIS?.codigoUnidade(pais, uf, ufTexto) || uf || '';}
-function contextoBuscaEndereco(){
- const pais=document.getElementById('pais')?.value || '';
- const uf=document.getElementById('uf')?.value || '';
- const ufTexto=textoSelecionado(document.getElementById('uf'));
- const paisCodigo=codigoPaisISO(pais);
- const unidadeCodigo=codigoUnidadeLocal(pais,uf,ufTexto);
- const partes=[];
- if(uf && uf!=='Nacional') partes.push(ufTexto || uf);
- if(pais && pais!=='Outros' && pais!=='Internacional') partes.push(pais);
- return {pais, uf, ufTexto, paisCodigo, unidadeCodigo, codigoPais:paisCodigo.toLowerCase(), complemento:partes.join(', ')};
-}
-function normalizarTextoLocal(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
-function resultadoDentroDoContexto(info, contexto){
- const a=info.address||{};
- if(contexto.codigoPais && String(a.country_code||'').toLowerCase()!==contexto.codigoPais) return false;
- if(contexto.pais==='Brasil' && contexto.uf && contexto.uf!=='Nacional'){
-  const cod=(a.state_code || (a['ISO3166-2-lvl4']||'').split('-').pop() || '').toUpperCase();
-  if(cod && cod!==contexto.uf) return false;
-  const estado=normalizarTextoLocal(a.state || a.region || '');
-  const esperado=normalizarTextoLocal(contexto.ufTexto);
-  if(!cod && esperado && estado && estado!==esperado) return false;
- }
- return true;
-}
-function variantesConsultaLocal(q, contexto){
- const variantes=[];
- const add=v=>{v=String(v||'').trim(); if(v && !variantes.some(x=>normalizarTextoLocal(x)===normalizarTextoLocal(v))) variantes.push(v);};
- if(contexto.complemento) add(q+', '+contexto.complemento);
- if(contexto.pais && contexto.pais!=='Outros' && contexto.pais!=='Internacional') add(q+', '+contexto.pais);
- add(q);
- const nq=normalizarTextoLocal(q);
- if(nq.includes('mpf')){
-  const expandida=q.replace(/\bmpf\b/ig,'Ministério Público Federal');
-  if(contexto.complemento) add(expandida+', '+contexto.complemento);
-  add(expandida);
-  if(contexto.complemento){add('Memorial do Ministério Público Federal, '+contexto.complemento); add('Procuradoria-Geral da República, '+contexto.complemento);}
- }
- if(nq.includes('dorina') || nq.includes('biblioteca braille')){
-  if(contexto.complemento) add('Biblioteca Braille Dorina Nowill, Taguatinga, '+contexto.complemento);
-  add('Biblioteca Braille Dorina Nowill, Taguatinga');
- }
- return variantes.slice(0,8);
-}
-async function geocodeViaBackend(q, contexto){
- const params=new URLSearchParams({q, pais:contexto.pais||'', uf:contexto.uf||'', ufTexto:contexto.ufTexto||'', paisCodigo:contexto.paisCodigo||'', unidadeCodigo:contexto.unidadeCodigo||''});
- const r=await fetch(API_URL+'/geocode?'+params.toString());
- const j=await r.json().catch(()=>({}));
- if(!r.ok) throw new Error(j.error||'Não foi possível buscar as coordenadas.');
- const info=j.resultado;
- if(!info) throw new Error('Local não encontrado.');
- return {lat:info.lat, lon:info.lon, display_name:info.endereco||info.nome||'', provider:info.provedor};
-}
-async function geocodeNominatimLocal(q, contexto){
- for(const consulta of variantesConsultaLocal(q, contexto)){
-  let url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=10&accept-language=pt-BR&q='+encodeURIComponent(consulta);
-  if(contexto.codigoPais) url+='&countrycodes='+encodeURIComponent(contexto.codigoPais);
-  const r=await fetch(url); if(!r.ok) continue;
-  const lista=await r.json();
-  const valido=(lista||[]).find(item=>resultadoDentroDoContexto(item,contexto));
-  if(valido) return valido;
- }
- throw new Error('Local não encontrado na região selecionada. Tente informar bairro, cidade ou endereço completo. Para resultados iguais aos do Google Maps, configure a chave GOOGLE_MAPS_API_KEY no backend.');
-}
-async function geocodeEndereco(q){
- const contexto=contextoBuscaEndereco();
- try{return await geocodeViaBackend(q, contexto);}catch(e){return await geocodeNominatimLocal(q, contexto);}
-}
-function preencherCoordenadas(lat, lon){
- document.getElementById('latitude').value=Number(lat).toFixed(6);
- document.getElementById('longitude').value=Number(lon).toFixed(6);
-}
-document.getElementById('usarMinhaLocalizacao')?.addEventListener('click',()=>{
- if(!navigator.geolocation){setLocalizacaoStatus('Este navegador não oferece localização por GPS.','error');return;}
- setLocalizacaoStatus('Solicitando permissão de localização...','');
- navigator.geolocation.getCurrentPosition(async pos=>{
-  const lat=pos.coords.latitude, lon=pos.coords.longitude; preencherCoordenadas(lat,lon);
-  try{const info=await reverseGeocode(lat,lon); const a=info.address||{}; ajustarPaisUfPorCodigo(a.country_code,a.state_code||a['ISO3166-2-lvl4']?.split('-').pop()); if(!document.getElementById('local_evento').value && info.display_name) document.getElementById('local_evento').value=info.display_name; setLocalizacaoStatus('Localização preenchida com sucesso. Confira o endereço, país e unidade administrativa.','success');}
-  catch(e){setLocalizacaoStatus('Coordenadas preenchidas. Confira país e unidade administrativa manualmente.','success');}
- },err=>{setLocalizacaoStatus('Não foi possível obter a localização: '+(err.message||'permissão negada.'),'error')},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
-});
-document.getElementById('buscarCoordenadasEndereco')?.addEventListener('click',async()=>{
- const q=document.getElementById('local_evento').value.trim();
- if(!q){setLocalizacaoStatus('Informe o nome ou endereço do local antes de buscar.','error');return;}
- setLocalizacaoStatus('Buscando coordenadas do endereço...','');
- try{const info=await geocodeEndereco(q); preencherCoordenadas(info.lat, info.lon); const a=info.address||{}; ajustarPaisUfPorCodigo(a.country_code,a.state_code||a['ISO3166-2-lvl4']?.split('-').pop()); setLocalizacaoStatus('Coordenadas encontradas. Confira se correspondem ao local correto.','success');}
- catch(e){setLocalizacaoStatus(e.message||'Não foi possível buscar as coordenadas.','error')}
-});
-
 
 document.getElementById('eventoForm').onsubmit=async(e)=>{
  e.preventDefault();
@@ -368,176 +315,43 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const data=Object.fromEntries(new FormData(form).entries());
- aplicarRegrasServicoNoPayload(data);
- try{ validarLimitesAntesDeEnviar(); }catch(err){ setStatus('status', err.message, 'error'); btn.disabled=false; return; }
- const ctxLocalizacao=contextoBuscaEndereco();
- data.pais_codigo=ctxLocalizacao.paisCodigo || '';
- data.unidade_codigo=ctxLocalizacao.unidadeCodigo || '';
- data.cidade='';
  if(data.pais!=='Outros'&&data.pais!=='Internacional'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
  if(data.pais==='Internacional'&&!data.origem_transmissao){setStatus('status','Selecione a origem da transmissão.','error');btn.disabled=false;return}
  
- if(window.AUDESC_SERVICOS?.somenteDivulgacao(data.tipo_servico) || data.tipo_servico === 'divulgacao_gratuita'){
+ if(data.tipo_servico === 'divulgacao_gratuita'){
   delete data.duracao_horas;
   delete data.max_ouvintes;
   data.divulgar_acesso_ouvintes = false;
   data.tipo_evento = 'publico';
  }
- if(window.AUDESC_SERVICOS?.somenteProfissional(data.tipo_servico) || data.tipo_servico === 'somente_audiodescritor' || data.tipo_servico === 'somente_consultor'){
+ if(data.tipo_servico === 'somente_audiodescritor' || data.tipo_servico === 'somente_consultor'){
   delete data.max_ouvintes;
   data.divulgar_acesso_ouvintes = false;
  }
  if(data.divulgar_acesso_ouvintes === 'true') data.divulgar_acesso_ouvintes = true;
  else data.divulgar_acesso_ouvintes = false;
- if(data.data_evento)data.data_evento=new Date(data.data_evento).toISOString();
+ data.timezone = timezonePorLocalFrontend(data.pais, data.uf, data.origem_transmissao);
+ // Mantém o horário digitado como horário local do país/origem do evento. O backend converte para UTC usando o fuso acima.
+ if(data.data_evento)data.data_evento=data.data_evento;
  try{
   const r=await fetch(API_URL+'/criar-evento',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify(data)});
   const j=await r.json();if(!r.ok)throw new Error(j.error||'Erro ao enviar solicitação.');
   const status = document.getElementById('status');
   status.className = 'status success';
   status.innerHTML = 'Evento recebido. Você pode continuar cadastrando eventos. Assim que terminar, acesse <a href="meus-eventos.html">Meus Eventos</a> para efetuar o pagamento.';
-  form.reset();atualizarLocalizacao();aplicarLimitesTextoFormulario();
+  form.reset();atualizarLocalizacao();
   status.focus();
  }catch(err){setStatus('status','Erro: '+(err.message||'não foi possível enviar.'),'error')}
  finally{btn.disabled=false}
 };
 
-
-function aplicarRegrasServicoNoPayload(data){
- const campos = typeof CAMPOS_FORMULARIO !== 'undefined' ? CAMPOS_FORMULARIO : ['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'];
- for(const id of campos){
-  const regra = typeof regraCampoServicoAtual === 'function' ? regraCampoServicoAtual(id) : null;
-  if(!regra) continue;
-  if(regra.comportamento === 'fixo') data[id] = regra.valor ?? '';
-  if(regra.comportamento === 'oculto_sem_valor') delete data[id];
- }
-}
-
-let FORMULARIO_CONFIG = null;
-const CAMPOS_FORMULARIO = ['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
-async function carregarConfiguracaoFormulario(){
- try{
-  const r = await fetch(API_URL + '/formulario-config');
-  const j = await r.json();
-  if(r.ok && j.config){ FORMULARIO_CONFIG = j.config; aplicarConfiguracaoFormulario(); }
- }catch(e){ console.warn('Não foi possível carregar configuração do formulário.', e); }
-}
-function codigoPaisAtualFormulario(){return window.AUDESC_LOCAIS?.codigoPaisISO(paisSelect.value) || '';}
-function codigoUnidadeAtualFormulario(){return codigoUnidadeLocal(paisSelect.value, ufSelect.value, textoSelecionado(ufSelect)) || ufSelect.value || '';}
-function regraFormularioAtual(){
- if(!FORMULARIO_CONFIG) return null;
- const pais = codigoPaisAtualFormulario();
- const unidade = String(codigoUnidadeAtualFormulario() || '').toUpperCase();
- return (FORMULARIO_CONFIG.regras || []).find(r => r.pais_codigo === pais && String(r.unidade_codigo || '').toUpperCase() === unidade) || null;
-}
-function servicosPermitidosFormulario(){
- const regra = regraFormularioAtual();
- const padrao = FORMULARIO_CONFIG?.padrao?.servicosDisponiveis;
- return regra?.servicosDisponiveis || padrao || null;
-}
-function camposConfigFormulario(){
- const base = FORMULARIO_CONFIG?.padrao?.campos || {};
- const regra = regraFormularioAtual()?.campos || {};
- return Object.assign({}, base, regra);
-}
-function regrasServicoFormulario(){
- const base = FORMULARIO_CONFIG?.padrao?.regrasPorServico || {};
- const regra = regraFormularioAtual()?.regrasPorServico || {};
- return Object.assign({}, base, regra);
-}
-function regraCampoServicoAtual(id){
- const servico = document.getElementById('tipo_servico')?.value || '';
- return regrasServicoFormulario()?.[servico]?.campos?.[id] || null;
-}
-function comportamentoCampoServico(id){return regraCampoServicoAtual(id)?.comportamento || 'usuario';}
-function valorFixoCampoServico(id){return regraCampoServicoAtual(id)?.valor;}
-function campoOcultoSemValor(id){return comportamentoCampoServico(id)==='oculto_sem_valor';}
-function campoValorFixo(id){return comportamentoCampoServico(id)==='fixo';}
-function limitesConfigFormulario(){
- const base = FORMULARIO_CONFIG?.padrao?.limites || {
-  titulo_original:{limitarMinimo:true,minimo:10,limitarMaximo:true,maximo:150},
-  descricao_original:{limitarMinimo:true,minimo:100,limitarMaximo:true,maximo:1500}
- };
- const regra = regraFormularioAtual()?.limites || {};
- return Object.assign({}, base, regra);
-}
-function aplicarLimiteCampo(id, cfg, rotulo){
- const el=document.getElementById(id); if(!el) return;
- const contador=document.getElementById(id+'_contador');
- const minimo=Number(cfg?.minimo||0), maximo=Number(cfg?.maximo||0);
- if(cfg?.limitarMaximo!==false && maximo>0) el.setAttribute('maxlength', String(maximo)); else el.removeAttribute('maxlength');
- if(cfg?.limitarMinimo!==false && minimo>0) el.setAttribute('minlength', String(minimo)); else el.removeAttribute('minlength');
- function atualizar(){
-  const n=el.value.length;
-  let msg = cfg?.limitarMaximo!==false && maximo>0 ? `${n} de ${maximo} caracteres utilizados.` : `${n} caracteres utilizados.`;
-  if(cfg?.limitarMinimo!==false && minimo>0 && n>0 && n<minimo) msg += ` Mínimo recomendado: ${minimo}.`;
-  if(contador) contador.textContent=msg;
- }
- el.oninput=atualizar; atualizar();
-}
-function aplicarLimitesTextoFormulario(){
- const l=limitesConfigFormulario();
- aplicarLimiteCampo('titulo_original', l.titulo_original || {}, 'nome do evento');
- aplicarLimiteCampo('descricao_original', l.descricao_original || {}, 'descrição do evento');
-}
-function validarLimitesAntesDeEnviar(){
- const l=limitesConfigFormulario();
- const pares=[['titulo_original','o nome do evento',true],['descricao_original','a descrição do evento',!!camposConfigFormulario().descricao_original?.obrigatorio]];
- for(const [id,nome,obrigatorio] of pares){
-  const el=document.getElementById(id); if(!el) continue;
-  const cfg=l[id]||{}; const valor=el.value.trim(); const minimo=Number(cfg.minimo||0); const maximo=Number(cfg.maximo||0);
-  if(obrigatorio && !valor){ el.focus(); throw new Error(`Informe ${nome}.`); }
-  if((valor || obrigatorio) && cfg.limitarMinimo!==false && minimo>0 && valor.length<minimo){ el.focus(); throw new Error(`${nome} deve ter pelo menos ${minimo} caracteres.`); }
-  if(cfg.limitarMaximo!==false && maximo>0 && valor.length>maximo){ el.focus(); throw new Error(`${nome} não pode ultrapassar ${maximo} caracteres.`); }
- }
-}
-function setCampoVisivel(id, visivel, obrigatorio){
- const regraServico = regraCampoServicoAtual(id);
- const comportamento = regraServico?.comportamento || 'usuario';
- if(comportamento === 'fixo' || comportamento === 'oculto_sem_valor') visivel = false;
- const el = document.getElementById(id);
- const label = document.querySelector('label[for="'+id+'"]');
- const boxMap = {tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox'};
- const box = boxMap[id] ? document.getElementById(boxMap[id]) : null;
- [el,label,box].filter(Boolean).forEach(x=>x.classList.toggle('hidden', !visivel));
- if(el){
-  if(comportamento === 'fixo') el.value = String(regraServico.valor ?? '');
-  if(comportamento === 'oculto_sem_valor') el.value = '';
-  el.required = !!(visivel && obrigatorio);
-  if(!visivel && 'disabled' in el) el.disabled = true; else if(id !== 'uf' && id !== 'origem_transmissao') el.disabled = false;
- }
-}
-function aplicarCamposFormulario(){
- const cfg = camposConfigFormulario();
- CAMPOS_FORMULARIO.forEach(id=>{
-  if(!Object.prototype.hasOwnProperty.call(cfg,id)) return;
-  setCampoVisivel(id, cfg[id].visivel !== false, !!cfg[id].obrigatorio);
- });
-}
-function aplicarConfiguracaoFormulario(){
- atualizarOpcoesServico();
- aplicarCamposFormulario();
- ajustarVisibilidade();
-}
 const tipoServico = document.getElementById('tipo_servico');
-if(window.AUDESC_SERVICOS?.htmlOptions){
-  tipoServico.innerHTML = window.AUDESC_SERVICOS.htmlOptions(tipoServico.value || 'audesc_transmissao');
-}
 const tipoEvento = document.getElementById('tipo_evento');
 const visibilidadeBox = document.getElementById('visibilidadeBox');
 const acessoOuvintesBox = document.getElementById('acessoOuvintesBox');
 const divulgarAcessoOuvintes = document.getElementById('divulgar_acesso_ouvintes');
 
 function atualizarOpcoesServico(){
- const valorAnterior = tipoServico.value || 'audesc_transmissao';
- const permitidos = servicosPermitidosFormulario();
- if(window.AUDESC_SERVICOS?.lista && Array.isArray(permitidos)){
-  const lista = window.AUDESC_SERVICOS.lista.filter(s => s.ativo !== false && s.apareceCadastro !== false && permitidos.includes(s.codigo));
-  tipoServico.innerHTML = lista.map(s => `<option value="${s.codigo}">${s.nome}</option>`).join('');
-  if(lista.some(s => s.codigo === valorAnterior)) tipoServico.value = valorAnterior;
-  else if(lista[0]) tipoServico.value = lista[0].codigo;
-  return;
- }
  const brasilDf = paisSelect.value === 'Brasil' && ufSelect.value === 'DF';
  const opcoesDf = tipoServico.querySelectorAll('option[data-df-only="true"]');
  opcoesDf.forEach(opt=>{ opt.hidden=!brasilDf; opt.disabled=!brasilDf; });
@@ -548,14 +362,13 @@ function atualizarOpcoesServico(){
 
 function ajustarVisibilidade(){
  const opcaoRestrita = tipoEvento.querySelector('option[value="privado"]');
- const eventoRestrito = tipoEvento && tipoEvento.value === 'privado';
  const duracaoBox = document.getElementById('duracaoBox');
  const ouvintesBox = document.getElementById('ouvintesBox');
  const duracao = document.getElementById('duracao_horas');
  const ouvintes = document.getElementById('max_ouvintes');
  const servico = tipoServico.value;
- const somenteDivulgacao = window.AUDESC_SERVICOS?.somenteDivulgacao(servico) ?? (servico === 'divulgacao_gratuita');
- const somenteProfissional = window.AUDESC_SERVICOS?.somenteProfissional(servico) ?? (servico === 'somente_audiodescritor' || servico === 'somente_consultor');
+ const somenteDivulgacao = servico === 'divulgacao_gratuita';
+ const somenteProfissional = servico === 'somente_audiodescritor' || servico === 'somente_consultor';
 
  if(somenteDivulgacao){
   tipoEvento.value='publico';
@@ -588,28 +401,13 @@ function ajustarVisibilidade(){
   if(!duracao.value) duracao.value='2';
   if(!ouvintes.value) ouvintes.value='20';
  }
-
- if(tipoEvento && tipoEvento.value === 'privado' && acessoOuvintesBox){
-  acessoOuvintesBox.classList.add('hidden');
-  if(divulgarAcessoOuvintes){ divulgarAcessoOuvintes.value='false'; divulgarAcessoOuvintes.disabled=true; }
- }
- // Regras configuradas por serviço prevalecem sobre as regras antigas fixas.
- ['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].forEach(id=>{
-  const regra = regraCampoServicoAtual(id);
-  if(!regra) return;
-  const el=document.getElementById(id); const boxMap={tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox'}; const box=document.getElementById(boxMap[id]);
-  if(regra.comportamento==='fixo'){ if(el) el.value=String(regra.valor??''); if(box) box.classList.add('hidden'); if(el) el.disabled=true; }
-  if(regra.comportamento==='oculto_sem_valor'){ if(el) el.value=''; if(box) box.classList.add('hidden'); if(el) el.disabled=true; }
- });
 }
 
 tipoServico.addEventListener('change', ajustarVisibilidade);
-tipoEvento.addEventListener('change', ajustarVisibilidade);
-ufSelect.addEventListener('change',()=>{aplicarConfiguracaoFormulario();});
+ufSelect.addEventListener('change',()=>{atualizarOpcoesServico();ajustarVisibilidade();});
 atualizarLocalizacao();
 atualizarOpcoesServico();
 ajustarVisibilidade();
-carregarConfiguracaoFormulario();
 
 
 const logoutBtnForm = document.getElementById('logoutBtnForm');
