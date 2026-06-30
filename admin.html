@@ -537,7 +537,13 @@ function renderEvent(ev){
       <div><label>Código da sala</label><input data-field="sala_codigo" value="${attr(ev.sala_codigo || '')}" placeholder="Será gerado automaticamente se ficar vazio"></div>
       <div><label>Senha do transmissor</label><input data-field="senha_transmissor" value="${attr(ev.senha_transmissor || '')}" placeholder="Será gerada automaticamente se ficar vazia"></div>
     </div>
-    <p class="small"><strong>Sincronização com a planilha Google:</strong> ${ev.planilha_liberacao_status || 'não registrada'}${ev.planilha_liberacao_erro ? '<br>Erro: '+escapeHtml(ev.planilha_liberacao_erro) : ''}</p>
+    <div class="status liberacaoResumo">
+      <strong>Status da liberação</strong><br>
+      Evento liberado: ${(ev.status_operacao === 'liberado') ? 'sim' : 'não'}<br>
+      Ordem gerada: ${(ev.sala_codigo && ev.senha_transmissor) ? 'sim' : 'não'}${ev.sala_codigo ? '<br>Sala: '+escapeHtml(ev.sala_codigo) : ''}<br>
+      E-mail de instruções: ${ev.email_liberacao_status || 'não registrado'}${ev.email_liberacao_enviado_em ? '<br>Enviado em: '+escapeHtml(new Date(ev.email_liberacao_enviado_em).toLocaleString('pt-BR')) : ''}${ev.email_liberacao_erro ? '<br>Erro do e-mail: '+escapeHtml(ev.email_liberacao_erro) : ''}<br>
+      Google Sheets: ${ev.planilha_liberacao_status || 'não registrado'}${ev.planilha_liberacao_erro ? '<br>Erro da planilha: '+escapeHtml(ev.planilha_liberacao_erro) : ''}
+    </div>
     <button class="saveBtn" type="button">Salvar edições</button>
     <button class="approveBtn ok" type="button">Aprovar publicação</button>
     <button class="rejectBtn danger" type="button">Rejeitar</button>
@@ -546,6 +552,7 @@ function renderEvent(ev){
     <button class="liberateBtn secondary" type="button">Liberar / gerar acesso</button>
     <button class="regerarOrdemBtn secondary" type="button">Gerar ou sincronizar ordem de transmissão</button>
     <button class="sincronizarPlanilhaBtn secondary" type="button">Sincronizar ordem com a planilha Google</button>
+    <button class="reenviarEmailBtn secondary" type="button">Reenviar e-mail de instruções</button>
     <button class="diagnosticoPlanilhaBtn secondary" type="button">Testar conexão com Google Sheets</button>
     <button class="deleteBtn danger" type="button">Excluir evento</button>
     <div class="status eventStatus">Pronto.</div>
@@ -575,6 +582,8 @@ function renderEvent(ev){
   if(regerarOrdemBtn) regerarOrdemBtn.onclick=()=>regerarOrdem(ev.id,card);
   const sincronizarPlanilhaBtn = card.querySelector('.sincronizarPlanilhaBtn');
   if(sincronizarPlanilhaBtn) sincronizarPlanilhaBtn.onclick=()=>sincronizarPlanilha(ev.id,card);
+  const reenviarEmailBtn = card.querySelector('.reenviarEmailBtn');
+  if(reenviarEmailBtn) reenviarEmailBtn.onclick=()=>reenviarEmailInstrucoes(ev.id,card);
   const diagnosticoPlanilhaBtn = card.querySelector('.diagnosticoPlanilhaBtn');
   if(diagnosticoPlanilhaBtn) diagnosticoPlanilhaBtn.onclick=()=>diagnosticarPlanilha(card);
   const deleteBtn = card.querySelector('.deleteBtn');
@@ -793,6 +802,25 @@ function resumoDiagnosticoPlanilha(data){
   if(data.leitura) linhas.push('Leitura da aba: '+(data.leitura.ok ? 'ok' : (data.leitura.erro || 'falhou'))+'.');
   if(data.erro) linhas.push('Erro: '+data.erro);
   return linhas.join(' ');
+}
+
+async function reenviarEmailInstrucoes(id, card){
+  const st=card.querySelector('.eventStatus');
+  st.textContent='Reenviando e-mail de instruções...'; st.className='status eventStatus';
+  try{
+    const data=await api('/admin/eventos/'+id+'/reenviar-email',{method:'POST'});
+    if(data.email_resultado && data.email_resultado.ok){
+      st.textContent='E-mail de instruções reenviado com sucesso.';
+      st.className='status eventStatus success';
+    }else{
+      st.textContent='A tentativa de reenvio foi concluída, mas o e-mail não foi confirmado como enviado.';
+      st.className='status eventStatus error';
+    }
+    await loadEvents();
+  }catch(e){
+    st.textContent='Erro ao reenviar e-mail: '+e.message;
+    st.className='status eventStatus error';
+  }
 }
 
 async function diagnosticarPlanilha(card){
