@@ -392,6 +392,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  data.pais_codigo=ctxLocalizacao.paisCodigo || '';
  data.unidade_codigo=ctxLocalizacao.unidadeCodigo || '';
  data.cidade='';
+ data.timezone = timezonePorLocalFrontend(data.pais, data.uf, data.origem_transmissao);
  if(data.pais!=='Outros'&&data.pais!=='Internacional'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
  if(data.pais==='Internacional'&&!data.origem_transmissao){setStatus('status','Selecione a origem da transmissão.','error');btn.disabled=false;return}
  
@@ -407,7 +408,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  }
  if(data.divulgar_acesso_ouvintes === 'true') data.divulgar_acesso_ouvintes = true;
  else data.divulgar_acesso_ouvintes = false;
- if(data.data_evento)data.data_evento=new Date(data.data_evento).toISOString();
+ // Enviar data/hora local exatamente como digitada; o backend converte usando o timezone do evento.
  try{
   const r=await fetch(API_URL+'/criar-evento',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify(data)});
   const j=await r.json();if(!r.ok)throw new Error(j.error||'Erro ao enviar solicitação.');
