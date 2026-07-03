@@ -939,6 +939,19 @@
         }
         return;
       }
+      if (msg.type === 'admin-takeover') {
+        if (activeSession) {
+          C.setStatus('transmitterStatus', 'Status: o administrador assumiu esta sala. Sua transmissão foi interrompida.', 'warning');
+          C.setStatus('diagnosticBox', 'Diagnóstico: transmissão interrompida por assunção administrativa.', 'warning');
+          try { cleanupAudioSources(true); } catch(e) {}
+          activeSession = false;
+          try { if (room) room.disconnect(); } catch(e) {}
+          room = null;
+          C.clearState('transmitter');
+          C.switchStep('step-form');
+        }
+        return;
+      }
       if (msg.type === 'feedback') addMessage(from, 'Feedback: ' + msg.text);
       if (msg.type === 'help-request') addMessage(from, 'Pedido de ajuda recebido.');
       if (msg.type === 'receiver-hello') { addMessage(from, 'Entrou na sala.'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }, [from]); }
@@ -977,6 +990,10 @@
     }
 
     activeSession = true;
+    if (isAdminAccess && anotherTransmitterDetected) {
+      await broadcastPayload({ type:'admin-takeover', mensagem:'O administrador assumiu esta transmissão.' });
+      await waitForTransmitterCheck(600);
+    }
     await carregarLimiteOuvintes();
     await publishConfiguredAudio({ forceMicrophoneOnly: true });
     updateReceiverList();
@@ -988,6 +1005,7 @@
     C.setText('receiverLinkBox', C.montarLinkReceptor(roomCode));
     C.switchStep('step-room');
     C.setStatus('transmitterStatus', reconnect ? 'Status: sala restaurada e transmissão reconectada.' : 'Status: transmissão iniciada com sucesso.', 'success');
+    iniciarMonitoramentoJanelaTransmissao().catch(() => {});
     updateAudioDiagnostics('Transmissão iniciada com sucesso.');
     persist();
     saveLastTransmitterRoom();
