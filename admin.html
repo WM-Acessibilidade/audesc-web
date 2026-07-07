@@ -162,30 +162,6 @@ function textoSelecionado(select){
   if(!select || select.selectedIndex < 0) return '';
   return select.options[select.selectedIndex].textContent.trim();
 }
-
-function codigoPaisTimezone(nome){
- const mapa={Brasil:'BR',Portugal:'PT',Angola:'AO',Moçambique:'MZ','Cabo Verde':'CV','Guiné-Bissau':'GW','Guiné Equatorial':'GQ','São Tomé e Príncipe':'ST','Timor-Leste':'TL'};
- return mapa[nome] || '';
-}
-function timezonePorLocalFrontend(pais, unidade, origem){
- const paisRef = pais === 'Internacional' ? origem : pais;
- const codigo = codigoPaisTimezone(paisRef);
- const porPais={BR:'America/Sao_Paulo',PT:'Europe/Lisbon',AO:'Africa/Luanda',MZ:'Africa/Maputo',CV:'Atlantic/Cape_Verde',GW:'Africa/Bissau',GQ:'Africa/Malabo',ST:'Africa/Sao_Tome',TL:'Asia/Dili'};
- const br={AC:'America/Rio_Branco',AM:'America/Manaus',RO:'America/Porto_Velho',RR:'America/Boa_Vista',MT:'America/Cuiaba',MS:'America/Campo_Grande',DF:'America/Sao_Paulo'};
- const pt={ACO:'Atlantic/Azores',Açores:'Atlantic/Azores',Azores:'Atlantic/Azores',MAD:'Europe/Lisbon',Madeira:'Europe/Lisbon'};
- if(codigo==='BR' && br[unidade]) return br[unidade];
- if(codigo==='PT' && pt[unidade]) return pt[unidade];
- return porPais[codigo] || 'America/Sao_Paulo';
-}
-function formatarDataComTimezone(valor, timezone){
- if(!valor) return '';
- const d=new Date(valor);
- if(Number.isNaN(d.getTime())) return '';
- try{
-  return d.toLocaleString('pt-BR',{timeZone:timezone||'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}) + (timezone ? ' ('+timezone+')' : '');
- }catch(e){ return d.toLocaleString('pt-BR'); }
-}
-
 function codigoPaisISO(pais){return window.AUDESC_LOCAIS?.codigoPaisISO(pais) || '';}
 function codigoUnidadeLocalAdmin(pais, uf, ufTexto){return window.AUDESC_LOCAIS?.codigoUnidade(pais, uf, ufTexto) || uf || '';}
 function contextoBuscaEnderecoAdmin(card){
@@ -475,11 +451,13 @@ function renderEvent(ev){
       <div><strong>Local do evento:</strong> ${escapeHtml(ev.local_evento || '')}</div>
       <div><strong>Latitude:</strong> ${ev.latitude ?? ''}</div>
       <div><strong>Longitude:</strong> ${ev.longitude ?? ''}</div>
-      <div><strong>Data e horário:</strong> ${formatarDataComTimezone(ev.data_evento, ev.timezone)}</div>
-      <div><strong>Fuso horário:</strong> ${escapeHtml(ev.timezone || '')}</div>
+      <div><strong>Data e horário:</strong> ${formatarData(ev.data_evento)}</div>
       <div><strong>Horas de transmissão:</strong> ${ev.duracao_horas || ''}</div>
       <div><strong>Máximo de ouvintes:</strong> ${ev.max_ouvintes || ''}</div>
       <div><strong>Margem extra de ouvintes:</strong> ${ev.max_ouvintes_extra || 0}</div>
+      <div><strong>Controle de presença por GPS:</strong> ${ev.exigir_gps_ouvintes ? 'ativado' : 'desativado'}</div>
+      <div><strong>Raio permitido:</strong> ${ev.gps_raio_metros || 200} m</div>
+      <div><strong>Precisão máxima aceita:</strong> ${ev.gps_precisao_max_metros || 500} m</div>
       <div><strong>Margem de transmissão:</strong> ${ev.margem_transmissao_minutos ?? 15} minuto(s)</div>
     </div>
     <label>Nome do evento</label>
@@ -539,9 +517,21 @@ function renderEvent(ev){
     <p><button class="geocodeAdminBtn secondary" type="button">Buscar coordenadas pelo endereço</button></p>
     <div class="status localizacaoAdminStatus">Informe ou confira o local do evento.</div>
 
+    <section class="gps-presenca-admin-box" aria-label="Controle de presença dos ouvintes por GPS">
+      <h4>Controle de presença dos ouvintes</h4>
+      <p class="small">Use esta opção apenas quando a transmissão deve ser reservada a ouvintes presentes no local do evento. A verificação ocorre na entrada da sala de recepção.</p>
+      <div class="grid">
+        <div><label>Exigir localização do ouvinte para entrar na recepção</label><select data-field="exigir_gps_ouvintes">
+          ${optTexto('false', String(!!ev.exigir_gps_ouvintes), 'Não')}${optTexto('true', String(!!ev.exigir_gps_ouvintes), 'Sim')}
+        </select></div>
+        <div><label>Raio permitido em metros</label><input data-field="gps_raio_metros" type="number" min="10" max="5000" step="10" value="${attr(ev.gps_raio_metros || 200)}"><p class="small">Padrão sugerido: 200 metros.</p></div>
+        <div><label>Precisão máxima aceita em metros</label><input data-field="gps_precisao_max_metros" type="number" min="10" max="5000" step="10" value="${attr(ev.gps_precisao_max_metros || 500)}"><p class="small">Se o GPS estiver impreciso demais, o ouvinte será orientado a tentar novamente.</p></div>
+      </div>
+      <p class="small">A latitude e longitude do local do evento são usadas como referência. Se as coordenadas estiverem vazias, o controle por GPS não deve ser ativado.</p>
+    </section>
+
     <div class="grid">
-      <div><label>Data e horário do evento</label><input data-field="data_evento" type="datetime-local" value="${valorDataInput(ev.data_evento, ev.timezone)}"></div>
-      <div><label>Fuso horário do evento</label><input data-field="timezone" value="${attr(ev.timezone || '')}" readonly><p class="small">Preenchido automaticamente conforme país e unidade administrativa.</p></div>
+      <div><label>Data e horário do evento</label><input data-field="data_evento" type="datetime-local" value="${valorDataInput(ev.data_evento)}"></div>
       <div class="duracao-admin-box"><label>Horas de transmissão</label><select data-field="duracao_horas">
         ${opt('1', String(ev.duracao_horas || ''))}${opt('2', String(ev.duracao_horas || ''))}${opt('3', String(ev.duracao_horas || ''))}${opt('4', String(ev.duracao_horas || ''))}${opt('5', String(ev.duracao_horas || ''))}${opt('6', String(ev.duracao_horas || ''))}${opt('7', String(ev.duracao_horas || ''))}${opt('8', String(ev.duracao_horas || ''))}
       </select></div>
@@ -563,7 +553,13 @@ function renderEvent(ev){
       <div><label>Código da sala</label><input data-field="sala_codigo" value="${attr(ev.sala_codigo || '')}" placeholder="Será gerado automaticamente se ficar vazio"></div>
       <div><label>Senha do transmissor</label><input data-field="senha_transmissor" value="${attr(ev.senha_transmissor || '')}" placeholder="Será gerada automaticamente se ficar vazia"></div>
     </div>
-    <p class="small"><strong>Sincronização com a planilha Google:</strong> ${ev.planilha_liberacao_status || 'não registrada'}${ev.planilha_liberacao_erro ? '<br>Erro: '+escapeHtml(ev.planilha_liberacao_erro) : ''}</p>
+    <div class="status liberacaoResumo">
+      <strong>Status da liberação</strong><br>
+      Evento liberado: ${(ev.status_operacao === 'liberado') ? 'sim' : 'não'}<br>
+      Ordem gerada: ${(ev.sala_codigo && ev.senha_transmissor) ? 'sim' : 'não'}${ev.sala_codigo ? '<br>Sala: '+escapeHtml(ev.sala_codigo) : ''}<br>
+      E-mail de instruções: ${ev.email_liberacao_status || 'não registrado'}${ev.email_liberacao_enviado_em ? '<br>Enviado em: '+escapeHtml(new Date(ev.email_liberacao_enviado_em).toLocaleString('pt-BR')) : ''}${ev.email_liberacao_erro ? '<br>Erro do e-mail: '+escapeHtml(ev.email_liberacao_erro) : ''}<br>
+      Google Sheets: ${ev.planilha_liberacao_status || 'não registrado'}${ev.planilha_liberacao_erro ? '<br>Erro da planilha: '+escapeHtml(ev.planilha_liberacao_erro) : ''}
+    </div>
     <button class="saveBtn" type="button">Salvar edições</button>
     <button class="approveBtn ok" type="button">Aprovar publicação</button>
     <button class="rejectBtn danger" type="button">Rejeitar</button>
@@ -572,6 +568,7 @@ function renderEvent(ev){
     <button class="liberateBtn secondary" type="button">Liberar / gerar acesso</button>
     <button class="regerarOrdemBtn secondary" type="button">Gerar ou sincronizar ordem de transmissão</button>
     <button class="sincronizarPlanilhaBtn secondary" type="button">Sincronizar ordem com a planilha Google</button>
+    <button class="reenviarEmailBtn secondary" type="button">Reenviar e-mail de instruções</button>
     <button class="diagnosticoPlanilhaBtn secondary" type="button">Testar conexão com Google Sheets</button>
     <button class="deleteBtn danger" type="button">Excluir evento</button>
     <div class="status eventStatus">Pronto.</div>
@@ -601,6 +598,8 @@ function renderEvent(ev){
   if(regerarOrdemBtn) regerarOrdemBtn.onclick=()=>regerarOrdem(ev.id,card);
   const sincronizarPlanilhaBtn = card.querySelector('.sincronizarPlanilhaBtn');
   if(sincronizarPlanilhaBtn) sincronizarPlanilhaBtn.onclick=()=>sincronizarPlanilha(ev.id,card);
+  const reenviarEmailBtn = card.querySelector('.reenviarEmailBtn');
+  if(reenviarEmailBtn) reenviarEmailBtn.onclick=()=>reenviarEmailInstrucoes(ev.id,card);
   const diagnosticoPlanilhaBtn = card.querySelector('.diagnosticoPlanilhaBtn');
   if(diagnosticoPlanilhaBtn) diagnosticoPlanilhaBtn.onclick=()=>diagnosticarPlanilha(card);
   const deleteBtn = card.querySelector('.deleteBtn');
@@ -693,20 +692,17 @@ function renderEventSections(){
 
 
 function formatarData(v){
-  return formatarDataComTimezone(v, 'America/Sao_Paulo');
-}
-function valorDataInput(v, timezone){
   if(!v) return '';
   const d = new Date(v);
   if(Number.isNaN(d.getTime())) return '';
-  try{
-    const parts = new Intl.DateTimeFormat('sv-SE',{timeZone:timezone||'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(d);
-    const obj = Object.fromEntries(parts.filter(p=>p.type !== 'literal').map(p=>[p.type,p.value]));
-    return `${obj.year}-${obj.month}-${obj.day}T${obj.hour}:${obj.minute}`;
-  }catch(e){
-    const local = new Date(d.getTime() - d.getTimezoneOffset()*60000);
-    return local.toISOString().slice(0,16);
-  }
+  return d.toLocaleString('pt-BR');
+}
+function valorDataInput(v){
+  if(!v) return '';
+  const d = new Date(v);
+  if(Number.isNaN(d.getTime())) return '';
+  const local = new Date(d.getTime() - d.getTimezoneOffset()*60000);
+  return local.toISOString().slice(0,16);
 }
 
 async function saveEvent(id,card){
@@ -714,7 +710,7 @@ async function saveEvent(id,card){
   card.querySelectorAll('[data-field]').forEach(el=>body[el.dataset.field]=el.value);
 
   if(body.data_evento){
-    body.data_evento = body.data_evento;
+    body.data_evento = new Date(body.data_evento).toISOString();
   } else if(Object.prototype.hasOwnProperty.call(body, 'data_evento')) {
     body.data_evento = null;
   }
@@ -736,11 +732,23 @@ async function saveEvent(id,card){
   } else if(body.margem_transmissao_minutos !== undefined) {
     body.margem_transmissao_minutos = 15;
   }
+  if(body.exigir_gps_ouvintes !== undefined){
+    body.exigir_gps_ouvintes = String(body.exigir_gps_ouvintes) === 'true';
+  }
+  if(body.gps_raio_metros !== undefined && body.gps_raio_metros !== ''){
+    body.gps_raio_metros = Math.max(10, Math.min(5000, Number(body.gps_raio_metros || 200)));
+  } else if(body.gps_raio_metros !== undefined) {
+    body.gps_raio_metros = 200;
+  }
+  if(body.gps_precisao_max_metros !== undefined && body.gps_precisao_max_metros !== ''){
+    body.gps_precisao_max_metros = Math.max(10, Math.min(5000, Number(body.gps_precisao_max_metros || 500)));
+  } else if(body.gps_precisao_max_metros !== undefined) {
+    body.gps_precisao_max_metros = 500;
+  }
 
   const ctxLocalizacao=contextoBuscaEnderecoAdmin(card);
   body.pais_codigo=ctxLocalizacao.paisCodigo || '';
   body.unidade_codigo=ctxLocalizacao.unidadeCodigo || '';
-  body.timezone=timezonePorLocalFrontend(body.pais || '', body.uf || '', body.origem_transmissao || '');
   body.cidade=body.cidade || '';
 
   if(body.pais === 'Outros') body.uf = '';
@@ -823,6 +831,25 @@ function resumoDiagnosticoPlanilha(data){
   if(data.leitura) linhas.push('Leitura da aba: '+(data.leitura.ok ? 'ok' : (data.leitura.erro || 'falhou'))+'.');
   if(data.erro) linhas.push('Erro: '+data.erro);
   return linhas.join(' ');
+}
+
+async function reenviarEmailInstrucoes(id, card){
+  const st=card.querySelector('.eventStatus');
+  st.textContent='Reenviando e-mail de instruções...'; st.className='status eventStatus';
+  try{
+    const data=await api('/admin/eventos/'+id+'/reenviar-email',{method:'POST'});
+    if(data.email_resultado && data.email_resultado.ok){
+      st.textContent='E-mail de instruções reenviado com sucesso.';
+      st.className='status eventStatus success';
+    }else{
+      st.textContent='A tentativa de reenvio foi concluída, mas o e-mail não foi confirmado como enviado.';
+      st.className='status eventStatus error';
+    }
+    await loadEvents();
+  }catch(e){
+    st.textContent='Erro ao reenviar e-mail: '+e.message;
+    st.className='status eventStatus error';
+  }
 }
 
 async function diagnosticarPlanilha(card){

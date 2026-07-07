@@ -31,6 +31,7 @@
         <button id="joinBtn" type="button">Entrar</button>
       </div>
       <div id="receiverStatus" class="status">Status: aguardando entrada na sala.</div>
+      <div id="receiverGpsStatus" class="status">Controle de presença: aguardando verificação.</div>
     </section>
   </section>
 
@@ -237,6 +238,93 @@
     }
   }
 
+
+  async function consultarControlePresenca(){
+    if(!roomCode) return null;
+    try{
+      const r = await fetch(EVENTS_API_URL + '/public/salas/' + encodeURIComponent(roomCode) + '/controle-presenca');
+      const j = await r.json().catch(()=>({}));
+      if(!r.ok) return null;
+      return j;
+    }catch(e){
+      return null;
+    }
+  }
+
+  function obterLocalizacaoAtual(){
+    return new Promise((resolve, reject) => {
+      if(!navigator.geolocation){
+        reject(new Error('Este navegador não oferece recurso de localização.'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve(pos),
+        err => {
+          let msg = 'Não foi possível obter a localização.';
+          if(err && err.code === 1) msg = 'Para entrar nesta transmissão, permita o acesso à localização do dispositivo.';
+          if(err && err.code === 2) msg = 'A localização do dispositivo não está disponível no momento.';
+          if(err && err.code === 3) msg = 'A localização demorou muito para responder. Tente novamente.';
+          reject(new Error(msg));
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+      );
+    });
+  }
+
+  function distanciaMetros(lat1, lon1, lat2, lon2){
+    const R = 6371000;
+    const toRad = d => d * Math.PI / 180;
+    const p1 = toRad(lat1), p2 = toRad(lat2);
+    const dp = toRad(lat2 - lat1);
+    const dl = toRad(lon2 - lon1);
+    const a = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+    return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  async function validarControlePresencaAntesDeEntrar(){
+    const cfg = await consultarControlePresenca();
+    if(!cfg || !cfg.exigir_gps_ouvintes){
+      C.setStatus('receiverGpsStatus', 'Controle de presença: não exigido para esta sala.', 'success');
+      return null;
+    }
+    if(!cfg.gps_configurado || cfg.latitude == null || cfg.longitude == null){
+      throw new Error('Esta transmissão exige presença no local, mas as coordenadas do evento não estão configuradas.');
+    }
+    C.setStatus('receiverGpsStatus', 'Controle de presença: solicitando localização do dispositivo.', 'warning');
+    const pos = await obterLocalizacaoAtual();
+    const latitude = pos.coords.latitude;
+    const longitude = pos.coords.longitude;
+    const accuracy = pos.coords.accuracy || 0;
+    const distancia = distanciaMetros(Number(cfg.latitude), Number(cfg.longitude), latitude, longitude);
+    const distanciaAjustada = Math.max(0, distancia - accuracy);
+    const precisaoMax = Number(cfg.gps_precisao_max_metros || 500);
+    const raio = Number(cfg.gps_raio_metros || 200);
+    if(accuracy && accuracy > precisaoMax){
+      throw new Error('A localização está imprecisa demais (' + Math.round(accuracy) + ' m). Tente novamente em local aberto ou mais próximo do evento.');
+    }
+    if(distanciaAjustada > raio){
+      throw new Error('A transmissão está restrita a ouvintes presentes no local do evento. Distância aproximada: ' + Math.round(distancia) + ' m.');
+    }
+    C.setStatus('receiverGpsStatus', 'Controle de presença: localização autorizada. Distância aproximada: ' + Math.round(distancia) + ' m.', 'success');
+    return { latitude, longitude, accuracy };
+  }
+
+  async function pedirTokenReceiverComGps(gps){
+    let url = C.tokenEndpoint + '?room=' + encodeURIComponent(roomCode) + '&identity=' + encodeURIComponent(receiverName) + '&role=receiver';
+    if(gps){
+      url += '&lat=' + encodeURIComponent(gps.latitude);
+      url += '&lon=' + encodeURIComponent(gps.longitude);
+      url += '&accuracy=' + encodeURIComponent(gps.accuracy || 0);
+    }
+    const response = await fetch(url);
+    if(!response.ok){
+      let message = 'Falha ao obter token';
+      try { const data = await response.json(); if(data && data.error) message = data.error; } catch(e) {}
+      throw new Error(message);
+    }
+    return response.json();
+  }
+
   async function consultarJanelaTransmissao(){
     if(!roomCode) return null;
     try{
@@ -307,7 +395,8 @@
     LK = await C.carregarLiveKit();
     await consultarLimiteAntesDeEntrar();
     await validarJanelaTransmissaoAntesDeEntrar();
-    const tokenData = await C.pedirToken(roomCode, receiverName, 'receiver');
+    const gpsEntrada = await validarControlePresencaAntesDeEntrar();
+    const tokenData = await pedirTokenReceiverComGps(gpsEntrada);
     if (tokenData.room) roomCode = tokenData.room;
     if (tokenData.evento && (!eventName || eventName === 'Evento ao vivo')) eventName = tokenData.evento;
     if (room) { room.disconnect(); room = null; }
