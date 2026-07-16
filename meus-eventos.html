@@ -60,6 +60,7 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 <div id="lista-eventos"></div>
 </section>
 
+<script src="data/servicos.js"></script>
 <script>
 const API='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
@@ -68,31 +69,21 @@ const sb=supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 let eventosCache=[];
 let filtroAtual='pendentes';
 
-
-function codigoPaisTimezone(nome){
- const mapa={Brasil:'BR',Portugal:'PT',Angola:'AO',Moçambique:'MZ','Cabo Verde':'CV','Guiné-Bissau':'GW','Guiné Equatorial':'GQ','São Tomé e Príncipe':'ST','Timor-Leste':'TL'};
- return mapa[nome] || '';
-}
-function timezonePorLocalFrontend(pais, unidade, origem){
- const paisRef = pais === 'Internacional' ? origem : pais;
- const codigo = codigoPaisTimezone(paisRef);
- const porPais={BR:'America/Sao_Paulo',PT:'Europe/Lisbon',AO:'Africa/Luanda',MZ:'Africa/Maputo',CV:'Atlantic/Cape_Verde',GW:'Africa/Bissau',GQ:'Africa/Malabo',ST:'Africa/Sao_Tome',TL:'Asia/Dili'};
- const br={AC:'America/Rio_Branco',AM:'America/Manaus',RO:'America/Porto_Velho',RR:'America/Boa_Vista',MT:'America/Cuiaba',MS:'America/Campo_Grande',DF:'America/Sao_Paulo'};
- const pt={ACO:'Atlantic/Azores',Açores:'Atlantic/Azores',Azores:'Atlantic/Azores',MAD:'Europe/Lisbon',Madeira:'Europe/Lisbon'};
- if(codigo==='BR' && br[unidade]) return br[unidade];
- if(codigo==='PT' && pt[unidade]) return pt[unidade];
- return porPais[codigo] || 'America/Sao_Paulo';
-}
-function formatarDataComTimezone(valor, timezone){
- if(!valor) return '';
- const d=new Date(valor);
- if(Number.isNaN(d.getTime())) return '';
- try{
-  return d.toLocaleString('pt-BR',{timeZone:timezone||'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}) + (timezone ? ' ('+timezone+')' : '');
- }catch(e){ return d.toLocaleString('pt-BR'); }
-}
-
 function t(v){ return v || '—'; }
+
+function nomeServico(tipo){
+ if(tipo==='divulgacao_gratuita') return 'Somente divulgação no Audesc';
+ return window.AUDESC_SERVICOS?.nome(tipo) || tipo || '—';
+}
+function nomeServicoEvento(ev){
+ const nome=nomeServico(ev?.tipo_servico);
+ return ev?.tipo_servico==='divulgacao_gratuita' && ev?.status_pagamento==='dispensado'
+  ? nome+' (gratuita)'
+  : nome;
+}
+function exigePagamento(ev){
+ return ev && ev.status_pagamento !== 'pago' && ev.status_pagamento !== 'dispensado';
+}
 
 function setMsg(id,msg,cls){
  const el=document.getElementById(id);
@@ -244,13 +235,14 @@ function renderEventos(eventos){
     Pagamento: ${t(ev.status_pagamento)} |
     Operação: ${t(ev.status_operacao)}
    </p>
-   <p><strong>Tipo:</strong> ${t(ev.tipo_servico)}</p>
-   <p><strong>Data:</strong> ${t(formatarDataComTimezone(ev.data_evento, ev.timezone))}</p>
+   <p><strong>Tipo:</strong> ${nomeServicoEvento(ev)}</p>
+   <p><strong>Data:</strong> ${t(ev.data_evento?new Date(ev.data_evento).toLocaleString('pt-BR'):'')}</p>
    <p><strong>País:</strong> ${t(ev.pais)}</p>
    <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
+   ${ev.local_evento?`<p><strong>Local:</strong> ${t(ev.local_evento)}</p>`:''}
    ${ev.sala_codigo?`<p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>`:''}
    ${ev.senha_transmissor?`<p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>`:''}
-   ${ev.status_pagamento !== 'pago' && ev.tipo_servico === 'audesc_transmissao'
+   ${exigePagamento(ev)
      ? `<p><a href="pagamento.html?evento=${ev.id}"><button type="button">Pagar agora</button></a></p>`
      : ''
    }
