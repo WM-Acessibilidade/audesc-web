@@ -100,7 +100,7 @@ function render(){
  const te=document.getElementById('tipo_evento');
  if(te)te.addEventListener('change',()=>{ajustarAcessoOuvintesMeuEvento();marcarAlteracao();});
 }
-function iniciarEdicao(){if(!podeEditar(eventoAtual))return;modoEdicao=true;formularioAlterado=false;render();setMsg('Modo de edição aberto. Faça as alterações e pressione Salvar.','');}
+function iniciarEdicao(){if(!edicaoAtiva())return;modoEdicao=true;formularioAlterado=false;render();setMsg('Modo de edição aberto. Faça as alterações e pressione Salvar.','');}
 function cancelarEdicao(){modoEdicao=false;formularioAlterado=false;render();setMsg('Edição cancelada. Nenhuma alteração foi salva.','');}
 function marcarAlteracao(){if(!modoEdicao)return;formularioAlterado=true;const b=document.getElementById('salvarEdicao');if(b){b.disabled=false;b.textContent='Salvar';}}
 function instalarDeteccaoAlteracoes(){document.querySelectorAll('#conteudo input, #conteudo textarea, #conteudo select').forEach(el=>{el.addEventListener('input',marcarAlteracao);el.addEventListener('change',marcarAlteracao);});}
@@ -108,11 +108,49 @@ function atualizarLocal(){const p=document.getElementById('pais').value,u=docume
 function aplicarLimiteCampo(id,cfg){const el=document.getElementById(id);if(!el)return;const contador=document.getElementById(id+'_contador');const minimo=Number(cfg?.minimo||0),maximo=Number(cfg?.maximo||0);if(cfg?.limitarMaximo!==false&&maximo>0)el.setAttribute('maxlength',String(maximo));else el.removeAttribute('maxlength');if(cfg?.limitarMinimo!==false&&minimo>0)el.setAttribute('minlength',String(minimo));else el.removeAttribute('minlength');function atualizar(){const n=el.value.length;let msg=(cfg?.limitarMaximo!==false&&maximo>0)?`${n} de ${maximo} caracteres utilizados.`:`${n} caracteres utilizados.`;if(cfg?.limitarMinimo!==false&&minimo>0&&n>0&&n<minimo)msg+=` Mínimo exigido: ${minimo}.`;if(contador)contador.textContent=msg;}el.oninput=atualizar;atualizar();}
 function aplicarLimitesTexto(){const l=limitesConfigFormulario();aplicarLimiteCampo('titulo_original',l.titulo_original||{});aplicarLimiteCampo('descricao_original',l.descricao_original||{});}
 function boxDoCampo(id){return document.getElementById(CAMPOS_EM_BOX[id]||id+'Box')||document.getElementById(id)?.closest('div')}
-function setCampoVisivel(id,visivel,obrigatorio){const regra=regraCampoServicoAtual(id); if(regra&&(regra.comportamento==='fixo'||regra.comportamento==='oculto_sem_valor'))visivel=false; const el=document.getElementById(id);const box=boxDoCampo(id);if(box)box.classList.toggle('campo-oculto',!visivel);if(el){if(regra?.comportamento==='fixo')el.value=String(regra.valor??''); if(regra?.comportamento==='oculto_sem_valor')el.value=''; el.required=!!(visivel&&obrigatorio);el.disabled=!edicaoAtiva()||!visivel;}}
-function aplicarCamposFormulario(){const cfg=camposConfigFormulario();CAMPOS_CONFIGURAVEIS.forEach(id=>{if(Object.prototype.hasOwnProperty.call(cfg,id))setCampoVisivel(id,cfg[id].visivel!==false,!!cfg[id].obrigatorio);});const localVisivel=cfg.local_evento?.visivel!==false;if(document.getElementById('localizacaoArea'))document.getElementById('localizacaoArea').classList.toggle('campo-oculto',!localVisivel);const descricaoBox=document.getElementById('descricaoBox');if(cfg.descricao_original){descricaoBox?.classList.toggle('campo-oculto',cfg.descricao_original.visivel===false);const desc=document.getElementById('descricao_original');if(desc){desc.required=!!cfg.descricao_original.obrigatorio;desc.disabled=!edicaoAtiva()||cfg.descricao_original.visivel===false;}}}
+function regraEstruturalCampo(id,servico){
+ const divulgacao=servicoSomenteDivulgacao(servico);
+ const profissional=servicoSomenteProfissional(servico);
+ if(divulgacao&&['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].includes(id))return{visivel:false,valor:id==='tipo_evento'?'publico':(id==='divulgar_acesso_ouvintes'?'false':'')};
+ if(profissional&&['divulgar_acesso_ouvintes','max_ouvintes'].includes(id))return{visivel:false,valor:id==='divulgar_acesso_ouvintes'?'false':''};
+ return null;
+}
+function setCampoVisivel(id,visivel,obrigatorio){
+ const servico=document.getElementById('tipo_servico')?.value||eventoAtual?.tipo_servico||'';
+ const estrutural=regraEstruturalCampo(id,servico);
+ const regra=regraCampoServicoAtual(id);
+ if(estrutural){visivel=false;}
+ if(regra&&(regra.comportamento==='fixo'||regra.comportamento==='oculto_sem_valor'))visivel=false;
+ const el=document.getElementById(id);const box=boxDoCampo(id);
+ if(box)box.classList.toggle('campo-oculto',!visivel);
+ if(el){
+  if(estrutural)el.value=String(estrutural.valor??'');
+  if(regra?.comportamento==='fixo')el.value=String(regra.valor??'');
+  if(regra?.comportamento==='oculto_sem_valor')el.value='';
+  el.required=!!(visivel&&obrigatorio);
+  el.disabled=!edicaoAtiva()||!visivel;
+ }
+}
+function aplicarCamposFormulario(){
+ const cfg=camposConfigFormulario();
+ CAMPOS_CONFIGURAVEIS.forEach(id=>{
+  const campoCfg=cfg[id]||{};
+  setCampoVisivel(id,campoCfg.visivel!==false,!!campoCfg.obrigatorio);
+ });
+ const localVisivel=cfg.local_evento?.visivel!==false&&!boxDoCampo('local_evento')?.classList.contains('campo-oculto');
+ if(document.getElementById('localizacaoArea'))document.getElementById('localizacaoArea').classList.toggle('campo-oculto',!localVisivel);
+ const descricaoBox=document.getElementById('descricaoBox');
+ if(cfg.descricao_original){descricaoBox?.classList.toggle('campo-oculto',cfg.descricao_original.visivel===false);const desc=document.getElementById('descricao_original');if(desc){desc.required=!!cfg.descricao_original.obrigatorio;desc.disabled=!edicaoAtiva()||cfg.descricao_original.visivel===false;}}
+}
 function atualizarOpcoesServico(){const sel=document.getElementById('tipo_servico');if(!sel)return;const anterior=sel.value||eventoAtual?.tipo_servico||'audesc_transmissao';sel.innerHTML=servicosOptions(anterior);if([...sel.options].some(o=>o.value===anterior))sel.value=anterior;else if(sel.options[0])sel.value=sel.options[0].value;}
-function atualizarCamposServico(){const servico=document.getElementById('tipo_servico')?.value||eventoAtual?.tipo_servico||'';const campos=document.getElementById('camposTransmissao');const ocultarTransmissao=!servicoComTransmissao(servico);if(campos){campos.classList.toggle('hidden',ocultarTransmissao);campos.setAttribute('aria-hidden',ocultarTransmissao?'true':'false');}
-const duracao=document.getElementById('duracao_horas'),ouvintes=document.getElementById('max_ouvintes'),tipoEvento=document.getElementById('tipo_evento');const tipoEventoBox=document.getElementById('tipoEventoBox'),acessoBox=document.getElementById('acessoOuvintesBox');const ocultarVisibilidade=servicoSomenteDivulgacao(servico);if(tipoEventoBox)tipoEventoBox.classList.toggle('campo-oculto',ocultarVisibilidade);if(acessoBox)acessoBox.classList.toggle('campo-oculto',ocultarVisibilidade||servicoSomenteProfissional(servico));if(duracao)duracao.disabled=ocultarTransmissao||!edicaoAtiva()||boxDoCampo('duracao_horas')?.classList.contains('campo-oculto');if(ouvintes)ouvintes.disabled=ocultarTransmissao||!edicaoAtiva()||servicoSomenteProfissional(servico)||boxDoCampo('max_ouvintes')?.classList.contains('campo-oculto');if(tipoEvento&&servicoSomenteDivulgacao(servico))tipoEvento.value='publico';aplicarCamposFormulario();['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].forEach(aplicarRegraServicoAoCampo);if(servicoSomenteDivulgacao(servico)){tipoEventoBox?.classList.add('campo-oculto');acessoBox?.classList.add('campo-oculto');if(tipoEvento)tipoEvento.value='publico';const acesso=document.getElementById('divulgar_acesso_ouvintes');if(acesso){acesso.value='false';acesso.disabled=true;}}ajustarAcessoOuvintesMeuEvento();}
+function atualizarCamposServico(){
+ const servico=document.getElementById('tipo_servico')?.value||eventoAtual?.tipo_servico||'';
+ const campos=document.getElementById('camposTransmissao');
+ if(campos){campos.classList.remove('hidden');campos.setAttribute('aria-hidden','false');}
+ aplicarCamposFormulario();
+ ['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].forEach(aplicarRegraServicoAoCampo);
+ ajustarAcessoOuvintesMeuEvento();
+}
 function aplicarConfiguracaoMeuEvento(){atualizarOpcoesServico();atualizarCamposServico();aplicarCamposFormulario();aplicarLimitesTexto();}
 function validarLimitesAntesDeSalvar(){const l=limitesConfigFormulario();const campos=camposConfigFormulario();const regras=[['titulo_original','o nome do evento',true],['descricao_original','a descrição do evento',!!campos.descricao_original?.obrigatorio]];for(const [id,nome,obrigatorio] of regras){const el=document.getElementById(id);if(!el||el.disabled)continue;const cfg=l[id]||{};const valor=el.value.trim();const minimo=Number(cfg.minimo||0),maximo=Number(cfg.maximo||0);if(obrigatorio&&!valor){el.focus();throw new Error(`Informe ${nome}.`)}if((valor||obrigatorio)&&cfg.limitarMinimo!==false&&minimo>0&&valor.length<minimo){el.focus();throw new Error(`${nome} deve ter pelo menos ${minimo} caracteres.`)}if(cfg.limitarMaximo!==false&&maximo>0&&valor.length>maximo){el.focus();throw new Error(`${nome} não pode ultrapassar ${maximo} caracteres.`)}}}
 function normalizarTextoLocal(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
