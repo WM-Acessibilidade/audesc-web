@@ -26,12 +26,7 @@ input,textarea,select{width:100%;box-sizing:border-box;padding:12px;margin-top:6
 textarea{min-height:140px}.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
 button{margin-top:20px;padding:14px 18px;border:0;border-radius:10px;cursor:pointer;font-weight:700;background:#111;color:#fff}
 button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top:16px;padding:12px;border-radius:8px;border:1px solid #aaa;background:#f0f0f0}
-.success{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}.hidden{display:none}
-</style>
-
-<script src="localizacao-autocomplete.js"></script>
-<style>
-.audesc-local-sugestoes{list-style:none;margin:4px 0 0;padding:0;border:1px solid #777;border-radius:8px;background:#fff;max-height:260px;overflow:auto;position:relative;z-index:20}.audesc-local-sugestoes li{padding:10px 12px;cursor:pointer;border-bottom:1px solid #ddd}.audesc-local-sugestoes li:last-child{border-bottom:0}.audesc-local-sugestoes li[aria-selected="true"],.audesc-local-sugestoes li:hover{outline:2px solid #111;outline-offset:-2px;background:#f0f0f0}.audesc-local-aviso{font-size:.95rem;margin-top:6px;color:#333}
+.success{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}.hidden{display:none}.sugestoes-local{border:1px solid #aaa;border-radius:8px;margin-top:6px;padding:6px;background:#fff}.sugestoes-local button{display:block;width:100%;text-align:left;margin:4px 0;background:#fff;color:#111;border:1px solid #bbb;font-weight:400}.sugestoes-local button:focus{outline:3px solid #111}.sugestoes-local[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -129,11 +124,11 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 </div>
 
 <div class="grid">
-<div><label for="local_evento">Nome ou endereço do local do evento</label><input id="local_evento" name="local_evento" type="text" maxlength="300" placeholder="Exemplo: Biblioteca Nacional, Brasília, DF"></div>
-<div><label for="latitude">Latitude</label><input id="latitude" name="latitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
-<div><label for="longitude">Longitude</label><input id="longitude" name="longitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
+<div id="localEventoBox"><label for="local_evento">Nome ou endereço do local do evento</label><input id="local_evento" name="local_evento" type="text" maxlength="300" autocomplete="off" aria-describedby="ajudaLocalEvento" aria-controls="sugestoesLocalEvento"><p id="ajudaLocalEvento" class="small">Digite ao menos três caracteres para receber sugestões de locais do Google Maps.</p><div id="sugestoesLocalEvento" class="sugestoes-local" role="listbox" aria-label="Sugestões de locais" hidden></div></div>
+<div id="latitudeBox"><label for="latitude">Latitude</label><input id="latitude" name="latitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
+<div id="longitudeBox"><label for="longitude">Longitude</label><input id="longitude" name="longitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
 </div>
-<p class="small">Com a autorização do usuário, o Audesc poderá usar essas coordenadas para sugerir eventos próximos e abrir rotas em aplicativos de mapa. O navegador não abre páginas automaticamente em segundo plano.</p>
+<p class="small">Com a autorização do usuário, o Audesc poderá usar essas coordenadas para sugerir eventos próximos e abrir rotas em aplicativos de mapa.</p>
 <p><button type="button" id="usarMinhaLocalizacao">Usar minha localização atual</button><button type="button" id="buscarCoordenadasEndereco">Buscar coordenadas pelo endereço</button></p>
 <div id="localizacaoStatus" class="status" role="status" aria-live="polite">Localização ainda não informada.</div>
 
@@ -346,6 +341,59 @@ function preencherCoordenadas(lat, lon){
  document.getElementById('latitude').value=Number(lat).toFixed(6);
  document.getElementById('longitude').value=Number(lon).toFixed(6);
 }
+
+let sugestoesLocalTimer=null;
+let sugestoesLocalAbort=null;
+function fecharSugestoesLocal(){
+ const box=document.getElementById('sugestoesLocalEvento');
+ if(box){box.hidden=true;box.innerHTML='';}
+}
+async function buscarSugestoesLocal(q){
+ const contexto=contextoBuscaEndereco();
+ const params=new URLSearchParams({q,pais:contexto.pais||'',uf:contexto.uf||'',ufTexto:contexto.ufTexto||'',paisCodigo:contexto.paisCodigo||'',unidadeCodigo:contexto.unidadeCodigo||''});
+ if(sugestoesLocalAbort) sugestoesLocalAbort.abort();
+ sugestoesLocalAbort=new AbortController();
+ const r=await fetch(API_URL+'/geocode/sugestoes?'+params.toString(),{signal:sugestoesLocalAbort.signal});
+ const j=await r.json().catch(()=>({}));
+ if(!r.ok) throw new Error(j.error||'Não foi possível buscar sugestões.');
+ return Array.isArray(j.resultados)?j.resultados:(Array.isArray(j.sugestoes)?j.sugestoes:[]);
+}
+function renderizarSugestoesLocal(lista){
+ const box=document.getElementById('sugestoesLocalEvento'); if(!box)return;
+ box.innerHTML='';
+ if(!lista.length){box.hidden=true;return;}
+ lista.slice(0,5).forEach(item=>{
+  const b=document.createElement('button'); b.type='button'; b.setAttribute('role','option');
+  b.textContent=item.endereco||item.nome||'Local sugerido';
+  b.addEventListener('click',()=>{
+   document.getElementById('local_evento').value=item.endereco||item.nome||'';
+   preencherCoordenadas(item.lat,item.lon);
+   fecharSugestoesLocal();
+   setLocalizacaoStatus('Local selecionado e coordenadas preenchidas pelo Google Maps.','success');
+  });
+  box.appendChild(b);
+ });
+ box.hidden=false;
+}
+function configurarBuscaAssistidaLocal(){
+ const input=document.getElementById('local_evento'); if(!input)return;
+ input.addEventListener('input',()=>{
+  clearTimeout(sugestoesLocalTimer);
+  const q=input.value.trim();
+  if(q.length<3){fecharSugestoesLocal();return;}
+  sugestoesLocalTimer=setTimeout(async()=>{
+   try{renderizarSugestoesLocal(await buscarSugestoesLocal(q));}
+   catch(e){if(e.name!=='AbortError') fecharSugestoesLocal();}
+  },350);
+ });
+ input.addEventListener('keydown',e=>{if(e.key==='Escape')fecharSugestoesLocal();});
+ document.addEventListener('click',e=>{if(!document.getElementById('localEventoBox')?.contains(e.target))fecharSugestoesLocal();});
+}
+configurarBuscaAssistidaLocal();
+paisSelect?.addEventListener('change',fecharSugestoesLocal);
+ufSelect?.addEventListener('change',fecharSugestoesLocal);
+origemTransmissaoSelect?.addEventListener('change',fecharSugestoesLocal);
+
 document.getElementById('usarMinhaLocalizacao')?.addEventListener('click',()=>{
  if(!navigator.geolocation){setLocalizacaoStatus('Este navegador não oferece localização por GPS.','error');return;}
  setLocalizacaoStatus('Solicitando permissão de localização...','');
@@ -364,6 +412,24 @@ document.getElementById('buscarCoordenadasEndereco')?.addEventListener('click',a
 });
 
 
+
+
+const AUDESC_TIMEZONES_FRONTEND = {
+  "Brasil": {"default":"America/Sao_Paulo","DF":"America/Sao_Paulo","SP":"America/Sao_Paulo","RJ":"America/Sao_Paulo","MG":"America/Sao_Paulo","ES":"America/Sao_Paulo","PR":"America/Sao_Paulo","SC":"America/Sao_Paulo","RS":"America/Sao_Paulo","GO":"America/Sao_Paulo","BA":"America/Bahia","SE":"America/Maceio","AL":"America/Maceio","PE":"America/Recife","PB":"America/Fortaleza","RN":"America/Fortaleza","CE":"America/Fortaleza","PI":"America/Fortaleza","MA":"America/Fortaleza","PA":"America/Belem","AP":"America/Belem","TO":"America/Araguaina","MT":"America/Cuiaba","MS":"America/Campo_Grande","RO":"America/Porto_Velho","RR":"America/Boa_Vista","AM":"America/Manaus","AC":"America/Rio_Branco"},
+  "Portugal": {"default":"Europe/Lisbon","LIS":"Europe/Lisbon"},
+  "Angola": {"default":"Africa/Luanda"},
+  "Moçambique": {"default":"Africa/Maputo"},
+  "Cabo Verde": {"default":"Atlantic/Cape_Verde"},
+  "Guiné-Bissau": {"default":"Africa/Bissau"},
+  "São Tomé e Príncipe": {"default":"Africa/Sao_Tome"},
+  "Timor-Leste": {"default":"Asia/Dili"}
+};
+function timezonePorLocalFrontend(pais, unidade, origem){
+  const chave = pais === 'Internacional' ? origem : pais;
+  const mapa = AUDESC_TIMEZONES_FRONTEND[chave] || {};
+  return mapa[unidade] || mapa.default || 'America/Sao_Paulo';
+}
+
 document.getElementById('eventoForm').onsubmit=async(e)=>{
  e.preventDefault();
  const form=e.target;
@@ -373,11 +439,13 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const data=Object.fromEntries(new FormData(form).entries());
+ aplicarRegrasServicoNoPayload(data);
  try{ validarLimitesAntesDeEnviar(); }catch(err){ setStatus('status', err.message, 'error'); btn.disabled=false; return; }
  const ctxLocalizacao=contextoBuscaEndereco();
  data.pais_codigo=ctxLocalizacao.paisCodigo || '';
  data.unidade_codigo=ctxLocalizacao.unidadeCodigo || '';
  data.cidade='';
+ data.timezone = timezonePorLocalFrontend(data.pais, data.uf, data.origem_transmissao);
  if(data.pais!=='Outros'&&data.pais!=='Internacional'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
  if(data.pais==='Internacional'&&!data.origem_transmissao){setStatus('status','Selecione a origem da transmissão.','error');btn.disabled=false;return}
  
@@ -393,7 +461,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  }
  if(data.divulgar_acesso_ouvintes === 'true') data.divulgar_acesso_ouvintes = true;
  else data.divulgar_acesso_ouvintes = false;
- if(data.data_evento)data.data_evento=new Date(data.data_evento).toISOString();
+ // Enviar data/hora local exatamente como digitada; o backend converte usando o timezone do evento.
  try{
   const r=await fetch(API_URL+'/criar-evento',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify(data)});
   const j=await r.json();if(!r.ok)throw new Error(j.error||'Erro ao enviar solicitação.');
@@ -406,6 +474,16 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  finally{btn.disabled=false}
 };
 
+
+function aplicarRegrasServicoNoPayload(data){
+ const campos = typeof CAMPOS_FORMULARIO !== 'undefined' ? CAMPOS_FORMULARIO : ['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'];
+ for(const id of campos){
+  const regra = typeof regraCampoServicoAtual === 'function' ? regraCampoServicoAtual(id) : null;
+  if(!regra) continue;
+  if(regra.comportamento === 'fixo') data[id] = regra.valor ?? '';
+  if(regra.comportamento === 'oculto_sem_valor') delete data[id];
+ }
+}
 
 let FORMULARIO_CONFIG = null;
 const CAMPOS_FORMULARIO = ['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
@@ -434,6 +512,19 @@ function camposConfigFormulario(){
  const regra = regraFormularioAtual()?.campos || {};
  return Object.assign({}, base, regra);
 }
+function regrasServicoFormulario(){
+ const base = FORMULARIO_CONFIG?.padrao?.regrasPorServico || {};
+ const regra = regraFormularioAtual()?.regrasPorServico || {};
+ return Object.assign({}, base, regra);
+}
+function regraCampoServicoAtual(id){
+ const servico = document.getElementById('tipo_servico')?.value || '';
+ return regrasServicoFormulario()?.[servico]?.campos?.[id] || null;
+}
+function comportamentoCampoServico(id){return regraCampoServicoAtual(id)?.comportamento || 'usuario';}
+function valorFixoCampoServico(id){return regraCampoServicoAtual(id)?.valor;}
+function campoOcultoSemValor(id){return comportamentoCampoServico(id)==='oculto_sem_valor';}
+function campoValorFixo(id){return comportamentoCampoServico(id)==='fixo';}
 function limitesConfigFormulario(){
  const base = FORMULARIO_CONFIG?.padrao?.limites || {
   titulo_original:{limitarMinimo:true,minimo:10,limitarMaximo:true,maximo:150},
@@ -473,12 +564,20 @@ function validarLimitesAntesDeEnviar(){
  }
 }
 function setCampoVisivel(id, visivel, obrigatorio){
+ const regraServico = regraCampoServicoAtual(id);
+ const comportamento = regraServico?.comportamento || 'usuario';
+ if(comportamento === 'fixo' || comportamento === 'oculto_sem_valor') visivel = false;
  const el = document.getElementById(id);
  const label = document.querySelector('label[for="'+id+'"]');
- const boxMap = {tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox'};
+ const boxMap = {tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox',local_evento:'localEventoBox',latitude:'latitudeBox',longitude:'longitudeBox'};
  const box = boxMap[id] ? document.getElementById(boxMap[id]) : null;
  [el,label,box].filter(Boolean).forEach(x=>x.classList.toggle('hidden', !visivel));
- if(el){ el.required = !!(visivel && obrigatorio); if(!visivel && 'disabled' in el) el.disabled = true; else if(id !== 'uf' && id !== 'origem_transmissao') el.disabled = false; }
+ if(el){
+  if(comportamento === 'fixo') el.value = String(regraServico.valor ?? '');
+  if(comportamento === 'oculto_sem_valor') el.value = '';
+  el.required = !!(visivel && obrigatorio);
+  if(!visivel && 'disabled' in el) el.disabled = true; else if(id !== 'uf' && id !== 'origem_transmissao') el.disabled = false;
+ }
 }
 function aplicarCamposFormulario(){
  const cfg = camposConfigFormulario();
@@ -566,6 +665,14 @@ function ajustarVisibilidade(){
   acessoOuvintesBox.classList.add('hidden');
   if(divulgarAcessoOuvintes){ divulgarAcessoOuvintes.value='false'; divulgarAcessoOuvintes.disabled=true; }
  }
+ // Regras configuradas por serviço prevalecem sobre as regras antigas fixas.
+ ['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].forEach(id=>{
+  const regra = regraCampoServicoAtual(id);
+  if(!regra) return;
+  const el=document.getElementById(id); const boxMap={tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox'}; const box=document.getElementById(boxMap[id]);
+  if(regra.comportamento==='fixo'){ if(el) el.value=String(regra.valor??''); if(box) box.classList.add('hidden'); if(el) el.disabled=true; }
+  if(regra.comportamento==='oculto_sem_valor'){ if(el) el.value=''; if(box) box.classList.add('hidden'); if(el) el.disabled=true; }
+ });
 }
 
 tipoServico.addEventListener('change', ajustarVisibilidade);
@@ -596,15 +703,6 @@ async function logoutAndResetEmail(){
 }
 
 
-
-window.AudescAutocomplete?.criar({
- input:document.getElementById('local_evento'),
- latitude:document.getElementById('latitude'),
- longitude:document.getElementById('longitude'),
- api:API_URL,
- contexto:contextoBuscaEndereco,
- aoSelecionar:()=>setLocalizacaoStatus('Local selecionado e coordenadas preenchidas. Confira país e unidade administrativa.','success')
-});
 </script>
 </body>
 </html>
