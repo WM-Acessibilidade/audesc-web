@@ -181,7 +181,7 @@ function contextoBuscaEnderecoAdmin(card){
 async function buscarSugestoesLocalAdmin(card,q){
   const ctx=contextoBuscaEnderecoAdmin(card);
   const params=new URLSearchParams({q,pais:ctx.pais||'',uf:ctx.uf||'',ufTexto:ctx.ufTexto||'',paisCodigo:ctx.paisCodigo||'',unidadeCodigo:ctx.unidadeCodigo||''});
-  const r=await fetch(API+'/geocode/sugestoes?'+params.toString());
+  const r=await fetch(API_URL+'/geocode/sugestoes?'+params.toString());
   const j=await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(j.error||'Não foi possível buscar sugestões.');
   return Array.isArray(j.resultados)?j.resultados:[];
@@ -202,7 +202,7 @@ function instalarBuscaAssistidaAdmin(card){
       if(abortador)abortador.abort();abortador=new AbortController();
       const ctx=contextoBuscaEnderecoAdmin(card);
       const params=new URLSearchParams({q,pais:ctx.pais||'',uf:ctx.uf||'',ufTexto:ctx.ufTexto||'',paisCodigo:ctx.paisCodigo||'',unidadeCodigo:ctx.unidadeCodigo||''});
-      const r=await fetch(API+'/geocode/sugestoes?'+params.toString(),{signal:abortador.signal});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Não foi possível buscar sugestões.');
+      const r=await fetch(API_URL+'/geocode/sugestoes?'+params.toString(),{signal:abortador.signal});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Não foi possível buscar sugestões.');
       const itens=Array.isArray(j.resultados)?j.resultados:[];box.innerHTML='';indice=-1;
       if(!itens.length){fechar();if(st){st.textContent='Nenhuma sugestão encontrada. Use o botão Buscar coordenadas pelo endereço.';st.className='status localizacaoAdminStatus';}return;}
       itens.slice(0,5).forEach((item,i)=>{const b=document.createElement('button');b.type='button';b.id='sugestao-admin-'+card.dataset.id+'-'+i;b.setAttribute('role','option');b.setAttribute('aria-selected','false');b.textContent=item.nome+(item.endereco&&item.endereco!==item.nome?' — '+item.endereco:'');b.addEventListener('click',()=>{input.value=item.endereco||item.nome;card.querySelector('[data-field="latitude"]').value=Number(item.lat).toFixed(6);card.querySelector('[data-field="longitude"]').value=Number(item.lon).toFixed(6);fechar();if(st){st.textContent='Local selecionado e coordenadas preenchidas pelo Google Maps.';st.className='status localizacaoAdminStatus success';}});box.appendChild(b)});
