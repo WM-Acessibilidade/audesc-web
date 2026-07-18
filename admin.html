@@ -178,6 +178,26 @@ function contextoBuscaEnderecoAdmin(card){
   const unidadeCodigo=pais === 'Internacional' ? '' : codigoUnidadeLocalAdmin(paisReferencia,uf,ufTexto);
   return {pais:paisReferencia || pais,uf,ufTexto,paisCodigo,unidadeCodigo};
 }
+
+let AdminSelecionado=null;
+function normalizarLocalComparacao(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+function textoCompletoLocal(item){return String(item.texto_completo||[item.nome,item.endereco&&item.endereco!==item.nome?item.endereco:''].filter(Boolean).join(' — ')).trim();}
+function regiaoLocalDiverge(item,ctx){
+ const paisAtual=String(ctx.paisCodigo||'').toUpperCase(), unidadeAtual=String(ctx.unidadeCodigo||'').toUpperCase();
+ return {pais:!!(paisAtual&&item.pais_codigo&&paisAtual!==String(item.pais_codigo).toUpperCase()),unidade:!!(unidadeAtual&&item.unidade_codigo&&unidadeAtual!==String(item.unidade_codigo).toUpperCase())};
+}
+async function confirmarAtualizacaoRegiaoAdmin(item,ctx){
+ const d=regiaoLocalDiverge(item,ctx);if(!d.pais&&!d.unidade)return false;
+ const atual=[ctx.pais||'',ctx.ufTexto||ctx.uf||''].filter(Boolean).join(' / ');
+ const novo=[item.pais_nome||item.pais_codigo||'',item.unidade_nome||item.unidade_codigo||''].filter(Boolean).join(' / ');
+ return window.confirm(`O local selecionado pertence a outra região.\n\nRegião atualmente selecionada: ${atual||'não informada'}.\nRegião do local: ${novo||'não informada'}.\n\nDeseja atualizar o país e a unidade administrativa para o local escolhido?`);
+}
+function aplicarRegiaoAdmin(item,card){
+ const paisSel=card.querySelector('[data-field=\"pais\"]');if(item.pais_nome&&paisSel){const op=[...paisSel.options].find(o=>normalizarLocalComparacao(o.value)===normalizarLocalComparacao(item.pais_nome)||normalizarLocalComparacao(o.textContent)===normalizarLocalComparacao(item.pais_nome));if(op){paisSel.value=op.value;atualizarLocalAdmin(card);}}
+ const ufSel=card.querySelector('[data-field=\"uf\"]');if(ufSel&&!ufSel.disabled){const op=[...ufSel.options].find(o=>String(o.value).toUpperCase()===String(item.unidade_codigo||'').toUpperCase()||normalizarLocalComparacao(o.textContent)===normalizarLocalComparacao(item.unidade_nome));if(op)ufSel.value=op.value;}
+ ['local_nome','local_endereco','google_place_id','local_pais_codigo','local_unidade_codigo'].forEach(k=>{const el=card.querySelector(`[data-field=\"${k}\"]`);if(el)el.value=k==='local_nome'?(item.nome||''):k==='local_endereco'?(item.endereco||''):k==='google_place_id'?(item.place_id||item.id||''):k==='local_pais_codigo'?(item.pais_codigo||''):(item.unidade_codigo||'');});}
+function guardarLocalAdmin(item,card){AdminSelecionado={place_id:item.place_id||item.id||'',nome:item.nome||'',endereco:item.endereco||'',pais_codigo:item.pais_codigo||'',unidade_codigo:item.unidade_codigo||'',cidade:item.cidade||''};const valores={local_nome:item.nome||'',local_endereco:item.endereco||'',google_place_id:item.place_id||item.id||'',local_pais_codigo:item.pais_codigo||'',local_unidade_codigo:item.unidade_codigo||''};Object.entries(valores).forEach(([k,v])=>{const el=card.querySelector(`[data-field="${k}"]`);if(el)el.value=v;});}
+
 async function buscarSugestoesLocalAdmin(card,q){
   const ctx=contextoBuscaEnderecoAdmin(card);
   const params=new URLSearchParams({q,pais:ctx.pais||'',uf:ctx.uf||'',ufTexto:ctx.ufTexto||'',paisCodigo:ctx.paisCodigo||'',unidadeCodigo:ctx.unidadeCodigo||''});
@@ -205,7 +225,7 @@ function instalarBuscaAssistidaAdmin(card){
       const r=await fetch(API_URL+'/geocode/sugestoes?'+params.toString(),{signal:abortador.signal});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Não foi possível buscar sugestões.');
       const itens=Array.isArray(j.resultados)?j.resultados:[];box.innerHTML='';indice=-1;
       if(!itens.length){fechar();if(st){st.textContent='Nenhuma sugestão encontrada. Use o botão Buscar coordenadas pelo endereço.';st.className='status localizacaoAdminStatus';}return;}
-      itens.slice(0,5).forEach((item,i)=>{const b=document.createElement('button');b.type='button';b.id='sugestao-admin-'+card.dataset.id+'-'+i;b.setAttribute('role','option');b.setAttribute('aria-selected','false');b.textContent=item.nome+(item.endereco&&item.endereco!==item.nome?' — '+item.endereco:'');b.addEventListener('click',()=>{input.value=item.endereco||item.nome;card.querySelector('[data-field="latitude"]').value=Number(item.lat).toFixed(6);card.querySelector('[data-field="longitude"]').value=Number(item.lon).toFixed(6);fechar();if(st){st.textContent='Local selecionado e coordenadas preenchidas pelo Google Maps.';st.className='status localizacaoAdminStatus success';}});box.appendChild(b)});
+      itens.slice(0,5).forEach((item,i)=>{const b=document.createElement('button');b.type='button';b.id='sugestao-admin-'+card.dataset.id+'-'+i;b.setAttribute('role','option');b.setAttribute('aria-selected','false');b.textContent=item.nome+(item.endereco&&item.endereco!==item.nome?' — '+item.endereco:'');b.addEventListener('click',async()=>{const ctx=contextoBuscaEnderecoAdmin(card);input.value=textoCompletoLocal(item);card.querySelector('[data-field="latitude"]').value=Number(item.lat).toFixed(6);card.querySelector('[data-field="longitude"]').value=Number(item.lon).toFixed(6);guardarLocalAdmin(item,card);if(await confirmarAtualizacaoRegiaoAdmin(item,ctx))aplicarRegiaoAdmin(item,card);fechar();if(st){st.textContent='Local selecionado com nome, endereço e coordenadas. Confira o país e a unidade administrativa.';st.className='status localizacaoAdminStatus success';}});box.appendChild(b)});
       box.hidden=false;input.setAttribute('aria-expanded','true');if(st){st.textContent=`${itens.slice(0,5).length} sugestões disponíveis. Use as setas e Enter para selecionar.`;st.className='status localizacaoAdminStatus';}
     }catch(e){if(e.name!=='AbortError'){fechar();if(st){st.textContent='Erro: '+(e.message||'não foi possível buscar sugestões.');st.className='status localizacaoAdminStatus error';}}}},400);
   });
@@ -544,6 +564,7 @@ function renderEvent(ev){
     </div>
 
     <div class="grid">
+      <input type="hidden" data-field="local_nome" value="${attr(ev.local_nome || '')}"><input type="hidden" data-field="local_endereco" value="${attr(ev.local_endereco || '')}"><input type="hidden" data-field="google_place_id" value="${attr(ev.google_place_id || '')}"><input type="hidden" data-field="local_pais_codigo" value="${attr(ev.local_pais_codigo || '')}"><input type="hidden" data-field="local_unidade_codigo" value="${attr(ev.local_unidade_codigo || '')}">
       <div class="localEventoAdminBox"><label>Nome ou endereço do local do evento</label><input data-field="local_evento" value="${attr(ev.local_evento || '')}" autocomplete="off" aria-describedby="ajuda-local-${ev.id}"><p id="ajuda-local-${ev.id}" class="small">Digite ao menos três caracteres para receber sugestões do Google Maps.</p><div class="sugestoes-local-admin" role="listbox" aria-label="Sugestões de locais" hidden></div></div>
       <div><label>Latitude</label><input data-field="latitude" value="${attr(ev.latitude ?? '')}" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
       <div><label>Longitude</label><input data-field="longitude" value="${attr(ev.longitude ?? '')}" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>

@@ -124,7 +124,8 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 </div>
 
 <div class="grid">
-<div id="localEventoBox"><label for="local_evento">Nome ou endereço do local do evento</label><input id="local_evento" name="local_evento" type="text" maxlength="300" autocomplete="off" aria-describedby="ajudaLocalEvento" aria-controls="sugestoesLocalEvento"><p id="ajudaLocalEvento" class="small">Digite ao menos três caracteres para receber sugestões de locais do Google Maps.</p><div id="sugestoesLocalEvento" class="sugestoes-local" role="listbox" aria-label="Sugestões de locais" hidden></div></div>
+<input type="hidden" id="local_nome" name="local_nome"><input type="hidden" id="local_endereco" name="local_endereco"><input type="hidden" id="google_place_id" name="google_place_id"><input type="hidden" id="local_pais_codigo" name="local_pais_codigo"><input type="hidden" id="local_unidade_codigo" name="local_unidade_codigo">
+<div id="localEventoBox"><label for="local_evento">Nome ou endereço do local do evento</label><input id="local_evento" name="local_evento" type="text" maxlength="500" autocomplete="off" aria-describedby="ajudaLocalEvento" aria-controls="sugestoesLocalEvento"><p id="ajudaLocalEvento" class="small">Digite ao menos três caracteres para receber sugestões de locais do Google Maps.</p><div id="sugestoesLocalEvento" class="sugestoes-local" role="listbox" aria-label="Sugestões de locais" hidden></div></div>
 <div id="latitudeBox"><label for="latitude">Latitude</label><input id="latitude" name="latitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
 <div id="longitudeBox"><label for="longitude">Longitude</label><input id="longitude" name="longitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
 </div>
@@ -342,6 +343,26 @@ function preencherCoordenadas(lat, lon){
  document.getElementById('longitude').value=Number(lon).toFixed(6);
 }
 
+
+let CadastroSelecionado=null;
+function normalizarLocalComparacao(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+function textoCompletoLocal(item){return String(item.texto_completo||[item.nome,item.endereco&&item.endereco!==item.nome?item.endereco:''].filter(Boolean).join(' — ')).trim();}
+function regiaoLocalDiverge(item,ctx){
+ const paisAtual=String(ctx.paisCodigo||'').toUpperCase(), unidadeAtual=String(ctx.unidadeCodigo||'').toUpperCase();
+ return {pais:!!(paisAtual&&item.pais_codigo&&paisAtual!==String(item.pais_codigo).toUpperCase()),unidade:!!(unidadeAtual&&item.unidade_codigo&&unidadeAtual!==String(item.unidade_codigo).toUpperCase())};
+}
+async function confirmarAtualizacaoRegiaoCadastro(item,ctx){
+ const d=regiaoLocalDiverge(item,ctx);if(!d.pais&&!d.unidade)return false;
+ const atual=[ctx.pais||'',ctx.ufTexto||ctx.uf||''].filter(Boolean).join(' / ');
+ const novo=[item.pais_nome||item.pais_codigo||'',item.unidade_nome||item.unidade_codigo||''].filter(Boolean).join(' / ');
+ return window.confirm(`O local selecionado pertence a outra região.\n\nRegião atualmente selecionada: ${atual||'não informada'}.\nRegião do local: ${novo||'não informada'}.\n\nDeseja atualizar o país e a unidade administrativa para o local escolhido?`);
+}
+function aplicarRegiaoCadastro(item){
+ const paisSel=document.getElementById('pais');if(item.pais_nome&&paisSel){const op=[...paisSel.options].find(o=>normalizarLocalComparacao(o.value)===normalizarLocalComparacao(item.pais_nome)||normalizarLocalComparacao(o.textContent)===normalizarLocalComparacao(item.pais_nome));if(op){paisSel.value=op.value;atualizarLocalizacao();}}
+ const ufSel=document.getElementById('uf');if(ufSel&&!ufSel.disabled){const op=[...ufSel.options].find(o=>String(o.value).toUpperCase()===String(item.unidade_codigo||'').toUpperCase()||normalizarLocalComparacao(o.textContent)===normalizarLocalComparacao(item.unidade_nome));if(op)ufSel.value=op.value;}
+ document.getElementById('local_pais_codigo').value=item.pais_codigo||'';document.getElementById('local_unidade_codigo').value=item.unidade_codigo||'';}
+function guardarLocalCadastro(item){CadastroSelecionado={place_id:item.place_id||item.id||'',nome:item.nome||'',endereco:item.endereco||'',pais_codigo:item.pais_codigo||'',unidade_codigo:item.unidade_codigo||'',cidade:item.cidade||''};}
+
 let sugestoesLocalTimer=null;
 let sugestoesLocalAbort=null;
 let sugestaoLocalAtiva=-1;
@@ -381,11 +402,14 @@ function renderizarSugestoesLocal(lista){
  lista.slice(0,5).forEach((item,i)=>{
   const b=document.createElement('button');b.type='button';b.id='sugestao-local-'+i;b.setAttribute('role','option');b.setAttribute('aria-selected','false');
   b.textContent=item.nome+(item.endereco&&item.endereco!==item.nome?' — '+item.endereco:'');
-  b.addEventListener('click',()=>{
-   input.value=item.endereco||item.nome||'';
-   preencherCoordenadas(item.lat,item.lon);
+  b.addEventListener('click',async()=>{
+   const ctx=contextoBuscaEndereco();
+   input.value=textoCompletoLocal(item);
+   preencherCoordenadas(item.lat,item.lon);guardarLocalCadastro(item);
+   document.getElementById('local_nome').value=item.nome||'';document.getElementById('local_endereco').value=item.endereco||'';document.getElementById('google_place_id').value=item.place_id||item.id||'';document.getElementById('local_pais_codigo').value=item.pais_codigo||'';document.getElementById('local_unidade_codigo').value=item.unidade_codigo||'';
+   if(await confirmarAtualizacaoRegiaoCadastro(item,ctx))aplicarRegiaoCadastro(item);
    fecharSugestoesLocal();
-   setLocalizacaoStatus('Local selecionado e coordenadas preenchidas pelo Google Maps.','success');
+   setLocalizacaoStatus('Local selecionado com nome, endereço e coordenadas. Confira o país e a unidade administrativa.','success');
   });
   box.appendChild(b);
  });
