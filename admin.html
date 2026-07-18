@@ -189,11 +189,27 @@ async function buscarSugestoesLocalAdmin(card,q){
 function instalarBuscaAssistidaAdmin(card){
   const input=card.querySelector('[data-field="local_evento"]');
   const box=card.querySelector('.sugestoes-local-admin');
+  const st=card.querySelector('.localizacaoAdminStatus');
   if(!input||!box)return;
-  let timer=null;
-  const fechar=()=>{box.hidden=true;box.innerHTML='';};
-  input.addEventListener('input',()=>{clearTimeout(timer);const q=input.value.trim();if(q.length<3){fechar();return;}timer=setTimeout(async()=>{try{const itens=await buscarSugestoesLocalAdmin(card,q);box.innerHTML='';for(const item of itens){const b=document.createElement('button');b.type='button';b.setAttribute('role','option');b.textContent=item.nome+(item.endereco&&item.endereco!==item.nome?' — '+item.endereco:'');b.addEventListener('click',()=>{input.value=item.endereco||item.nome;card.querySelector('[data-field="latitude"]').value=Number(item.lat).toFixed(6);card.querySelector('[data-field="longitude"]').value=Number(item.lon).toFixed(6);fechar();const st=card.querySelector('.localizacaoAdminStatus');if(st){st.textContent='Local selecionado e coordenadas preenchidas pelo Google Maps.';st.className='status localizacaoAdminStatus success';}});box.appendChild(b);}box.hidden=!itens.length;}catch(e){fechar();}},550);});
-  input.addEventListener('keydown',e=>{if(e.key==='Escape')fechar();});
+  let timer=null,abortador=null,indice=-1;
+  input.setAttribute('role','combobox');input.setAttribute('aria-autocomplete','list');input.setAttribute('aria-expanded','false');
+  const fechar=()=>{indice=-1;box.hidden=true;box.innerHTML='';input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant')};
+  const ativar=n=>{const ops=[...box.querySelectorAll('[role="option"]')];if(!ops.length)return;indice=(n+ops.length)%ops.length;ops.forEach((o,i)=>o.setAttribute('aria-selected',i===indice?'true':'false'));input.setAttribute('aria-activedescendant',ops[indice].id);ops[indice].scrollIntoView({block:'nearest'})};
+  input.addEventListener('input',()=>{
+    clearTimeout(timer);const q=input.value.trim();if(q.length<3){fechar();return;}
+    if(st){st.textContent='Buscando sugestões de locais...';st.className='status localizacaoAdminStatus';}
+    timer=setTimeout(async()=>{try{
+      if(abortador)abortador.abort();abortador=new AbortController();
+      const ctx=contextoBuscaEnderecoAdmin(card);
+      const params=new URLSearchParams({q,pais:ctx.pais||'',uf:ctx.uf||'',ufTexto:ctx.ufTexto||'',paisCodigo:ctx.paisCodigo||'',unidadeCodigo:ctx.unidadeCodigo||''});
+      const r=await fetch(API+'/geocode/sugestoes?'+params.toString(),{signal:abortador.signal});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Não foi possível buscar sugestões.');
+      const itens=Array.isArray(j.resultados)?j.resultados:[];box.innerHTML='';indice=-1;
+      if(!itens.length){fechar();if(st){st.textContent='Nenhuma sugestão encontrada. Use o botão Buscar coordenadas pelo endereço.';st.className='status localizacaoAdminStatus';}return;}
+      itens.slice(0,5).forEach((item,i)=>{const b=document.createElement('button');b.type='button';b.id='sugestao-admin-'+card.dataset.id+'-'+i;b.setAttribute('role','option');b.setAttribute('aria-selected','false');b.textContent=item.nome+(item.endereco&&item.endereco!==item.nome?' — '+item.endereco:'');b.addEventListener('click',()=>{input.value=item.endereco||item.nome;card.querySelector('[data-field="latitude"]').value=Number(item.lat).toFixed(6);card.querySelector('[data-field="longitude"]').value=Number(item.lon).toFixed(6);fechar();if(st){st.textContent='Local selecionado e coordenadas preenchidas pelo Google Maps.';st.className='status localizacaoAdminStatus success';}});box.appendChild(b)});
+      box.hidden=false;input.setAttribute('aria-expanded','true');if(st){st.textContent=`${itens.slice(0,5).length} sugestões disponíveis. Use as setas e Enter para selecionar.`;st.className='status localizacaoAdminStatus';}
+    }catch(e){if(e.name!=='AbortError'){fechar();if(st){st.textContent='Erro: '+(e.message||'não foi possível buscar sugestões.');st.className='status localizacaoAdminStatus error';}}}},400);
+  });
+  input.addEventListener('keydown',e=>{const ops=[...box.querySelectorAll('[role="option"]')];if(e.key==='Escape'){fechar();return;}if(!ops.length)return;if(e.key==='ArrowDown'){e.preventDefault();ativar(indice+1)}else if(e.key==='ArrowUp'){e.preventDefault();ativar(indice-1)}else if(e.key==='Enter'&&indice>=0){e.preventDefault();ops[indice].click()}});
 }
 async function buscarCoordenadasAdmin(card){
   const localInput=card.querySelector('[data-field="local_evento"]');

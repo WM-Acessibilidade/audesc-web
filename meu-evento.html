@@ -158,32 +158,38 @@ function normalizarTextoLocal(v){return String(v||'').normalize('NFD').replace(/
 function resultadoDentroDoContexto(info,ctx){const a=info.address||{};if(ctx.codigoPais&&String(a.country_code||'').toLowerCase()!==ctx.codigoPais)return false;if(ctx.pais==='Brasil'&&ctx.uf&&ctx.uf!=='Nacional'){const cod=(a.state_code||(a['ISO3166-2-lvl4']||'').split('-').pop()||'').toUpperCase();if(cod&&cod!==ctx.uf)return false;const estado=normalizarTextoLocal(a.state||a.region||'');const esperado=normalizarTextoLocal(ctx.ufTexto);if(!cod&&esperado&&estado&&estado!==esperado)return false;}return true}
 function variantesConsultaLocal(q,ctx){const v=[];const add=x=>{x=String(x||'').trim();if(x&&!v.some(y=>normalizarTextoLocal(y)===normalizarTextoLocal(x)))v.push(x)};if(ctx.complemento)add(q+', '+ctx.complemento);if(ctx.pais&&ctx.pais!=='Outros'&&ctx.pais!=='Internacional')add(q+', '+ctx.pais);add(q);const nq=normalizarTextoLocal(q);if(nq.includes('mpf')){const exp=q.replace(/\bmpf\b/ig,'Ministério Público Federal');if(ctx.complemento)add(exp+', '+ctx.complemento);add(exp);if(ctx.complemento){add('Memorial do Ministério Público Federal, '+ctx.complemento);add('Procuradoria-Geral da República, '+ctx.complemento);}}if(nq.includes('dorina')||nq.includes('biblioteca braille')){if(ctx.complemento)add('Biblioteca Braille Dorina Nowill, Taguatinga, '+ctx.complemento);add('Biblioteca Braille Dorina Nowill, Taguatinga')}return v.slice(0,8)}
 let timerSugestoesLocal=null;
+let abortSugestoesLocal=null;
+let indiceSugestaoLocal=-1;
 async function buscarSugestoesLocal(q){
  const ctx=contextoBuscaEndereco();
  const params=new URLSearchParams({q,pais:ctx.pais||'',uf:ctx.uf||'',ufTexto:ctx.ufTexto||'',paisCodigo:ctx.paisCodigo||'',unidadeCodigo:ctx.unidadeCodigo||''});
- const r=await fetch(API+'/geocode/sugestoes?'+params.toString());
+ if(abortSugestoesLocal)abortSugestoesLocal.abort();
+ abortSugestoesLocal=new AbortController();
+ const r=await fetch(API+'/geocode/sugestoes?'+params.toString(),{signal:abortSugestoesLocal.signal});
  const j=await r.json().catch(()=>({}));
  if(!r.ok)throw new Error(j.error||'Não foi possível buscar sugestões.');
  return Array.isArray(j.resultados)?j.resultados:[];
 }
-function fecharSugestoesLocal(){const box=document.getElementById('sugestoesLocalEvento');if(box){box.hidden=true;box.innerHTML='';}}
+function fecharSugestoesLocal(){const box=document.getElementById('sugestoesLocalEvento'),input=document.getElementById('local_evento');indiceSugestaoLocal=-1;if(input){input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant')}if(box){box.hidden=true;box.innerHTML=''}}
+function ativarSugestaoMeuEvento(indice){const input=document.getElementById('local_evento');const opcoes=[...document.querySelectorAll('#sugestoesLocalEvento [role="option"]')];if(!opcoes.length)return;indiceSugestaoLocal=(indice+opcoes.length)%opcoes.length;opcoes.forEach((o,i)=>o.setAttribute('aria-selected',i===indiceSugestaoLocal?'true':'false'));input?.setAttribute('aria-activedescendant',opcoes[indiceSugestaoLocal].id);opcoes[indiceSugestaoLocal].scrollIntoView({block:'nearest'})}
 function mostrarSugestoesLocal(resultados){
- const box=document.getElementById('sugestoesLocalEvento');if(!box)return;
- box.innerHTML='';
- if(!resultados.length){box.hidden=true;return;}
- resultados.forEach((item,i)=>{
-  const b=document.createElement('button');b.type='button';b.setAttribute('role','option');
+ const box=document.getElementById('sugestoesLocalEvento'),input=document.getElementById('local_evento');if(!box||!input)return;
+ box.innerHTML='';indiceSugestaoLocal=-1;
+ if(!resultados.length){fecharSugestoesLocal();setLocalizacaoStatus('Nenhuma sugestão encontrada. Você ainda pode usar o botão Buscar coordenadas pelo endereço.','');return;}
+ resultados.slice(0,5).forEach((item,i)=>{
+  const b=document.createElement('button');b.type='button';b.id='sugestao-meu-evento-'+i;b.setAttribute('role','option');b.setAttribute('aria-selected','false');
   b.textContent=item.nome+(item.endereco&&item.endereco!==item.nome?' — '+item.endereco:'');
-  b.addEventListener('click',()=>{document.getElementById('local_evento').value=item.endereco||item.nome;preencherCoordenadas(item.lat,item.lon);fecharSugestoesLocal();marcarAlteracao();setLocalizacaoStatus('Local selecionado e coordenadas preenchidas pelo Google Maps.','success');});
+  b.addEventListener('click',()=>{input.value=item.endereco||item.nome;preencherCoordenadas(item.lat,item.lon);fecharSugestoesLocal();marcarAlteracao();setLocalizacaoStatus('Local selecionado e coordenadas preenchidas pelo Google Maps.','success')});
   box.appendChild(b);
  });
- box.hidden=false;
+ box.hidden=false;input.setAttribute('aria-expanded','true');setLocalizacaoStatus(`${resultados.slice(0,5).length} sugestões disponíveis. Use as setas e Enter para selecionar.`,'');
 }
 function instalarBuscaAssistidaLocal(){
  const input=document.getElementById('local_evento');if(!input)return;
- input.addEventListener('input',()=>{clearTimeout(timerSugestoesLocal);const q=input.value.trim();if(q.length<3){fecharSugestoesLocal();return;}timerSugestoesLocal=setTimeout(async()=>{try{mostrarSugestoesLocal(await buscarSugestoesLocal(q));}catch(e){fecharSugestoesLocal();}},550);});
- input.addEventListener('keydown',e=>{if(e.key==='Escape')fecharSugestoesLocal();});
- document.addEventListener('click',e=>{if(!e.target.closest('#localEventoBox'))fecharSugestoesLocal();},{once:false});
+ input.setAttribute('role','combobox');input.setAttribute('aria-autocomplete','list');input.setAttribute('aria-expanded','false');
+ input.addEventListener('input',()=>{clearTimeout(timerSugestoesLocal);const q=input.value.trim();if(q.length<3){fecharSugestoesLocal();return;}setLocalizacaoStatus('Buscando sugestões de locais...','');timerSugestoesLocal=setTimeout(async()=>{try{mostrarSugestoesLocal(await buscarSugestoesLocal(q))}catch(e){if(e.name!=='AbortError'){fecharSugestoesLocal();setLocalizacaoStatus(e.message||'Não foi possível buscar sugestões.','error')}}},400)});
+ input.addEventListener('keydown',e=>{const opcoes=[...document.querySelectorAll('#sugestoesLocalEvento [role="option"]')];if(e.key==='Escape'){fecharSugestoesLocal();return}if(!opcoes.length)return;if(e.key==='ArrowDown'){e.preventDefault();ativarSugestaoMeuEvento(indiceSugestaoLocal+1)}else if(e.key==='ArrowUp'){e.preventDefault();ativarSugestaoMeuEvento(indiceSugestaoLocal-1)}else if(e.key==='Enter'&&indiceSugestaoLocal>=0){e.preventDefault();opcoes[indiceSugestaoLocal].click()}});
+ document.addEventListener('click',e=>{if(!e.target.closest('#localEventoBox'))fecharSugestoesLocal()});
 }
 async function geocodeViaBackend(q,ctx){const params=new URLSearchParams({q,pais:ctx.pais||'',uf:ctx.uf||'',ufTexto:ctx.ufTexto||'',paisCodigo:ctx.paisCodigo||'',unidadeCodigo:ctx.unidadeCodigo||''});const r=await fetch(API+'/geocode?'+params.toString());const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Não foi possível buscar as coordenadas.');const info=j.resultado;if(!info)throw new Error('Local não encontrado.');return{lat:info.lat,lon:info.lon,display_name:info.endereco||info.nome||'',provider:info.provedor}}
 async function geocodeNominatimLocal(q,ctx){for(const consulta of variantesConsultaLocal(q,ctx)){let url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=10&accept-language=pt-BR&q='+encodeURIComponent(consulta);if(ctx.codigoPais)url+='&countrycodes='+encodeURIComponent(ctx.codigoPais);const r=await fetch(url);if(!r.ok)continue;const lista=await r.json();const valido=(lista||[]).find(item=>resultadoDentroDoContexto(item,ctx));if(valido)return valido;}throw new Error('Local não encontrado na região selecionada. Tente informar bairro, cidade ou endereço completo.')}
