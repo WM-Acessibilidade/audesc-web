@@ -179,7 +179,7 @@ function contextoBuscaEnderecoAdmin(card){
   return {pais:paisReferencia || pais,uf,ufTexto,paisCodigo,unidadeCodigo};
 }
 async function buscarSugestoesLocalAdmin(card,q){
-  const ctx=contextoLocalizacaoAdmin(card);
+  const ctx=contextoBuscaEnderecoAdmin(card);
   const params=new URLSearchParams({q,pais:ctx.pais||'',uf:ctx.uf||'',ufTexto:ctx.ufTexto||'',paisCodigo:ctx.paisCodigo||'',unidadeCodigo:ctx.unidadeCodigo||''});
   const r=await fetch(API+'/geocode/sugestoes?'+params.toString());
   const j=await r.json().catch(()=>({}));
