@@ -44,7 +44,7 @@ function valorData(v){if(!v)return '';const d=new Date(v);if(Number.isNaN(d.getT
 function fmt(v){if(!v)return '';const d=new Date(v);return Number.isNaN(d.getTime())?'':d.toLocaleString('pt-BR')}
 function rotulo(p){return locais[p]?.rotulo||'Unidade administrativa'}
 function paises(valor){const lista=window.AUDESC_LOCAIS?.nomesPaises(true)||['Brasil','Outros','Internacional'];return lista.map(p=>`<option value="${attr(p)}" ${p===valor?'selected':''}>${esc(p)}</option>`).join('')}
-function ufs(pais,valor){const d=locais[pais];if(!d)return '<option value="">Não se aplica</option>';let o='<option value="">Selecione</option>';for(const it of d.opcoes){const v=Array.isArray(it)?it[0]:it;const tx=Array.isArray(it)?`${it[1]} (${it[0]})`:it;o+=`<option value="${attr(v)}" ${v===valor?'selected':''}>${esc(tx)}</option>`}return o}
+function ufs(pais,valor){return window.AUDESC_LOCAIS?.htmlOpcoesUnidades(pais,valor,{incluirNacional:true})||'<option value="">Não se aplica</option>'}
 function origemTransmissaoOptions(valor){const lista=window.AUDESC_LOCAIS?.nomesPaises(false)||['Brasil'];return '<option value="">Selecione</option>'+lista.map(p=>`<option value="${attr(p)}" ${p===valor?'selected':''}>${esc(p)}</option>`).join('')}
 function nomeServico(tipo){
  if(tipo==='divulgacao_gratuita') return 'Somente divulgação no Audesc';

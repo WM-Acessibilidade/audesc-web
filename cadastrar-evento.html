@@ -216,24 +216,9 @@ function atualizarLocalizacao(){
   if(origemTransmissaoBox) origemTransmissaoBox.classList.add('hidden');
   if(origemTransmissaoSelect){ origemTransmissaoSelect.required=false; origemTransmissaoSelect.value=''; }
   if(ufContainer) ufContainer.classList.remove('hidden');
-  label.textContent = dados.rotulo;
-  dados.opcoes.forEach(item=>{
-   let valor = '';
-   let texto = '';
-
-   if(Array.isArray(item)){
-    valor = item[0];
-    texto = item[1] + ' (' + item[0] + ')';
-   }else{
-    valor = item;
-    texto = item;
-   }
-
-   ufSelect.appendChild(criarOpcao(valor, texto));
-  });
-  ufSelect.appendChild(criarOpcao('Nacional', 'Nacional'));
+  const resultadoUnidades = window.AUDESC_LOCAIS?.preencherSelectUnidades(ufSelect, pais, dados.padrao || '', {incluirNacional:true});
+  label.textContent = resultadoUnidades?.rotulo || dados.rotulo;
   ufSelect.disabled=false;
-  ufSelect.value=dados.padrao || '';
  }else{
   if(origemTransmissaoBox) origemTransmissaoBox.classList.add('hidden');
   if(origemTransmissaoSelect){ origemTransmissaoSelect.required=false; origemTransmissaoSelect.value=''; }

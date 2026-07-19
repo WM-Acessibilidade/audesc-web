@@ -131,15 +131,7 @@ function nomeLocal(pais, valor){
   return valor;
 }
 function locaisAdminOptions(pais, valorAtual){
-  const dados = unidadesAdministrativas[pais];
-  if(!dados) return '<option value="">Não se aplica</option>';
-  let out = '<option value="">Selecione</option>';
-  for(const item of dados.opcoes){
-    const valor = Array.isArray(item) ? item[0] : item;
-    const texto = Array.isArray(item) ? `${item[1]} (${item[0]})` : item;
-    out += `<option value="${attr(valor)}" ${valor === valorAtual ? 'selected' : ''}>${escapeHtml(texto)}</option>`;
-  }
-  return out;
+  return window.AUDESC_LOCAIS?.htmlOpcoesUnidades(pais, valorAtual, {incluirNacional:true}) || '<option value="">Não se aplica</option>';
 }
 
 function resumoLocalizacaoAdmin(ev){

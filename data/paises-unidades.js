@@ -47,7 +47,43 @@
     if (lista.includes(selecionado) || selecionado === '') select.value = selecionado;
     else if (lista.includes('Outros')) select.value = 'Outros';
   }
+  function opcoesUnidades(nomePais, opcoes){
+    const dados = unidades[nomePais];
+    if (!dados) return [];
+    const incluirNacional = opcoes?.incluirNacional !== false;
+    const lista = dados.opcoes.map(item => Array.isArray(item)
+      ? { valor:item[0], texto:`${item[1]} (${item[0]})`, nome:item[1], especial:false }
+      : { valor:item, texto:item, nome:item, especial:false });
+    if (incluirNacional) lista.push({ valor:'Nacional', texto:'Nacional', nome:'Nacional', especial:true });
+    return lista;
+  }
+  function preencherSelectUnidades(select, nomePais, valorAtual, opcoes){
+    if (!select) return { disponivel:false, rotulo:'Unidade administrativa', selecionado:'' };
+    const dados = unidades[nomePais];
+    const incluirVazio = opcoes?.incluirVazio !== false;
+    const textoVazio = opcoes?.textoVazio || 'Selecione';
+    const textoIndisponivel = opcoes?.textoIndisponivel || 'Não se aplica';
+    const selecionado = valorAtual ?? select.value ?? dados?.padrao ?? '';
+    if (!dados) {
+      select.innerHTML = `<option value="">${textoIndisponivel}</option>`;
+      select.value = '';
+      return { disponivel:false, rotulo:'Unidade administrativa', selecionado:'' };
+    }
+    const lista = opcoesUnidades(nomePais, opcoes);
+    select.innerHTML = (incluirVazio ? `<option value="">${textoVazio}</option>` : '') + lista.map(item => `<option value="${item.valor}">${item.texto}</option>`).join('');
+    const valorPreferido = lista.some(item => item.valor === selecionado) ? selecionado : (dados.padrao || '');
+    if ([...select.options].some(option => option.value === valorPreferido)) select.value = valorPreferido;
+    return { disponivel:true, rotulo:dados.rotulo, selecionado:select.value };
+  }
+  function htmlOpcoesUnidades(nomePais, valorAtual, opcoes){
+    const dados = unidades[nomePais];
+    if (!dados) return `<option value="">${opcoes?.textoIndisponivel || 'Não se aplica'}</option>`;
+    const incluirVazio = opcoes?.incluirVazio !== false;
+    const textoVazio = opcoes?.textoVazio || 'Selecione';
+    const lista = opcoesUnidades(nomePais, opcoes);
+    return (incluirVazio ? `<option value="">${textoVazio}</option>` : '') + lista.map(item => `<option value="${item.valor}" ${item.valor === valorAtual ? 'selected' : ''}>${item.texto}</option>`).join('');
+  }
 
-  window.AUDESC_LOCAIS = { paises:paisesBase, unidadesAdministrativas:unidades, nomesPaises, codigoPaisISO, codigoUnidade, preencherSelectPaises };
+  window.AUDESC_LOCAIS = { paises:paisesBase, unidadesAdministrativas:unidades, nomesPaises, codigoPaisISO, codigoUnidade, preencherSelectPaises, opcoesUnidades, preencherSelectUnidades, htmlOpcoesUnidades };
   window.AUDESC_UNIDADES_ADMINISTRATIVAS = unidades;
 })();
