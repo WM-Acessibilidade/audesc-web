@@ -22,6 +22,7 @@ button,.button-link{display:inline-block;margin:8px 8px 0 0;padding:10px 14px;bo
 <script src="data/paises-unidades.js"></script>
 <script src="data/servicos.js"></script>
 <script src="data/formulario-schema.js"></script>
+<script src="data/config-registry.js"></script>
 <script>
 const API='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
@@ -32,8 +33,8 @@ let eventoAtual=null;
 let FORMULARIO_CONFIG=null;
 let modoEdicao=false;
 let formularioAlterado=false;
-const CAMPOS_CONFIGURAVEIS=window.AUDESC_FORMULARIO?.codigosConfiguraveis()||['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
-const CAMPOS_EM_BOX=Object.fromEntries(CAMPOS_CONFIGURAVEIS.map(id=>[id,window.AUDESC_FORMULARIO?.boxId(id)||id+'Box']));
+const CAMPOS_CONFIGURAVEIS=window.AUDESC_CONFIG?.catalogo.getCodigosConfiguraveis()||['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
+const CAMPOS_EM_BOX=Object.fromEntries(CAMPOS_CONFIGURAVEIS.map(id=>[id,window.AUDESC_CONFIG?.catalogo.getBoxId(id)||id+'Box']));
 function t(v){return v||'—'}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function attr(s){return esc(s).replace(/"/g,'&quot;')}
@@ -44,12 +45,12 @@ function edicaoAtiva(){return podeEditar(eventoAtual)&&modoEdicao}
 function valorData(v){if(!v)return '';const d=new Date(v);if(Number.isNaN(d.getTime()))return '';return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16)}
 function fmt(v){if(!v)return '';const d=new Date(v);return Number.isNaN(d.getTime())?'':d.toLocaleString('pt-BR')}
 function rotulo(p){return locais[p]?.rotulo||'Unidade administrativa'}
-function paises(valor){const lista=window.AUDESC_LOCAIS?.nomesPaises(true)||['Brasil','Outros','Internacional'];return lista.map(p=>`<option value="${attr(p)}" ${p===valor?'selected':''}>${esc(p)}</option>`).join('')}
-function ufs(pais,valor){return window.AUDESC_LOCAIS?.htmlOpcoesUnidades(pais,valor,{incluirNacional:true})||'<option value="">Não se aplica</option>'}
-function origemTransmissaoOptions(valor){const lista=window.AUDESC_LOCAIS?.nomesPaises(false)||['Brasil'];return '<option value="">Selecione</option>'+lista.map(p=>`<option value="${attr(p)}" ${p===valor?'selected':''}>${esc(p)}</option>`).join('')}
+function paises(valor){const lista=window.AUDESC_CONFIG?.localizacao.getNomesPaises(true)||['Brasil','Outros','Internacional'];return lista.map(p=>`<option value="${attr(p)}" ${p===valor?'selected':''}>${esc(p)}</option>`).join('')}
+function ufs(pais,valor){return window.AUDESC_CONFIG?.localizacao.getHtmlOpcoesUnidades(pais,valor,{incluirNacional:true})||'<option value="">Não se aplica</option>'}
+function origemTransmissaoOptions(valor){const lista=window.AUDESC_CONFIG?.localizacao.getNomesPaises(false)||['Brasil'];return '<option value="">Selecione</option>'+lista.map(p=>`<option value="${attr(p)}" ${p===valor?'selected':''}>${esc(p)}</option>`).join('')}
 function nomeServico(tipo){
  if(tipo==='divulgacao_gratuita') return 'Somente divulgação no Audesc';
- return window.AUDESC_SERVICOS?.nome(tipo) || tipo || '—';
+ return window.AUDESC_CONFIG?.servicos.getNome(tipo) || tipo || '—';
 }
 function nomeServicoEvento(ev){
  const nome=nomeServico(ev?.tipo_servico);
@@ -57,16 +58,16 @@ function nomeServicoEvento(ev){
   ? nome+' (gratuita)'
   : nome;
 }
-function servicoComTransmissao(servico){return !!(window.AUDESC_SERVICOS?.usaTransmissao(servico) ?? (servico==='audesc_transmissao'||servico==='audesc_com_audiodescritor'))}
-function servicoSomenteDivulgacao(servico){return !!(window.AUDESC_SERVICOS?.somenteDivulgacao(servico) ?? (servico==='divulgacao_gratuita'))}
-function servicoSomenteProfissional(servico){return !!(window.AUDESC_SERVICOS?.somenteProfissional(servico) ?? (servico==='somente_audiodescritor'||servico==='somente_consultor'))}
+function servicoComTransmissao(servico){return !!(window.AUDESC_CONFIG?.servicos.usaTransmissao(servico) ?? (servico==='audesc_transmissao'||servico==='audesc_com_audiodescritor'))}
+function servicoSomenteDivulgacao(servico){return !!(window.AUDESC_CONFIG?.servicos.somenteDivulgacao(servico) ?? (servico==='divulgacao_gratuita'))}
+function servicoSomenteProfissional(servico){return !!(window.AUDESC_CONFIG?.servicos.somenteProfissional(servico) ?? (servico==='somente_audiodescritor'||servico==='somente_consultor'))}
 function exigePagamento(ev){return ev&&ev.status_pagamento!=='pago'&&ev.status_pagamento!=='dispensado'}
 async function sessao(){const {data}=await sb.auth.getSession();const s=data?.session;if(!s?.access_token)throw new Error('Sessão inválida. Acesse novamente por Meus eventos.');return s}
 async function carregarConfiguracaoFormulario(){try{const r=await fetch(API+'/formulario-config');const j=await r.json();if(r.ok&&j.config)FORMULARIO_CONFIG=j.config;}catch(e){console.warn('Não foi possível carregar configuração do formulário.',e)}}
 async function carregar(){try{await carregarConfiguracaoFormulario();const id=idEvento();if(!id){setMsg('Evento não informado.','error');return}const s=await sessao();const r=await fetch(API+'/meus-eventos/'+encodeURIComponent(id),{headers:{Authorization:'Bearer '+s.access_token}});const j=await r.json();if(!r.ok)throw new Error(j.error||'Erro ao carregar evento.');eventoAtual=j.evento;render();setMsg('Evento carregado.','success')}catch(e){setMsg('Erro: '+(e.message||'não foi possível carregar.'),'error')}}
 function textoSelecionado(select){if(!select||select.disabled)return '';const opt=select.options[select.selectedIndex];return opt?opt.textContent.replace(/\s*\([^)]*\)\s*$/,'').trim():''}
-function codigoPaisISO(pais){return window.AUDESC_LOCAIS?.codigoPaisISO(pais)||''}
-function codigoUnidadeLocal(pais,uf,ufTexto){return window.AUDESC_LOCAIS?.codigoUnidade(pais,uf,ufTexto)||uf||''}
+function codigoPaisISO(pais){return window.AUDESC_CONFIG?.localizacao.getCodigoPais(pais)||''}
+function codigoUnidadeLocal(pais,uf,ufTexto){return window.AUDESC_CONFIG?.localizacao.getCodigoUnidade(pais,uf,ufTexto)||uf||''}
 function contextoBuscaEndereco(){const pais=document.getElementById('pais')?.value||eventoAtual?.pais||'';const origem=document.getElementById('origem_transmissao')?.value||eventoAtual?.origem_transmissao||'';const paisReferencia=pais==='Internacional'?origem:pais;const uf=document.getElementById('uf')?.disabled?'':(document.getElementById('uf')?.value||eventoAtual?.uf||'');const ufTexto=textoSelecionado(document.getElementById('uf'));const paisCodigo=codigoPaisISO(paisReferencia);const unidadeCodigo=pais==='Internacional'?'':codigoUnidadeLocal(paisReferencia,uf,ufTexto);const partes=[];if(uf&&uf!=='Nacional')partes.push(ufTexto||uf);if(paisReferencia&&paisReferencia!=='Outros'&&paisReferencia!=='Internacional')partes.push(paisReferencia);return{pais:paisReferencia||pais,uf,ufTexto,paisCodigo,unidadeCodigo,codigoPais:paisCodigo.toLowerCase(),complemento:partes.join(', ')}}
 function regraFormularioAtual(){if(!FORMULARIO_CONFIG)return null;const ctx=contextoBuscaEndereco();const pais=ctx.paisCodigo||eventoAtual?.pais_codigo||'';const unidade=String(ctx.unidadeCodigo||eventoAtual?.unidade_codigo||'').toUpperCase();return (FORMULARIO_CONFIG.regras||[]).find(r=>r.pais_codigo===pais&&String(r.unidade_codigo||'').toUpperCase()===unidade)||null}
 function camposConfigFormulario(){const base=FORMULARIO_CONFIG?.padrao?.campos||{};const regra=regraFormularioAtual()?.campos||{};return Object.assign({},base,regra)}
@@ -75,7 +76,7 @@ function regraCampoServicoAtual(id){const servico=document.getElementById('tipo_
 function aplicarRegraServicoAoCampo(id){const regra=regraCampoServicoAtual(id); if(!regra)return; const el=document.getElementById(id); const box=boxDoCampo(id); if(regra.comportamento==='fixo'){if(el)el.value=String(regra.valor??''); if(box)box.classList.add('campo-oculto'); if(el)el.disabled=true;} if(regra.comportamento==='oculto_sem_valor'){if(el)el.value=''; if(box)box.classList.add('campo-oculto'); if(el)el.disabled=true;}}
 function limitesConfigFormulario(){const base=FORMULARIO_CONFIG?.padrao?.limites||{titulo_original:{limitarMinimo:true,minimo:10,limitarMaximo:true,maximo:150},descricao_original:{limitarMinimo:true,minimo:100,limitarMaximo:true,maximo:1500}};const regra=regraFormularioAtual()?.limites||{};return Object.assign({},base,regra)}
 function servicosPermitidosFormulario(){const regra=regraFormularioAtual();const padrao=FORMULARIO_CONFIG?.padrao?.servicosDisponiveis;return regra?.servicosDisponiveis||padrao||null}
-function servicosOptions(selected){const permitidos=servicosPermitidosFormulario();if(window.AUDESC_SERVICOS?.lista){let lista=window.AUDESC_SERVICOS.lista.filter(s=>s.ativo!==false&&s.apareceCadastro!==false);if(Array.isArray(permitidos))lista=lista.filter(s=>permitidos.includes(s.codigo));if(selected&&!lista.some(s=>s.codigo===selected)){const atual=window.AUDESC_SERVICOS.lista.find(s=>s.codigo===selected);if(atual)lista.unshift(Object.assign({},atual,{nome:atual.nome+' (serviço já solicitado)'}));}
+function servicosOptions(selected){const permitidos=servicosPermitidosFormulario();if(window.AUDESC_CONFIG?.servicos.getLista()){let lista=window.AUDESC_CONFIG.servicos.getLista().filter(s=>s.ativo!==false&&s.apareceCadastro!==false);if(Array.isArray(permitidos))lista=lista.filter(s=>permitidos.includes(s.codigo));if(selected&&!lista.some(s=>s.codigo===selected)){const atual=window.AUDESC_CONFIG.servicos.getLista().find(s=>s.codigo===selected);if(atual)lista.unshift(Object.assign({},atual,{nome:atual.nome+' (serviço já solicitado)'}));}
 return lista.map(s=>`<option value="${attr(s.codigo)}" ${s.codigo===selected?'selected':''}>${esc(s.nome)}</option>`).join('');}
 return `<option value="audesc_transmissao" ${selected==='audesc_transmissao'?'selected':''}>Transmissão Audesc (transmissor e receptores)</option><option value="divulgacao_gratuita" ${selected==='divulgacao_gratuita'?'selected':''}>Somente divulgação no Audesc</option><option value="audesc_com_audiodescritor" ${selected==='audesc_com_audiodescritor'?'selected':''}>Serviço completo - Audesc + audiodescritor</option><option value="somente_audiodescritor" ${selected==='somente_audiodescritor'?'selected':''}>Audiodescritor</option><option value="somente_consultor" ${selected==='somente_consultor'?'selected':''}>Consultor</option>`;}
 function preview(ev){const servico=ev.tipo_servico||'';let dadosTransmissao='';if(servicoComTransmissao(servico)){dadosTransmissao=`<p><strong>Duração:</strong> ${t(ev.duracao_horas)} hora(s)</p><p><strong>Máximo de ouvintes:</strong> ${t(ev.max_ouvintes)}</p>`;}else if(servicoSomenteProfissional(servico)){dadosTransmissao=`<p><strong>Duração:</strong> ${t(ev.duracao_horas)} hora(s)</p>`;}return `<section class="card preview" aria-labelledby="previewTitulo"><h2 id="previewTitulo">${esc(ev.titulo_publicado||ev.titulo_original||'Sem título')}</h2><p><strong>Status:</strong> publicação ${t(ev.status_publicacao)}, pagamento ${t(ev.status_pagamento)}, operação ${t(ev.status_operacao)}</p><p><strong>Serviço:</strong> ${nomeServicoEvento(ev)}</p><p><strong>Data:</strong> ${t(fmt(ev.data_evento))}</p><p><strong>Local:</strong> ${esc(ev.local_evento||'')} ${ev.uf?'— '+esc(ev.uf):''} ${ev.pais?'— '+esc(ev.pais):''}</p>${dadosTransmissao}<h3>Descrição</h3><p>${esc(ev.descricao_publicada||ev.descricao_original||'Descrição não informada.')}</p>${ev.site_oficial?`<p><a href="${attr(ev.site_oficial)}">Site oficial</a></p>`:''}${ev.link_ingressos?`<p><a href="${attr(ev.link_ingressos)}">Ingressos</a></p>`:''}${ev.link_inscricao?`<p><a href="${attr(ev.link_inscricao)}">Inscrição</a></p>`:''}${ev.link_programacao?`<p><a href="${attr(ev.link_programacao)}">Programação</a></p>`:''}${ev.link_acessibilidade?`<p><a href="${attr(ev.link_acessibilidade)}">Informações de acessibilidade</a></p>`:''}</section>`}

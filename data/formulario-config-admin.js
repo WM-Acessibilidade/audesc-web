@@ -2,8 +2,8 @@
   'use strict';
 
   const API_URL = 'https://audesc-events-api.onrender.com';
-  const CAMPOS = window.AUDESC_FORMULARIO?.paresConfiguraveis() || [];
-  const LIMITES_TEXTO = window.AUDESC_FORMULARIO?.limitesTexto() || [];
+  const CAMPOS = window.AUDESC_CONFIG?.catalogo.getParesConfiguraveis() || [];
+  const LIMITES_TEXTO = window.AUDESC_CONFIG?.catalogo.getLimitesTexto() || [];
 
   const Estado = {
     adminToken: '',
@@ -68,12 +68,12 @@
 
   const Localizacao = {
     preencherPaises() {
-      window.AUDESC_LOCAIS?.preencherSelectPaises(Elementos.pais, 'Brasil', { incluirEspeciais: false });
+      window.AUDESC_CONFIG?.localizacao.preencherPaises(Elementos.pais, 'Brasil', { incluirEspeciais: false });
       this.atualizarUnidades();
     },
 
     atualizarUnidades() {
-      const resultado = window.AUDESC_LOCAIS?.preencherSelectUnidades(
+      const resultado = window.AUDESC_CONFIG?.localizacao.preencherUnidades(
         Elementos.uf,
         Elementos.pais.value,
         undefined,
@@ -85,7 +85,7 @@
 
     codigoPais() {
       return Util.normalizarCodigoLocal(
-        window.AUDESC_LOCAIS?.codigoPaisISO(Elementos.pais.value) || ''
+        window.AUDESC_CONFIG?.localizacao.getCodigoPais(Elementos.pais.value) || ''
       );
     },
 
@@ -93,7 +93,7 @@
       const texto = Elementos.uf.options[Elementos.uf.selectedIndex]?.textContent
         ?.replace(/\s*\([^)]*\)\s*$/, '') || '';
       return Util.normalizarCodigoLocal(
-        window.AUDESC_LOCAIS?.codigoUnidade(
+        window.AUDESC_CONFIG?.localizacao.getCodigoUnidade(
           Elementos.pais.value,
           Elementos.uf.value,
           texto
@@ -240,7 +240,7 @@
 
     servicos() {
       const ativos = new Set(Modelo.servicosEfetivos());
-      Elementos.servicosBox.innerHTML = (window.AUDESC_SERVICOS?.lista || [])
+      Elementos.servicosBox.innerHTML = (window.AUDESC_CONFIG?.servicos.getLista() || [])
         .filter(servico => servico.ativo !== false)
         .map(servico => `<label class="check"><input type="checkbox" name="servico" value="${Util.esc(servico.codigo)}" ${ativos.has(servico.codigo) ? 'checked' : ''}>${Util.esc(servico.nome)}. <span class="small">${Util.esc(servico.categoriaNome || servico.categoria || '')}</span></label>`)
         .join('');
@@ -268,7 +268,7 @@
 
     regrasServico() {
       const disponiveis = Modelo.servicosEfetivos();
-      const lista = (window.AUDESC_SERVICOS?.lista || [])
+      const lista = (window.AUDESC_CONFIG?.servicos.getLista() || [])
         .filter(servico => servico.ativo !== false && disponiveis.includes(servico.codigo));
       const anterior = Elementos.servicoRegras.value;
 
@@ -283,7 +283,7 @@
       const codigo = Elementos.servicoRegras.value || lista[0]?.codigo || '';
       if (codigo) Elementos.servicoRegras.value = codigo;
       const regra = Modelo.regrasServicoEfetivas()[codigo] || { campos: {} };
-      const camposAlvo = window.AUDESC_FORMULARIO?.camposParaRegrasPorServico() || [];
+      const camposAlvo = window.AUDESC_CONFIG?.catalogo.getCamposParaRegrasPorServico() || [];
 
       Elementos.regrasServicoBox.innerHTML = camposAlvo.map(id => {
         const nome = (CAMPOS.find(([codigoCampo]) => codigoCampo === id) || [, id])[1];
@@ -294,7 +294,7 @@
     },
 
     preview() {
-      const servicos = (window.AUDESC_SERVICOS?.lista || [])
+      const servicos = (window.AUDESC_CONFIG?.servicos.getLista() || [])
         .filter(servico => Modelo.servicosEfetivos().includes(servico.codigo))
         .map(servico => servico.nome);
       const camposEfetivos = Modelo.camposEfetivos();

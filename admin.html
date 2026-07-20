@@ -94,6 +94,7 @@ pre{white-space:pre-wrap}
 <script src="data/paises-unidades.js"></script>
 <script src="data/servicos.js"></script>
 <script src="data/formulario-schema.js"></script>
+<script src="data/config-registry.js"></script>
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
 let ADMIN_TOKEN='';
@@ -112,7 +113,7 @@ const unidadesAdministrativas = window.AUDESC_UNIDADES_ADMINISTRATIVAS || {};
 
 
 function paisesAdminOptions(valorAtual){
-  const paises = window.AUDESC_LOCAIS?.nomesPaises(true) || ['Brasil','Outros','Internacional'];
+  const paises = window.AUDESC_CONFIG?.localizacao.getNomesPaises(true) || ['Brasil','Outros','Internacional'];
   return paises.map(p => `<option value="${attr(p)}" ${p === valorAtual ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('');
 }
 function rotuloLocal(pais){ return pais === 'Internacional' ? 'Origem da transmissão' : (unidadesAdministrativas[pais]?.rotulo || 'Local'); }
@@ -132,7 +133,7 @@ function nomeLocal(pais, valor){
   return valor;
 }
 function locaisAdminOptions(pais, valorAtual){
-  return window.AUDESC_LOCAIS?.htmlOpcoesUnidades(pais, valorAtual, {incluirNacional:true}) || '<option value="">Não se aplica</option>';
+  return window.AUDESC_CONFIG?.localizacao.getHtmlOpcoesUnidades(pais, valorAtual, {incluirNacional:true}) || '<option value="">Não se aplica</option>';
 }
 
 function resumoLocalizacaoAdmin(ev){
@@ -156,8 +157,8 @@ function textoSelecionado(select){
   if(!select || select.selectedIndex < 0) return '';
   return select.options[select.selectedIndex].textContent.trim();
 }
-function codigoPaisISO(pais){return window.AUDESC_LOCAIS?.codigoPaisISO(pais) || '';}
-function codigoUnidadeLocalAdmin(pais, uf, ufTexto){return window.AUDESC_LOCAIS?.codigoUnidade(pais, uf, ufTexto) || uf || '';}
+function codigoPaisISO(pais){return window.AUDESC_CONFIG?.localizacao.getCodigoPais(pais) || '';}
+function codigoUnidadeLocalAdmin(pais, uf, ufTexto){return window.AUDESC_CONFIG?.localizacao.getCodigoUnidade(pais, uf, ufTexto) || uf || '';}
 function contextoBuscaEnderecoAdmin(card){
   const paisSelect=card.querySelector('[data-field="pais"]');
   const ufSelect=card.querySelector('[data-field="uf"]');
@@ -248,7 +249,7 @@ async function buscarCoordenadasAdmin(card){
   }
 }
 
-function nomeServicoAdmin(s){ return window.AUDESC_SERVICOS?.nome(s) || s || '—'; }
+function nomeServicoAdmin(s){ return window.AUDESC_CONFIG?.servicos.getNome(s) || s || '—'; }
 function nomeVisibilidadeAdmin(v){
   const valor = String(v || '').toLowerCase();
   if(valor === 'publico' || valor === 'público') return 'Pública';
@@ -304,11 +305,11 @@ function aplicarRegraCampoAdmin(card, campo){
   }
 }
 function aplicarRegrasServicoAdmin(card){
-  (window.AUDESC_FORMULARIO?.camposParaRegrasPorServico()||[]).filter(campo=>['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].includes(campo)).forEach(campo => aplicarRegraCampoAdmin(card, campo));
+  (window.AUDESC_CONFIG?.catalogo.getCamposParaRegrasPorServico()||[]).filter(campo=>['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].includes(campo)).forEach(campo => aplicarRegraCampoAdmin(card, campo));
 }
 
 
-function servicoDependeAgenda(servico){ return !!(window.AUDESC_SERVICOS?.requerAgenda(servico) ?? ['audesc_com_audiodescritor','somente_audiodescritor','somente_consultor'].includes(servico || '')); }
+function servicoDependeAgenda(servico){ return !!(window.AUDESC_CONFIG?.servicos.requerAgenda(servico) ?? ['audesc_com_audiodescritor','somente_audiodescritor','somente_consultor'].includes(servico || '')); }
 function formatarMoedaAdmin(valor, moeda){
   const n=Number(valor || 0);
   const currency=moeda || 'BRL';
@@ -366,8 +367,8 @@ async function salvarAgendaAdmin(id,card){
 }
 
 function servicosAdminOptions(valorAtual){
-  if(window.AUDESC_SERVICOS?.lista){
-    const lista = window.AUDESC_SERVICOS.lista
+  if(window.AUDESC_CONFIG?.servicos.getLista()){
+    const lista = window.AUDESC_CONFIG.servicos.getLista()
       .filter(s => s.ativo !== false)
       .slice()
       .sort((a,b)=>(a.ordem ?? 999)-(b.ordem ?? 999));
@@ -389,7 +390,7 @@ function ouvintesAdminOptions(valorAtual){
 }
 
 function origemTransmissaoOptions(valorAtual){
-  const paises = [''].concat(window.AUDESC_LOCAIS?.nomesPaises(false) || ['Brasil']);
+  const paises = [''].concat(window.AUDESC_CONFIG?.localizacao.getNomesPaises(false) || ['Brasil']);
   return paises.map(p => `<option value="${attr(p)}" ${p === (valorAtual || '') ? 'selected' : ''}>${escapeHtml(p || 'Selecione')}</option>`).join('');
 }
 
@@ -441,8 +442,8 @@ function ajustarCamposAdmin(card){
   const ouvintes = card.querySelector('[data-field="max_ouvintes"]');
   const ouvintesExtra = card.querySelector('[data-field="max_ouvintes_extra"]');
 
-  const divulgacao = window.AUDESC_SERVICOS?.somenteDivulgacao(servico) ?? (servico === 'divulgacao_gratuita');
-  const somenteProfissional = window.AUDESC_SERVICOS?.somenteProfissional(servico) ?? (servico === 'somente_audiodescritor' || servico === 'somente_consultor');
+  const divulgacao = window.AUDESC_CONFIG?.servicos.somenteDivulgacao(servico) ?? (servico === 'divulgacao_gratuita');
+  const somenteProfissional = window.AUDESC_CONFIG?.servicos.somenteProfissional(servico) ?? (servico === 'somente_audiodescritor' || servico === 'somente_consultor');
 
   if(divulgacao){
     if(tipoEvento) tipoEvento.value = 'publico';
@@ -803,7 +804,7 @@ async function saveEvent(id,card){
   if(body.pais === 'Outros') body.uf = '';
   if(body.pais === 'Internacional') body.uf = '';
   if(body.pais !== 'Internacional') body.origem_transmissao = '';
-  (window.AUDESC_FORMULARIO?.camposParaRegrasPorServico()||[]).filter(campo=>['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].includes(campo)).forEach(campo=>{
+  (window.AUDESC_CONFIG?.catalogo.getCamposParaRegrasPorServico()||[]).filter(campo=>['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].includes(campo)).forEach(campo=>{
     const regra = regraCampoAdmin(card, campo);
     if(!regra) return;
     if(regra.comportamento === 'fixo') body[campo] = regra.valor ?? '';
