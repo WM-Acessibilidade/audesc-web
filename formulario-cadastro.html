@@ -63,30 +63,14 @@ button{margin:12px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:p
 </main>
 <script src="data/paises-unidades.js"></script>
 <script src="data/servicos.js"></script>
+<script src="data/formulario-schema.js"></script>
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
 let ADMIN_TOKEN='';
 let config=null;
-const CAMPOS=[
- ['descricao_original','Descrição do evento'],
- ['tipo_evento','Visibilidade pública ou restrita'],
- ['divulgar_acesso_ouvintes','Permitir acesso de ouvintes pela página pública'],
- ['data_evento','Data e horário do evento'],
- ['duracao_horas','Duração em horas'],
- ['max_ouvintes','Quantidade máxima de ouvintes'],
- ['local_evento','Nome ou endereço do local do evento'],
- ['latitude','Latitude'],
- ['longitude','Longitude'],
- ['site_oficial','Site oficial'],
- ['link_ingressos','Link de ingressos'],
- ['link_inscricao','Link de inscrição'],
- ['link_programacao','Link de programação'],
- ['link_acessibilidade','Link sobre acessibilidade / audiodescrição']
-];
-const LIMITES_TEXTO=[
- ['titulo_original','Nome do evento',10,150],
- ['descricao_original','Descrição do evento',100,1500]
-];
+const CAMPOS=window.AUDESC_FORMULARIO?.paresConfiguraveis()||[];
+const LIMITES_TEXTO=window.AUDESC_FORMULARIO?.limitesTexto()||[];
+
 function esc(v){return String(v??'').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 function setStatus(msg,cls=''){const el=document.getElementById('status');el.textContent=msg;el.className='status '+cls;}
 async function api(path,options={}){const headers=Object.assign({'Content-Type':'application/json','x-admin-token':ADMIN_TOKEN},options.headers||{});const r=await fetch(API_URL+path,Object.assign({},options,{headers}));const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Erro na API');return j;}
@@ -119,7 +103,7 @@ function renderRegrasServico(){
  const anterior=sel.value; sel.innerHTML=lista.map(s=>`<option value="${esc(s.codigo)}" ${s.codigo===anterior?'selected':''}>${esc(s.nome)}</option>`).join(''); if(anterior && lista.some(s=>s.codigo===anterior)) sel.value=anterior;
  const codigo=sel.value||lista[0]?.codigo||''; if(codigo) sel.value=codigo;
  const regra=(regrasServicoEfetivas()[codigo]||{campos:{}});
- const camposAlvo=['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade','local_evento','latitude','longitude'];
+ const camposAlvo=window.AUDESC_FORMULARIO?.camposParaRegrasPorServico()||[];
  document.getElementById('regrasServicoBox').innerHTML=camposAlvo.map(id=>{const nome=(CAMPOS.find(([c])=>c===id)||[,id])[1]; const rc=regra.campos?.[id]||{comportamento:'usuario',valor:''}; const comp=rc.comportamento||'usuario'; return `<div class="panel" data-regra-campo="${esc(id)}"><strong>${esc(nome)}</strong><label for="comp_${esc(id)}">Comportamento do campo</label><select id="comp_${esc(id)}" data-comportamento-campo="${esc(id)}"><option value="usuario" ${comp==='usuario'?'selected':''}>Usuário escolhe</option><option value="fixo" ${comp==='fixo'?'selected':''}>Valor fixo do sistema</option><option value="oculto_sem_valor" ${comp==='oculto_sem_valor'?'selected':''}>Campo oculto sem valor</option></select><label>Valor fixo, quando aplicável</label>${inputValorFixo(id, valorCampoServico(id,regra))}</div>`}).join('');
 }
 function guardarRegrasServicoNaTela(){const codigo=regraServicoSelecionada(); if(!codigo)return; const regra=regraAtual()||{regrasPorServico:{}}; const atual=regra.regrasPorServico||{}; const campos={}; document.querySelectorAll('[data-regra-campo]').forEach(div=>{const id=div.getAttribute('data-regra-campo'); const comp=div.querySelector('[data-comportamento-campo]')?.value||'usuario'; const valor=div.querySelector('[data-valor-campo]')?.value||''; campos[id]={comportamento:comp,valor};}); regra.regrasPorServico=Object.assign({}, atual, {[codigo]:{campos}}); const regras=(config.regras||[]).filter(r=>!(r.pais_codigo===codPais()&&r.unidade_codigo===codUnidade())); regras.push(Object.assign({pais_codigo:codPais(),unidade_codigo:codUnidade(),nome:`${paisSelect.value} - ${ufSelect.options[ufSelect.selectedIndex]?.textContent||''}`,servicosDisponiveis:servicosEfetivos(),campos:camposEfetivos(),limites:limitesEfetivos()},regra)); config.regras=regras; renderPreview(); setStatus('Ajustes deste serviço guardados na tela. Clique em salvar configuração deste local para gravar.','success');}

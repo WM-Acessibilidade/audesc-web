@@ -93,6 +93,7 @@ pre{white-space:pre-wrap}
 
 <script src="data/paises-unidades.js"></script>
 <script src="data/servicos.js"></script>
+<script src="data/formulario-schema.js"></script>
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
 let ADMIN_TOKEN='';
@@ -303,7 +304,7 @@ function aplicarRegraCampoAdmin(card, campo){
   }
 }
 function aplicarRegrasServicoAdmin(card){
-  ['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].forEach(campo => aplicarRegraCampoAdmin(card, campo));
+  (window.AUDESC_FORMULARIO?.camposParaRegrasPorServico()||[]).filter(campo=>['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].includes(campo)).forEach(campo => aplicarRegraCampoAdmin(card, campo));
 }
 
 
@@ -802,7 +803,7 @@ async function saveEvent(id,card){
   if(body.pais === 'Outros') body.uf = '';
   if(body.pais === 'Internacional') body.uf = '';
   if(body.pais !== 'Internacional') body.origem_transmissao = '';
-  ['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].forEach(campo=>{
+  (window.AUDESC_FORMULARIO?.camposParaRegrasPorServico()||[]).filter(campo=>['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].includes(campo)).forEach(campo=>{
     const regra = regraCampoAdmin(card, campo);
     if(!regra) return;
     if(regra.comportamento === 'fixo') body[campo] = regra.valor ?? '';

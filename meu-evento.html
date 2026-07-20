@@ -21,6 +21,7 @@ button,.button-link{display:inline-block;margin:8px 8px 0 0;padding:10px 14px;bo
 <div id="conteudo"></div>
 <script src="data/paises-unidades.js"></script>
 <script src="data/servicos.js"></script>
+<script src="data/formulario-schema.js"></script>
 <script>
 const API='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
@@ -31,8 +32,8 @@ let eventoAtual=null;
 let FORMULARIO_CONFIG=null;
 let modoEdicao=false;
 let formularioAlterado=false;
-const CAMPOS_CONFIGURAVEIS=['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
-const CAMPOS_EM_BOX={tipo_evento:'tipoEventoBox',data_evento:'dataEventoBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox',local_evento:'localEventoBox',latitude:'latitudeBox',longitude:'longitudeBox',site_oficial:'siteBox',link_ingressos:'ingressosBox',link_inscricao:'inscricaoBox',link_programacao:'programacaoBox',link_acessibilidade:'acessibilidadeBox'};
+const CAMPOS_CONFIGURAVEIS=window.AUDESC_FORMULARIO?.codigosConfiguraveis()||['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
+const CAMPOS_EM_BOX=Object.fromEntries(CAMPOS_CONFIGURAVEIS.map(id=>[id,window.AUDESC_FORMULARIO?.boxId(id)||id+'Box']));
 function t(v){return v||'—'}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function attr(s){return esc(s).replace(/"/g,'&quot;')}

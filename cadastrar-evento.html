@@ -148,6 +148,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 
 <script src="data/paises-unidades.js"></script>
 <script src="data/servicos.js"></script>
+<script src="data/formulario-schema.js"></script>
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
@@ -521,7 +522,7 @@ function aplicarRegrasServicoNoPayload(data){
 }
 
 let FORMULARIO_CONFIG = null;
-const CAMPOS_FORMULARIO = ['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
+const CAMPOS_FORMULARIO = window.AUDESC_FORMULARIO?.codigosConfiguraveis() || ['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
 async function carregarConfiguracaoFormulario(){
  try{
   const r = await fetch(API_URL + '/formulario-config');
