@@ -250,7 +250,7 @@ async function buscarCoordenadasAdmin(card){
   }
 }
 
-function nomeServicoAdmin(s, lista){ const nomes=window.AUDESC_CONFIG?.servicos.getNomesSelecionados(lista?.length?lista:s)||[]; return nomes.join(' + ') || window.AUDESC_CONFIG?.servicos.getNome(s) || s || '—'; }
+function nomeServicoAdmin(s, lista){ return window.AUDESC_CONFIG?.servicos.getResumoEvento({tipo_servico:s,servicos_solicitados:lista}) || s || '—'; }
 function nomeVisibilidadeAdmin(v){
   const valor = String(v || '').toLowerCase();
   if(valor === 'publico' || valor === 'público') return 'Pública';
@@ -278,9 +278,14 @@ function regrasServicoAdmin(card){
   const regra = regraFormularioAdmin(card)?.regrasPorServico || {};
   return Object.assign({}, base, regra);
 }
+function servicosSelecionadosAdmin(card){
+  const valores=[...card.querySelectorAll('[data-service-code]:checked')].map(el=>el.value);
+  return window.AUDESC_CONFIG?.servicos.normalizarPorRegras(valores) || valores;
+}
 function regraCampoAdmin(card, campo){
-  const servico = card.querySelector('[data-field="tipo_servico"]')?.value || '';
-  return regrasServicoAdmin(card)?.[servico]?.campos?.[campo] || null;
+  const regrasPorServico=regrasServicoAdmin(card);
+  const regras=servicosSelecionadosAdmin(card).map(codigo=>regrasPorServico?.[codigo]?.campos?.[campo]).filter(Boolean);
+  return regras.find(regra=>regra.comportamento==='fixo') || regras.find(regra=>regra.comportamento==='oculto_sem_valor') || regras[0] || null;
 }
 function aplicarRegraCampoAdmin(card, campo){
   const regra = regraCampoAdmin(card, campo);
@@ -310,7 +315,7 @@ function aplicarRegrasServicoAdmin(card){
 }
 
 
-function servicoDependeAgenda(servico){ return !!(window.AUDESC_CONFIG?.servicos.requerAgenda(servico) ?? ['audesc_com_audiodescritor','somente_audiodescritor','somente_consultor'].includes(servico || '')); }
+function servicoDependeAgenda(valor){ return !!window.AUDESC_CONFIG?.servicos.requerAgendaSelecao(valor); }
 function formatarMoedaAdmin(valor, moeda){
   const n=Number(valor || 0);
   const currency=moeda || 'BRL';
@@ -367,22 +372,10 @@ async function salvarAgendaAdmin(id,card){
   }
 }
 
-function servicosAdminOptions(valorAtual){
-  if(window.AUDESC_CONFIG?.servicos.getLista()){
-    const lista = window.AUDESC_CONFIG.servicos.getLista()
-      .filter(s => s.ativo !== false)
-      .slice()
-      .sort((a,b)=>(a.ordem ?? 999)-(b.ordem ?? 999));
-    return lista.map(s => `<option value="${attr(s.codigo)}" ${s.codigo === valorAtual ? 'selected' : ''}>${escapeHtml(s.nome)}</option>`).join('');
-  }
-  const servicos = [
-    ['audesc_transmissao','Transmissão Audesc (transmissor e receptores)'],
-    ['divulgacao_gratuita','Somente divulgação no Audesc'],
-    ['audesc_com_audiodescritor','Serviço completo - Audesc + audiodescritor'],
-    ['somente_audiodescritor','Audiodescritor'],
-    ['somente_consultor','Consultor']
-  ];
-  return servicos.map(([valor,texto]) => `<option value="${attr(valor)}" ${valor === valorAtual ? 'selected' : ''}>${escapeHtml(texto)}</option>`).join('');
+function servicosAdminCheckboxes(evento){
+  const selecionados=new Set(window.AUDESC_CONFIG?.servicos.getSelecionadosEvento(evento) || []);
+  const lista=(window.AUDESC_CONFIG?.servicos.getLista() || []).filter(item=>item.ativo!==false && item.apareceCadastro!==false);
+  return lista.map(item=>`<label style="display:block;margin:.35rem 0"><input type="checkbox" data-service-code value="${attr(item.codigo)}" ${selecionados.has(item.codigo)?'checked':''}> ${escapeHtml(item.nome)}</label>`).join('');
 }
 
 function ouvintesAdminOptions(valorAtual){
@@ -432,46 +425,36 @@ function atualizarLocalAdmin(card){
   ajustarCamposAdmin(card);
 }
 
-function ajustarCamposAdmin(card){
-  const servico = card.querySelector('[data-field="tipo_servico"]')?.value || '';
-  const tipoEventoBox = card.querySelector('.tipo-evento-admin-box');
-  const duracaoBox = card.querySelector('.duracao-admin-box');
-  const ouvintesBox = card.querySelector('.ouvintes-admin-box');
-  const ouvintesExtraBox = card.querySelector('.ouvintes-extra-admin-box');
-  const tipoEvento = card.querySelector('[data-field="tipo_evento"]');
-  const duracao = card.querySelector('[data-field="duracao_horas"]');
-  const ouvintes = card.querySelector('[data-field="max_ouvintes"]');
-  const ouvintesExtra = card.querySelector('[data-field="max_ouvintes_extra"]');
-
-  const divulgacao = window.AUDESC_CONFIG?.servicos.somenteDivulgacao(servico) ?? (servico === 'divulgacao_gratuita');
-  const somenteProfissional = window.AUDESC_CONFIG?.servicos.somenteProfissional(servico) ?? (servico === 'somente_audiodescritor' || servico === 'somente_consultor');
-
-  if(divulgacao){
-    if(tipoEvento) tipoEvento.value = 'publico';
-    if(tipoEventoBox) tipoEventoBox.classList.add('hidden');
-    if(duracaoBox) duracaoBox.classList.add('hidden');
-    if(ouvintesBox) ouvintesBox.classList.add('hidden');
-    if(ouvintesExtraBox) ouvintesExtraBox.classList.add('hidden');
-    if(duracao) duracao.disabled = true;
-    if(ouvintes) ouvintes.disabled = true;
-    if(ouvintesExtra) ouvintesExtra.disabled = true;
-  }else{
-    if(tipoEventoBox) tipoEventoBox.classList.remove('hidden');
-    if(duracaoBox) duracaoBox.classList.remove('hidden');
-    if(duracao) duracao.disabled = false;
-
-    if(somenteProfissional){
-      if(ouvintesBox) ouvintesBox.classList.add('hidden');
-      if(ouvintesExtraBox) ouvintesExtraBox.classList.add('hidden');
-      if(ouvintes) ouvintes.disabled = true;
-      if(ouvintesExtra) ouvintesExtra.disabled = true;
-    }else{
-      if(ouvintesBox) ouvintesBox.classList.remove('hidden');
-      if(ouvintesExtraBox) ouvintesExtraBox.classList.remove('hidden');
-      if(ouvintes) ouvintes.disabled = false;
-      if(ouvintesExtra) ouvintesExtra.disabled = false;
-    }
+function ajustarCamposAdmin(card, alterado){
+  if(alterado?.checked){
+    const codigos=window.AUDESC_CONFIG?.servicos.getCodigos() || {};
+    const oposto=alterado.value===codigos.TRANSMISSAO?codigos.DIVULGACAO:alterado.value===codigos.DIVULGACAO?codigos.TRANSMISSAO:null;
+    if(oposto){ const outro=card.querySelector(`[data-service-code][value="${oposto}"]`); if(outro) outro.checked=false; }
   }
+  let selecionados=servicosSelecionadosAdmin(card);
+  if(!selecionados.length){
+    const primeiro=card.querySelector('[data-service-code]');
+    if(primeiro){ primeiro.checked=true; selecionados=servicosSelecionadosAdmin(card); }
+  }
+  const regras=window.AUDESC_CONFIG?.servicos.getRegras(selecionados) || {};
+  const tipoEventoBox=card.querySelector('.tipo-evento-admin-box');
+  const duracaoBox=card.querySelector('.duracao-admin-box');
+  const ouvintesBox=card.querySelector('.ouvintes-admin-box');
+  const ouvintesExtraBox=card.querySelector('.ouvintes-extra-admin-box');
+  const tipoEvento=card.querySelector('[data-field="tipo_evento"]');
+  const duracao=card.querySelector('[data-field="duracao_horas"]');
+  const ouvintes=card.querySelector('[data-field="max_ouvintes"]');
+  const ouvintesExtra=card.querySelector('[data-field="max_ouvintes_extra"]');
+  const agendaBox=card.querySelector('.agenda-box');
+  if(tipoEventoBox) tipoEventoBox.classList.toggle('hidden',!regras.visibilidadeEditavel);
+  if(tipoEvento){ tipoEvento.disabled=!regras.visibilidadeEditavel; if(regras.visibilidadeFixa) tipoEvento.value=regras.visibilidadeFixa; }
+  if(duracaoBox) duracaoBox.classList.toggle('hidden',!regras.usaDuracao);
+  if(duracao) duracao.disabled=!regras.usaDuracao;
+  if(ouvintesBox) ouvintesBox.classList.toggle('hidden',!regras.usaOuvintes);
+  if(ouvintesExtraBox) ouvintesExtraBox.classList.toggle('hidden',!regras.usaOuvintes);
+  if(ouvintes) ouvintes.disabled=!regras.usaOuvintes;
+  if(ouvintesExtra) ouvintesExtra.disabled=!regras.usaOuvintes;
+  if(agendaBox) agendaBox.classList.toggle('hidden',!regras.requerAgenda);
   aplicarRegrasServicoAdmin(card);
 }
 
@@ -494,7 +477,7 @@ function renderEvent(ev){
       <div><strong>Serviço:</strong> ${nomeServicoAdmin(ev.tipo_servico, ev.servicos_solicitados)}</div>
       <div><strong>Visibilidade:</strong> ${nomeVisibilidadeAdmin(ev.tipo_evento)}</div>
       <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
-      <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>${servicoDependeAgenda(ev.tipo_servico) ? `<div><strong>Agenda:</strong> ${ev.status_agenda || 'pendente'}</div><div><strong>Valor final de agenda:</strong> ${ev.valor_final_agenda != null ? formatarMoedaAdmin(ev.valor_final_agenda, moedaEventoAdmin(ev)) : 'a definir'}</div>` : ''}
+      <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>${servicoDependeAgenda(ev.servicos_solicitados?.length ? ev.servicos_solicitados : ev.tipo_servico) ? `<div><strong>Agenda:</strong> ${ev.status_agenda || 'pendente'}</div><div><strong>Valor final de agenda:</strong> ${ev.valor_final_agenda != null ? formatarMoedaAdmin(ev.valor_final_agenda, moedaEventoAdmin(ev)) : 'a definir'}</div>` : ''}
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
       <div><strong>E-mail:</strong> ${escapeHtml(ev.email_usuario||'')}</div>${resumoLocalizacaoAdmin(ev)}
       <div><strong>Local do evento:</strong> ${escapeHtml(ev.local_evento || '')}</div>
@@ -520,15 +503,16 @@ function renderEvent(ev){
       <div><label>Status pagamento</label><select data-field="status_pagamento">
         ${opt('pendente',ev.status_pagamento)}${opt('pago',ev.status_pagamento)}${opt('cancelado',ev.status_pagamento)}${opt('dispensado',ev.status_pagamento)}
       </select></div>
-      <div><label>Tipo de solicitação</label><select data-field="tipo_servico" class="servico-admin-select">
-        ${servicosAdminOptions(ev.tipo_servico || 'audesc_transmissao')}
-      </select></div>
+      <fieldset class="servicos-admin-box"><legend>Serviços solicitados</legend>
+        ${servicosAdminCheckboxes(ev)}
+        <p class="small">Transmissão Audesc e Somente divulgação não podem ser selecionadas juntas.</p>
+      </fieldset>
       <div class="tipo-evento-admin-box"><label>Visibilidade</label><select data-field="tipo_evento">
         ${optTexto('publico',ev.tipo_evento,'Pública')}${optTexto('privado',ev.tipo_evento,'Restrita')}
       </select></div>
     </div>
-    ${servicoDependeAgenda(ev.tipo_servico) ? `
-    <section class="agenda-box" aria-label="Agenda e valor do profissional">
+    ${`
+    <section class="agenda-box ${servicoDependeAgenda(ev.servicos_solicitados?.length ? ev.servicos_solicitados : ev.tipo_servico) ? '' : 'hidden'}" aria-label="Agenda e valor do profissional">
       <h4>Agenda e valor do profissional</h4>
       <p class="small">Confira o valor sugerido pela precificação, edite o valor final se necessário e só depois confirme a disponibilidade de agenda.</p>
       <div class="grid">
@@ -545,7 +529,7 @@ function renderEvent(ev){
         <button class="salvarAgendaBtn ok" type="button">Salvar agenda e valor final</button>
       </p>
       <div class="status agendaAdminStatus">Valor de agenda ainda não conferido nesta tela.</div>
-    </section>` : ''}
+    </section>`}
     <div class="grid">
       <div><label>País</label><select data-field="pais" class="pais-admin-select">
         ${paisesAdminOptions(ev.pais || 'Brasil')}
@@ -625,8 +609,7 @@ function renderEvent(ev){
   `;
   const paisSelectAdmin = card.querySelector('.pais-admin-select');
   if(paisSelectAdmin) paisSelectAdmin.addEventListener('change',()=>atualizarLocalAdmin(card));
-  const servicoSelectAdmin = card.querySelector('.servico-admin-select');
-  if(servicoSelectAdmin) servicoSelectAdmin.addEventListener('change',()=>ajustarCamposAdmin(card));
+  card.querySelectorAll('[data-service-code]').forEach(checkbox=>checkbox.addEventListener('change',()=>ajustarCamposAdmin(card, checkbox)));
   const geocodeBtn = card.querySelector('.geocodeAdminBtn');
   if(geocodeBtn) geocodeBtn.addEventListener('click',()=>buscarCoordenadasAdmin(card));
   instalarBuscaAssistidaAdmin(card);
@@ -634,7 +617,7 @@ function renderEvent(ev){
   if(calcularValorAgendaBtn) calcularValorAgendaBtn.addEventListener('click',()=>carregarValorAgenda(card, ev.id));
   const salvarAgendaBtn = card.querySelector('.salvarAgendaBtn');
   if(salvarAgendaBtn) salvarAgendaBtn.addEventListener('click',()=>salvarAgendaAdmin(ev.id, card));
-  if(servicoDependeAgenda(ev.tipo_servico) && (ev.valor_sugerido_agenda == null || ev.valor_final_agenda == null)){
+  if(servicoDependeAgenda(ev.servicos_solicitados?.length ? ev.servicos_solicitados : ev.tipo_servico) && (ev.valor_sugerido_agenda == null || ev.valor_final_agenda == null)){
     setTimeout(()=>carregarValorAgenda(card, ev.id), 0);
   }
   atualizarLocalAdmin(card);
@@ -643,7 +626,7 @@ function renderEvent(ev){
   card.querySelector('.approveBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'aprovado'},card);
   card.querySelector('.rejectBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'rejeitado'},card);
   card.querySelector('.removeBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'removido'},card);
-  card.querySelector('.approveLiberateBtn').onclick=async()=>{const body={status_publicacao:'aprovado'}; if(ev.tipo_servico!=='divulgacao_gratuita') body.status_pagamento='pago'; await quickUpdate(ev.id,body,card,false); await liberate(ev.id,card);};
+  card.querySelector('.approveLiberateBtn').onclick=async()=>{const body={status_publicacao:'aprovado'}; const regras=window.AUDESC_CONFIG?.servicos.getRegrasEvento(ev); if(!regras?.somenteDivulgacao) body.status_pagamento='pago'; await quickUpdate(ev.id,body,card,false); await liberate(ev.id,card);};
   card.querySelector('.liberateBtn').onclick=()=>liberate(ev.id,card);
   const regerarOrdemBtn = card.querySelector('.regerarOrdemBtn');
   if(regerarOrdemBtn) regerarOrdemBtn.onclick=()=>regerarOrdem(ev.id,card);
@@ -759,6 +742,8 @@ function valorDataInput(v){
 async function saveEvent(id,card){
   const body={};
   card.querySelectorAll('[data-field]').forEach(el=>body[el.dataset.field]=el.value);
+  body.servicos_solicitados=servicosSelecionadosAdmin(card);
+  body.tipo_servico=window.AUDESC_CONFIG?.servicos.getPrincipalLegado(body.servicos_solicitados) || body.servicos_solicitados[0];
 
   if(body.data_evento){
     body.data_evento = new Date(body.data_evento).toISOString();
@@ -811,16 +796,10 @@ async function saveEvent(id,card){
     if(regra.comportamento === 'fixo') body[campo] = regra.valor ?? '';
     if(regra.comportamento === 'oculto_sem_valor') delete body[campo];
   });
-  if(body.tipo_servico === 'divulgacao_gratuita'){
-    body.tipo_evento = 'publico';
-    delete body.duracao_horas;
-    delete body.max_ouvintes;
-    delete body.max_ouvintes_extra;
-  }
-  if(body.tipo_servico === 'somente_audiodescritor' || body.tipo_servico === 'somente_consultor'){
-    delete body.max_ouvintes;
-    delete body.max_ouvintes_extra;
-  }
+  const regrasEstruturais=window.AUDESC_CONFIG?.servicos.getRegras(body.servicos_solicitados) || {};
+  if(!regrasEstruturais.visibilidadeEditavel) body.tipo_evento=regrasEstruturais.visibilidadeFixa || 'publico';
+  if(!regrasEstruturais.usaDuracao) delete body.duracao_horas;
+  if(!regrasEstruturais.usaOuvintes){ delete body.max_ouvintes; delete body.max_ouvintes_extra; }
   await quickUpdate(id,body,card);
 }
 async function quickUpdate(id,body,card,reload=true){

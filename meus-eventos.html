@@ -61,6 +61,8 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 </section>
 
 <script src="data/servicos.js"></script>
+<script src="data/regras-servicos.js"></script>
+<script src="data/config-registry.js"></script>
 <script>
 const API='https://audesc-events-api.onrender.com';
 const SUPABASE_URL='https://xcmeirgmpbiwodkvuaus.supabase.co';
@@ -71,14 +73,13 @@ let filtroAtual='pendentes';
 
 function t(v){ return v || '—'; }
 
-function nomeServico(tipo){
- if(tipo==='divulgacao_gratuita') return 'Somente divulgação no Audesc';
- return window.AUDESC_SERVICOS?.nome(tipo) || tipo || '—';
-}
 function nomeServicoEvento(ev){
- const nome=nomeServico(ev?.tipo_servico);
- return ev?.tipo_servico==='divulgacao_gratuita' && ev?.status_pagamento==='dispensado'
-  ? nome+' (gratuita)'
+ const nome = window.AUDESC_CONFIG?.servicos.getResumoEvento(ev)
+  || window.AUDESC_SERVICOS?.nomesSelecionados(ev?.servicos_solicitados?.length ? ev.servicos_solicitados : ev?.tipo_servico).join(' + ')
+  || ev?.tipo_servico || '—';
+ const regras = window.AUDESC_CONFIG?.servicos.getRegrasEvento(ev);
+ return regras?.somenteDivulgacao && ev?.status_pagamento === 'dispensado'
+  ? nome + ' (gratuita)'
   : nome;
 }
 function exigePagamento(ev){

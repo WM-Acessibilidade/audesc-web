@@ -54,7 +54,17 @@
       getRegras(valor){ return regrasServicos()?.resolver?.(valor) || null; },
       normalizarPorRegras(valor){ return regrasServicos()?.normalizar?.(valor) || servicos()?.normalizarSelecao?.(valor) || []; },
       saoIncompativeis(a,b){ return !!regrasServicos()?.saoIncompativeis?.(a,b); },
-      getCodigos(){ return regrasServicos()?.CODIGOS || {}; }
+      getCodigos(){ return regrasServicos()?.CODIGOS || {}; },
+      getSelecionadosEvento(evento){
+        if(!evento || typeof evento !== 'object') return this.normalizarPorRegras(evento);
+        const lista = Array.isArray(evento.servicos_solicitados) && evento.servicos_solicitados.length
+          ? evento.servicos_solicitados
+          : evento.tipo_servico;
+        return this.normalizarPorRegras(lista);
+      },
+      getNomesEvento(evento){ return this.getSelecionadosEvento(evento).map(codigo => this.getNome(codigo)); },
+      getResumoEvento(evento, separador){ return this.getNomesEvento(evento).join(separador || ' + ') || '—'; },
+      getRegrasEvento(evento){ return this.getRegras(this.getSelecionadosEvento(evento)); }
     }),
 
     configuracao: Object.freeze({
