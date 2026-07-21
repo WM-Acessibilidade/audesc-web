@@ -641,24 +641,6 @@ const visibilidadeBox = document.getElementById('visibilidadeBox');
 const acessoOuvintesBox = document.getElementById('acessoOuvintesBox');
 const divulgarAcessoOuvintes = document.getElementById('divulgar_acesso_ouvintes');
 
-function atualizarOpcoesServico(){
- const valorAnterior = tipoServico.value || 'audesc_transmissao';
- const permitidos = servicosPermitidosFormulario();
- if(window.AUDESC_CONFIG?.servicos.getLista() && Array.isArray(permitidos)){
-  const lista = window.AUDESC_CONFIG.servicos.getLista().filter(s => s.ativo !== false && s.apareceCadastro !== false && permitidos.includes(s.codigo));
-  tipoServico.innerHTML = lista.map(s => `<option value="${s.codigo}">${s.nome}</option>`).join('');
-  if(lista.some(s => s.codigo === valorAnterior)) tipoServico.value = valorAnterior;
-  else if(lista[0]) tipoServico.value = lista[0].codigo;
-  return;
- }
- const brasilDf = paisSelect.value === 'Brasil' && ufSelect.value === 'DF';
- const opcoesDf = tipoServico.querySelectorAll('option[data-df-only="true"]');
- opcoesDf.forEach(opt=>{ opt.hidden=!brasilDf; opt.disabled=!brasilDf; });
- if(!brasilDf && tipoServico.selectedOptions[0] && tipoServico.selectedOptions[0].dataset.dfOnly === 'true'){
-  tipoServico.value='audesc_transmissao';
- }
-}
-
 function ajustarVisibilidade(){
  const opcaoRestrita = tipoEvento.querySelector('option[value="privado"]');
  const eventoRestrito = tipoEvento && tipoEvento.value === 'privado';
@@ -717,7 +699,6 @@ function ajustarVisibilidade(){
  });
 }
 
-tipoServico.addEventListener('change', ajustarVisibilidade);
 tipoEvento.addEventListener('change', ajustarVisibilidade);
 ufSelect.addEventListener('change',()=>{aplicarConfiguracaoFormulario();});
 atualizarLocalizacao();
