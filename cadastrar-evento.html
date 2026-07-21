@@ -55,11 +55,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <textarea id="descricao_original" name="descricao_original" maxlength="1500" minlength="100" aria-describedby="descricao_original_contador"></textarea><div id="descricao_original_contador" class="small" role="status" aria-live="polite">0 de 1500 caracteres utilizados.</div>
 
 <div class="grid">
-<div><label for="tipo_servico">Tipo de solicitação</label><select id="tipo_servico" name="tipo_servico"><option value="audesc_transmissao">Transmissão Audesc (transmissor e receptores)</option><option value="divulgacao_gratuita">Somente divulgação no Audesc</option>
-<option value="audesc_com_audiodescritor" data-df-only="true">Serviço completo - Audesc + audiodescritor</option>
-<option value="somente_audiodescritor" data-df-only="true">Audiodescritor</option>
-<option value="somente_consultor" data-df-only="true">Consultor</option>
-</select></div>
+<fieldset id="servicosSolicitadosBox"><legend>Serviços de interesse</legend><p class="small">Selecione um ou mais serviços. Transmissão Audesc e Somente divulgação são alternativas entre si.</p><div id="servicosSolicitadosOpcoes"></div></fieldset>
 <div id="visibilidadeBox"><label for="tipo_evento">Visibilidade</label><select id="tipo_evento" name="tipo_evento"><option value="publico">Pública, com divulgação no Audesc</option><option value="privado">Restrita, sem divulgação pública</option></select></div>
 </div>
 
@@ -73,7 +69,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 
 <div class="grid">
 <div><label for="data_evento">Data e horário do evento</label><input id="data_evento" name="data_evento" type="datetime-local"></div>
-<div id="duracaoBox"><label for="duracao_horas">Duração em horas</label><select id="duracao_horas" name="duracao_horas"><option value="1">1 hora</option><option value="2" selected>2 horas</option><option value="3">3 horas</option><option value="4">4 horas</option><option value="5">5 horas</option><option value="6">6 horas</option><option value="7">7 horas</option><option value="8">8 horas</option></select></div>
+<div id="duracaoBox"><label for="duracao_horas">Duração do serviço</label><select id="duracao_horas" name="duracao_horas"><option value="1">1 hora</option><option value="2" selected>2 horas</option><option value="3">3 horas</option><option value="4">4 horas</option><option value="5">5 horas</option><option value="6">6 horas</option><option value="7">7 horas</option><option value="8">8 horas</option></select></div>
 <div id="ouvintesBox"><label for="max_ouvintes">Quantidade máxima de ouvintes</label><select id="max_ouvintes" name="max_ouvintes">
 <option value="10">10 ouvintes</option>
 <option value="20" selected>20 ouvintes</option>
@@ -149,6 +145,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <script src="data/paises-unidades.js"></script>
 <script src="data/servicos.js"></script>
 <script src="data/formulario-schema.js"></script>
+<script src="data/regras-servicos.js"></script>
 <script src="data/config-registry.js"></script>
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
@@ -476,6 +473,9 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const data=Object.fromEntries(new FormData(form).entries());
+ data.servicos_solicitados=servicosSelecionadosFormulario();
+ data.tipo_servico=window.AUDESC_CONFIG?.servicos.getPrincipalLegado(data.servicos_solicitados)||'audesc_transmissao';
+ if(!data.servicos_solicitados.length){setStatus('status','Selecione pelo menos um serviço.','error');btn.disabled=false;return;}
  aplicarRegrasServicoNoPayload(data);
  try{ validarLimitesAntesDeEnviar(); }catch(err){ setStatus('status', err.message, 'error'); btn.disabled=false; return; }
  const ctxLocalizacao=contextoBuscaEndereco();
@@ -486,16 +486,13 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  if(data.pais!=='Outros'&&data.pais!=='Internacional'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
  if(data.pais==='Internacional'&&!data.origem_transmissao){setStatus('status','Selecione a origem da transmissão.','error');btn.disabled=false;return}
  
- if(window.AUDESC_CONFIG?.servicos.somenteDivulgacao(data.tipo_servico) || data.tipo_servico === 'divulgacao_gratuita'){
-  delete data.duracao_horas;
-  delete data.max_ouvintes;
-  data.divulgar_acesso_ouvintes = false;
-  data.tipo_evento = 'publico';
- }
- if(window.AUDESC_CONFIG?.servicos.somenteProfissional(data.tipo_servico) || data.tipo_servico === 'somente_audiodescritor' || data.tipo_servico === 'somente_consultor'){
-  delete data.max_ouvintes;
-  data.divulgar_acesso_ouvintes = false;
- }
+ const perfilServicos=window.AUDESC_CONFIG?.servicos.getRegras(data.servicos_solicitados)||{};
+ const temTransmissao=!!perfilServicos.usaTransmissao;
+ const temDivulgacao=!!perfilServicos.temDivulgacao;
+ const temProfissional=!!perfilServicos.temProfissional;
+ if(temDivulgacao){ data.divulgar_acesso_ouvintes=false; data.tipo_evento='publico'; }
+ if(!temTransmissao) delete data.max_ouvintes;
+ if(!temTransmissao && !temProfissional) delete data.duracao_horas;
  if(data.divulgar_acesso_ouvintes === 'true') data.divulgar_acesso_ouvintes = true;
  else data.divulgar_acesso_ouvintes = false;
  // Enviar data/hora local exatamente como digitada; o backend converte usando o timezone do evento.
@@ -505,7 +502,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
   const status = document.getElementById('status');
   status.className = 'status success';
   status.innerHTML = 'Evento recebido. Você pode continuar cadastrando eventos. Assim que terminar, acesse <a href="meus-eventos.html">Meus Eventos</a> para efetuar o pagamento.';
-  form.reset();atualizarLocalizacao();aplicarLimitesTextoFormulario();
+  form.reset();atualizarOpcoesServico();atualizarLocalizacao();aplicarLimitesTextoFormulario();
   status.focus();
  }catch(err){setStatus('status','Erro: '+(err.message||'não foi possível enviar.'),'error')}
  finally{btn.disabled=false}
@@ -554,9 +551,12 @@ function regrasServicoFormulario(){
  const regra = regraFormularioAtual()?.regrasPorServico || {};
  return Object.assign({}, base, regra);
 }
+function servicosSelecionadosFormulario(){return [...document.querySelectorAll('input[name="servicos_solicitados"]:checked')].map(el=>el.value);}
 function regraCampoServicoAtual(id){
- const servico = document.getElementById('tipo_servico')?.value || '';
- return regrasServicoFormulario()?.[servico]?.campos?.[id] || null;
+ const regras=regrasServicoFormulario();
+ const selecionados=servicosSelecionadosFormulario();
+ for(const servico of selecionados){const regra=regras?.[servico]?.campos?.[id]; if(regra && regra.comportamento!=='usuario') return regra;}
+ return null;
 }
 function comportamentoCampoServico(id){return regraCampoServicoAtual(id)?.comportamento || 'usuario';}
 function valorFixoCampoServico(id){return regraCampoServicoAtual(id)?.valor;}
@@ -628,9 +628,13 @@ function aplicarConfiguracaoFormulario(){
  aplicarCamposFormulario();
  ajustarVisibilidade();
 }
-const tipoServico = document.getElementById('tipo_servico');
-if(window.AUDESC_CONFIG?.servicos.getHtmlOptions){
-  tipoServico.innerHTML = window.AUDESC_CONFIG.servicos.getHtmlOptions(tipoServico.value || 'audesc_transmissao');
+const servicosSolicitadosOpcoes=document.getElementById('servicosSolicitadosOpcoes');
+function atualizarOpcoesServico(){
+ const permitidos=servicosPermitidosFormulario();
+ const atuais=new Set(servicosSelecionadosFormulario());
+ const lista=(window.AUDESC_CONFIG?.servicos.getLista()||[]).filter(s=>s.ativo!==false&&s.apareceCadastro!==false&&(!Array.isArray(permitidos)||permitidos.includes(s.codigo))&&s.codigo!=='audesc_com_audiodescritor');
+ servicosSolicitadosOpcoes.innerHTML=lista.map(s=>`<label class="servico-check"><input type="checkbox" name="servicos_solicitados" value="${s.codigo}" ${atuais.has(s.codigo)||(!atuais.size&&s.codigo==='audesc_transmissao')?'checked':''}> ${s.nome}</label>`).join('');
+ servicosSolicitadosOpcoes.querySelectorAll('input').forEach(el=>el.addEventListener('change',()=>{const outros=[...servicosSolicitadosOpcoes.querySelectorAll('input')];if(el.checked)outros.forEach(outro=>{if(outro!==el&&window.AUDESC_CONFIG?.servicos.saoIncompativeis(el.value,outro.value))outro.checked=false;});ajustarVisibilidade();}));
 }
 const tipoEvento = document.getElementById('tipo_evento');
 const visibilidadeBox = document.getElementById('visibilidadeBox');
@@ -662,17 +666,18 @@ function ajustarVisibilidade(){
  const ouvintesBox = document.getElementById('ouvintesBox');
  const duracao = document.getElementById('duracao_horas');
  const ouvintes = document.getElementById('max_ouvintes');
- const servico = tipoServico.value;
- const somenteDivulgacao = window.AUDESC_CONFIG?.servicos.somenteDivulgacao(servico) ?? (servico === 'divulgacao_gratuita');
- const somenteProfissional = window.AUDESC_CONFIG?.servicos.somenteProfissional(servico) ?? (servico === 'somente_audiodescritor' || servico === 'somente_consultor');
+ const selecionados=servicosSelecionadosFormulario();
+ const temTransmissao=selecionados.includes('audesc_transmissao');
+ const temDivulgacao=selecionados.includes('divulgacao_gratuita');
+ const temProfissional=selecionados.some(c=>window.AUDESC_CONFIG?.servicos.requerAgenda(c));
 
- if(somenteDivulgacao){
+ if(temDivulgacao){
   tipoEvento.value='publico';
   opcaoRestrita.disabled=true;
   if(visibilidadeBox) visibilidadeBox.classList.add('hidden');
-  duracaoBox.classList.add('hidden');
+  duracaoBox.classList.toggle('hidden', !temProfissional);
   ouvintesBox.classList.add('hidden');
-  duracao.disabled=true;
+  duracao.disabled=!temProfissional;
   ouvintes.disabled=true;
   if(acessoOuvintesBox) acessoOuvintesBox.classList.add('hidden');
   if(divulgarAcessoOuvintes){ divulgarAcessoOuvintes.value='false'; divulgarAcessoOuvintes.disabled=true; }
@@ -682,7 +687,7 @@ function ajustarVisibilidade(){
   duracaoBox.classList.remove('hidden');
   duracao.disabled=false;
 
-  if(somenteProfissional){
+  if(!temTransmissao){
    ouvintesBox.classList.add('hidden');
    ouvintes.disabled=true;
    if(acessoOuvintesBox) acessoOuvintesBox.classList.add('hidden');

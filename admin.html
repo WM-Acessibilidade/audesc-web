@@ -94,6 +94,7 @@ pre{white-space:pre-wrap}
 <script src="data/paises-unidades.js"></script>
 <script src="data/servicos.js"></script>
 <script src="data/formulario-schema.js"></script>
+<script src="data/regras-servicos.js"></script>
 <script src="data/config-registry.js"></script>
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
@@ -249,7 +250,7 @@ async function buscarCoordenadasAdmin(card){
   }
 }
 
-function nomeServicoAdmin(s){ return window.AUDESC_CONFIG?.servicos.getNome(s) || s || '—'; }
+function nomeServicoAdmin(s, lista){ const nomes=window.AUDESC_CONFIG?.servicos.getNomesSelecionados(lista?.length?lista:s)||[]; return nomes.join(' + ') || window.AUDESC_CONFIG?.servicos.getNome(s) || s || '—'; }
 function nomeVisibilidadeAdmin(v){
   const valor = String(v || '').toLowerCase();
   if(valor === 'publico' || valor === 'público') return 'Pública';
@@ -485,12 +486,12 @@ function renderEvent(ev){
     <h3>${escapeHtml(ev.titulo_publicado||ev.titulo_original||'Sem título')}</h3>
     <p>
       <span class="badge ${badgeClass}">${ev.status_publicacao||'sem status'}</span>
-      <span class="badge">${nomeServicoAdmin(ev.tipo_servico)}</span>
+      <span class="badge">${nomeServicoAdmin(ev.tipo_servico, ev.servicos_solicitados)}</span>
       <span class="badge">${nomeVisibilidadeAdmin(ev.tipo_evento)}</span>
     </p>
     <p class="small">ID: ${ev.id}<br>${ageInfo}${olderThan2Days && ev.status_publicacao==='pendente' ? '<br><strong>Atenção: pendente há mais de 2 dias.</strong>' : ''}</p>
     <div class="grid">
-      <div><strong>Serviço:</strong> ${nomeServicoAdmin(ev.tipo_servico)}</div>
+      <div><strong>Serviço:</strong> ${nomeServicoAdmin(ev.tipo_servico, ev.servicos_solicitados)}</div>
       <div><strong>Visibilidade:</strong> ${nomeVisibilidadeAdmin(ev.tipo_evento)}</div>
       <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
       <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>${servicoDependeAgenda(ev.tipo_servico) ? `<div><strong>Agenda:</strong> ${ev.status_agenda || 'pendente'}</div><div><strong>Valor final de agenda:</strong> ${ev.valor_final_agenda != null ? formatarMoedaAdmin(ev.valor_final_agenda, moedaEventoAdmin(ev)) : 'a definir'}</div>` : ''}

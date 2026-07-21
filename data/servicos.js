@@ -36,13 +36,13 @@
   },
   {
     "codigo": "audesc_com_audiodescritor",
-    "nome": "Serviço completo - Audesc + audiodescritor",
+    "nome": "Serviço completo - Audesc + audiodescritor (legado)",
     "descricao": "Serviço completo com transmissão pelo Audesc e contratação de audiodescritor, dependente de confirmação de agenda profissional.",
     "categoria": "profissional",
     "categoriaNome": "Serviços profissionais",
     "ordem": 30,
-    "ativo": true,
-    "apareceCadastro": true,
+    "ativo": false,
+    "apareceCadastro": false,
     "requerAgenda": true,
     "usaTransmissao": true,
     "somenteDivulgacao": false,
@@ -112,6 +112,23 @@
       return acc;
     }, {});
   }
+
+  function normalizarSelecao(valor){
+    let itens = Array.isArray(valor) ? valor : (valor ? [valor] : []);
+    itens = itens.flatMap(c => c === 'audesc_com_audiodescritor' ? ['audesc_transmissao','somente_audiodescritor'] : [c]);
+    return [...new Set(itens.map(String).map(s => s.trim()).filter(c => mapa[c] && c !== 'audesc_com_audiodescritor'))];
+  }
+  function nomesSelecionados(valor){return normalizarSelecao(valor).map(nome);}
+  function usaTransmissaoSelecao(valor){return normalizarSelecao(valor).some(usaTransmissao);}
+  function temDivulgacao(valor){return normalizarSelecao(valor).includes('divulgacao_gratuita');}
+  function temProfissional(valor){return normalizarSelecao(valor).some(requerAgenda);}
+  function requerAgendaSelecao(valor){return temProfissional(valor);}
+  function principalLegado(valor){
+    const itens=normalizarSelecao(valor);
+    if(itens.includes('audesc_transmissao') && itens.includes('somente_audiodescritor') && itens.length===2) return 'audesc_com_audiodescritor';
+    return itens.find(c=>c==='audesc_transmissao') || itens.find(c=>c==='divulgacao_gratuita') || itens[0] || 'audesc_transmissao';
+  }
+
   function opcoes(selected='', incluirInativos=false){
     return lista.filter(s => incluirInativos || ativoCadastro(s)).map(s => {
       const attrs = [
@@ -128,6 +145,6 @@
   window.AUDESC_SERVICOS = {
     lista, mapa, categorias, get, nome, descricao, categoria, categoriaNome,
     requerAgenda, usaTransmissao, somenteDivulgacao, somenteProfissional, permiteValorManual,
-    restritoAoDF, codigosValidos, porCategoria, htmlOptions: opcoes
+    restritoAoDF, codigosValidos, porCategoria, normalizarSelecao, nomesSelecionados, usaTransmissaoSelecao, temDivulgacao, temProfissional, requerAgendaSelecao, principalLegado, htmlOptions: opcoes
   };
 })();

@@ -4,6 +4,7 @@
   function locais(){ return window.AUDESC_LOCAIS || null; }
   function formulario(){ return window.AUDESC_FORMULARIO || null; }
   function servicos(){ return window.AUDESC_SERVICOS || null; }
+  function regrasServicos(){ return window.AUDESC_REGRAS_SERVICOS || null; }
 
   const api = {
     versao: 1,
@@ -41,7 +42,19 @@
       usaTransmissao(codigo){ return servicos()?.usaTransmissao?.(codigo); },
       somenteDivulgacao(codigo){ return servicos()?.somenteDivulgacao?.(codigo); },
       somenteProfissional(codigo){ return servicos()?.somenteProfissional?.(codigo); },
-      requerAgenda(codigo){ return servicos()?.requerAgenda?.(codigo); }
+      requerAgenda(codigo){ return servicos()?.requerAgenda?.(codigo); },
+      normalizarSelecao(valor){ return servicos()?.normalizarSelecao?.(valor) || (Array.isArray(valor) ? valor : [valor].filter(Boolean)); },
+      getNomesSelecionados(valor){ return servicos()?.nomesSelecionados?.(valor) || []; },
+      usaTransmissaoSelecao(valor){ return !!servicos()?.usaTransmissaoSelecao?.(valor); },
+      temDivulgacao(valor){ return !!servicos()?.temDivulgacao?.(valor); },
+      temProfissional(valor){ return !!servicos()?.temProfissional?.(valor); },
+      requerAgendaSelecao(valor){ return !!servicos()?.requerAgendaSelecao?.(valor); },
+      getPrincipalLegado(valor){ return regrasServicos()?.principalLegado?.(valor) || servicos()?.principalLegado?.(valor) || 'audesc_transmissao'; },
+      getPerfil(codigo){ return regrasServicos()?.perfis?.[codigo] || null; },
+      getRegras(valor){ return regrasServicos()?.resolver?.(valor) || null; },
+      normalizarPorRegras(valor){ return regrasServicos()?.normalizar?.(valor) || servicos()?.normalizarSelecao?.(valor) || []; },
+      saoIncompativeis(a,b){ return !!regrasServicos()?.saoIncompativeis?.(a,b); },
+      getCodigos(){ return regrasServicos()?.CODIGOS || {}; }
     }),
 
     configuracao: Object.freeze({
