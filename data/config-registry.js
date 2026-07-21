@@ -32,7 +32,28 @@
       preencherPaises(select, valorAtual, opcoes){ return locais()?.preencherSelectPaises?.(select, valorAtual, opcoes); },
       getOpcoesUnidades(nomePais, opcoes){ return locais()?.opcoesUnidades?.(nomePais, opcoes) || []; },
       preencherUnidades(select, nomePais, valorAtual, opcoes){ return locais()?.preencherSelectUnidades?.(select, nomePais, valorAtual, opcoes); },
-      getHtmlOpcoesUnidades(nomePais, valorAtual, opcoes){ return locais()?.htmlOpcoesUnidades?.(nomePais, valorAtual, opcoes) || ''; }
+      getHtmlOpcoesUnidades(nomePais, valorAtual, opcoes){ return locais()?.htmlOpcoesUnidades?.(nomePais, valorAtual, opcoes) || ''; },
+      normalizarIdentificador(valor){
+        return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim();
+      },
+      regioesEquivalentes(atual, selecionada){
+        const normalizar = this.normalizarIdentificador;
+        const paisAtualCodigo = normalizar(atual?.paisCodigo);
+        const paisNovoCodigo = normalizar(selecionada?.pais_codigo);
+        const paisAtualNome = normalizar(atual?.pais);
+        const paisNovoNome = normalizar(selecionada?.pais_nome);
+        const unidadeAtualCodigo = normalizar(atual?.unidadeCodigo);
+        const unidadeNovaCodigo = normalizar(selecionada?.unidade_codigo);
+        const unidadeAtualNome = normalizar(atual?.ufTexto || atual?.uf);
+        const unidadeNovaNome = normalizar(selecionada?.unidade_nome);
+
+        const paisIgual = (!paisAtualCodigo || !paisNovoCodigo || paisAtualCodigo === paisNovoCodigo) ||
+          (!!paisAtualNome && !!paisNovoNome && paisAtualNome === paisNovoNome);
+        const unidadeIgual = (!unidadeAtualCodigo || !unidadeNovaCodigo || unidadeAtualCodigo === unidadeNovaCodigo) ||
+          (!!unidadeAtualNome && !!unidadeNovaNome && unidadeAtualNome === unidadeNovaNome);
+
+        return { pais: paisIgual, unidade: unidadeIgual, equivalente: paisIgual && unidadeIgual };
+      }
     }),
 
     servicos: Object.freeze({

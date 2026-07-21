@@ -178,8 +178,12 @@ let AdminSelecionado=null;
 function normalizarLocalComparacao(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
 function textoCompletoLocal(item){return String(item.texto_completo||[item.nome,item.endereco&&item.endereco!==item.nome?item.endereco:''].filter(Boolean).join(' — ')).trim();}
 function regiaoLocalDiverge(item,ctx){
- const paisAtual=String(ctx.paisCodigo||'').toUpperCase(), unidadeAtual=String(ctx.unidadeCodigo||'').toUpperCase();
- return {pais:!!(paisAtual&&item.pais_codigo&&paisAtual!==String(item.pais_codigo).toUpperCase()),unidade:!!(unidadeAtual&&item.unidade_codigo&&unidadeAtual!==String(item.unidade_codigo).toUpperCase())};
+ const comparacao=window.AUDESC_CONFIG?.localizacao.regioesEquivalentes?.(ctx,item);
+ if(comparacao)return {pais:!comparacao.pais,unidade:!comparacao.unidade};
+ const normalizar=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
+ const paisIgual=normalizar(ctx.paisCodigo)===normalizar(item.pais_codigo)||normalizar(ctx.pais)===normalizar(item.pais_nome);
+ const unidadeIgual=normalizar(ctx.unidadeCodigo)===normalizar(item.unidade_codigo)||normalizar(ctx.ufTexto||ctx.uf)===normalizar(item.unidade_nome);
+ return {pais:!paisIgual,unidade:!unidadeIgual};
 }
 async function confirmarAtualizacaoRegiaoAdmin(item,ctx){
  const d=regiaoLocalDiverge(item,ctx);if(!d.pais&&!d.unidade)return false;
