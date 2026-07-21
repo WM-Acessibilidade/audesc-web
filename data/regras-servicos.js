@@ -40,7 +40,9 @@
       : [codigo]);
     const validos = new Set(Object.keys(perfis));
     lista = [...new Set(lista.map(String).map(v => v.trim()).filter(v => validos.has(v)))];
-    if(lista.includes(CODIGOS.TRANSMISSAO) && lista.includes(CODIGOS.DIVULGACAO)){
+    // "Somente divulgação" é exclusivo. Em dados antigos ou payloads inválidos,
+    // preservamos os serviços efetivos e removemos a opção de divulgação isolada.
+    if(lista.includes(CODIGOS.DIVULGACAO) && lista.length > 1){
       lista = lista.filter(codigo => codigo !== CODIGOS.DIVULGACAO);
     }
     return lista;
@@ -78,8 +80,8 @@
   }
 
   function saoIncompativeis(a, b){
-    return (a === CODIGOS.TRANSMISSAO && b === CODIGOS.DIVULGACAO) ||
-      (a === CODIGOS.DIVULGACAO && b === CODIGOS.TRANSMISSAO);
+    if(a === b) return false;
+    return a === CODIGOS.DIVULGACAO || b === CODIGOS.DIVULGACAO;
   }
 
   function principalLegado(valor){
@@ -92,6 +94,6 @@
   }
 
   window.AUDESC_REGRAS_SERVICOS = Object.freeze({
-    versao: 1, CODIGOS, perfis, normalizar, resolver, saoIncompativeis, principalLegado
+    versao: 2, CODIGOS, perfis, normalizar, resolver, saoIncompativeis, principalLegado
   });
 })();

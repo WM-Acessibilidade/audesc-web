@@ -427,9 +427,9 @@ function atualizarLocalAdmin(card){
 
 function ajustarCamposAdmin(card, alterado){
   if(alterado?.checked){
-    const codigos=window.AUDESC_CONFIG?.servicos.getCodigos() || {};
-    const oposto=alterado.value===codigos.TRANSMISSAO?codigos.DIVULGACAO:alterado.value===codigos.DIVULGACAO?codigos.TRANSMISSAO:null;
-    if(oposto){ const outro=card.querySelector(`[data-service-code][value="${oposto}"]`); if(outro) outro.checked=false; }
+    card.querySelectorAll('[data-service-code]:checked').forEach(outro=>{
+      if(outro!==alterado&&window.AUDESC_CONFIG?.servicos.saoIncompativeis(alterado.value,outro.value)) outro.checked=false;
+    });
   }
   let selecionados=servicosSelecionadosAdmin(card);
   if(!selecionados.length){
