@@ -283,9 +283,9 @@ function servicosSelecionadosAdmin(card){
   return window.AUDESC_CONFIG?.servicos.normalizarPorRegras(valores) || valores;
 }
 function regraCampoAdmin(card, campo){
-  const regrasPorServico=regrasServicoAdmin(card);
-  const regras=servicosSelecionadosAdmin(card).map(codigo=>regrasPorServico?.[codigo]?.campos?.[campo]).filter(Boolean);
-  return regras.find(regra=>regra.comportamento==='fixo') || regras.find(regra=>regra.comportamento==='oculto_sem_valor') || regras[0] || null;
+  return window.AUDESC_CONFIG?.servicos.resolverRegraCampoConfiguravel(
+    regrasServicoAdmin(card), servicosSelecionadosAdmin(card), campo
+  ) || null;
 }
 function aplicarRegraCampoAdmin(card, campo){
   const regra = regraCampoAdmin(card, campo);

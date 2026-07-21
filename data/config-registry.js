@@ -54,6 +54,7 @@
       getRegras(valor){ return regrasServicos()?.resolver?.(valor) || null; },
       normalizarPorRegras(valor){ return regrasServicos()?.normalizar?.(valor) || servicos()?.normalizarSelecao?.(valor) || []; },
       saoIncompativeis(a,b){ return !!regrasServicos()?.saoIncompativeis?.(a,b); },
+      resolverRegraCampoConfiguravel(regrasPorServico, valor, campo){ return regrasServicos()?.resolverRegraCampoConfiguravel?.(regrasPorServico, valor, campo) || null; },
       getCodigos(){ return regrasServicos()?.CODIGOS || {}; },
       getSelecionadosEvento(evento){
         if(!evento || typeof evento !== 'object') return this.normalizarPorRegras(evento);

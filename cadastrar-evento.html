@@ -555,8 +555,7 @@ function servicosSelecionadosFormulario(){return [...document.querySelectorAll('
 function regraCampoServicoAtual(id){
  const regras=regrasServicoFormulario();
  const selecionados=servicosSelecionadosFormulario();
- for(const servico of selecionados){const regra=regras?.[servico]?.campos?.[id]; if(regra && regra.comportamento!=='usuario') return regra;}
- return null;
+ return window.AUDESC_CONFIG?.servicos.resolverRegraCampoConfiguravel(regras, selecionados, id) || null;
 }
 function comportamentoCampoServico(id){return regraCampoServicoAtual(id)?.comportamento || 'usuario';}
 function valorFixoCampoServico(id){return regraCampoServicoAtual(id)?.valor;}

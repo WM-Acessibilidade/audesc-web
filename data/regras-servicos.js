@@ -79,6 +79,22 @@
     });
   }
 
+
+  function ordenarPorPrecedencia(valor){
+    const selecionados = normalizar(valor);
+    const ordem = [CODIGOS.TRANSMISSAO, CODIGOS.AUDIODESCRITOR, CODIGOS.CONSULTOR, CODIGOS.DIVULGACAO];
+    return ordem.filter(codigo => selecionados.includes(codigo));
+  }
+
+  function resolverRegraCampoConfiguravel(regrasPorServico, valor, campo){
+    const regras = regrasPorServico || {};
+    for(const codigo of ordenarPorPrecedencia(valor)){
+      const regra = regras?.[codigo]?.campos?.[campo];
+      if(regra) return regra;
+    }
+    return null;
+  }
+
   function saoIncompativeis(a, b){
     if(a === b) return false;
     return a === CODIGOS.DIVULGACAO || b === CODIGOS.DIVULGACAO;
@@ -94,6 +110,6 @@
   }
 
   window.AUDESC_REGRAS_SERVICOS = Object.freeze({
-    versao: 2, CODIGOS, perfis, normalizar, resolver, saoIncompativeis, principalLegado
+    versao: 3, CODIGOS, perfis, normalizar, resolver, ordenarPorPrecedencia, resolverRegraCampoConfiguravel, saoIncompativeis, principalLegado
   });
 })();
