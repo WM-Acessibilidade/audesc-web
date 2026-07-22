@@ -55,7 +55,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <textarea id="descricao_original" name="descricao_original" maxlength="1500" minlength="100" aria-describedby="descricao_original_contador"></textarea><div id="descricao_original_contador" class="small" role="status" aria-live="polite">0 de 1500 caracteres utilizados.</div>
 
 <div class="grid">
-<fieldset id="servicosSolicitadosBox"><legend>Serviços de interesse</legend><p class="small">Selecione um ou mais serviços. Transmissão Audesc e Somente divulgação são alternativas entre si.</p><div id="servicosSolicitadosOpcoes"></div></fieldset>
+<fieldset id="servicosSolicitadosBox"><legend>Serviços de interesse</legend><p class="small">Escolha um ou mais serviços. Selecione o seu país e a sua unidade administrativa para conhecer os serviços disponibilizados.</p><div id="servicosSolicitadosOpcoes"></div></fieldset>
 <div id="visibilidadeBox"><label for="tipo_evento">Visibilidade</label><select id="tipo_evento" name="tipo_evento"><option value="publico">Pública, com divulgação no Audesc</option><option value="privado">Restrita, sem divulgação pública</option></select></div>
 </div>
 
@@ -121,7 +121,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 
 <div class="grid">
 <input type="hidden" id="local_nome" name="local_nome"><input type="hidden" id="local_endereco" name="local_endereco"><input type="hidden" id="google_place_id" name="google_place_id"><input type="hidden" id="local_pais_codigo" name="local_pais_codigo"><input type="hidden" id="local_unidade_codigo" name="local_unidade_codigo">
-<div id="localEventoBox"><label for="local_evento">Nome ou endereço do local do evento</label><input id="local_evento" name="local_evento" type="text" maxlength="500" autocomplete="off" aria-describedby="ajudaLocalEvento" aria-controls="sugestoesLocalEvento"><p id="ajudaLocalEvento" class="small">Digite ao menos três caracteres para receber sugestões de locais do Google Maps.</p><div id="sugestoesLocalEvento" class="sugestoes-local" role="listbox" aria-label="Sugestões de locais" hidden></div></div>
+<div id="localEventoBox"><label for="local_evento">Nome ou endereço do local do evento</label><input id="local_evento" name="local_evento" type="text" maxlength="500" autocomplete="off" aria-controls="sugestoesLocalEvento"><p id="ajudaLocalEvento" class="small">Digite ao menos três caracteres para receber sugestões de locais.</p><div id="sugestoesLocalEvento" class="sugestoes-local" role="listbox" aria-label="Sugestões de locais" hidden></div></div>
 <div id="latitudeBox"><label for="latitude">Latitude</label><input id="latitude" name="latitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
 <div id="longitudeBox"><label for="longitude">Longitude</label><input id="longitude" name="longitude" type="text" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
 </div>
@@ -437,7 +437,7 @@ document.getElementById('usarMinhaLocalizacao')?.addEventListener('click',()=>{
  setLocalizacaoStatus('Solicitando permissão de localização...','');
  navigator.geolocation.getCurrentPosition(async pos=>{
   const lat=pos.coords.latitude, lon=pos.coords.longitude; preencherCoordenadas(lat,lon);
-  try{const info=await reverseGeocode(lat,lon); const a=info.address||{}; ajustarPaisUfPorCodigo(a.country_code,a.state_code||a['ISO3166-2-lvl4']?.split('-').pop()); if(!document.getElementById('local_evento').value && info.display_name) document.getElementById('local_evento').value=info.display_name; setLocalizacaoStatus('Localização preenchida com sucesso. Confira o endereço, país e unidade administrativa.','success');}
+  try{const info=await reverseGeocode(lat,lon); const a=info.address||{}; ajustarPaisUfPorCodigo(a.country_code,a.state_code||a['ISO3166-2-lvl4']?.split('-').pop()); if(info.display_name) document.getElementById('local_evento').value=info.display_name; setLocalizacaoStatus('Localização preenchida com sucesso. Confira o endereço, país e unidade administrativa.','success');}
   catch(e){setLocalizacaoStatus('Coordenadas preenchidas. Confira país e unidade administrativa manualmente.','success');}
  },err=>{setLocalizacaoStatus('Não foi possível obter a localização: '+(err.message||'permissão negada.'),'error')},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
 });
