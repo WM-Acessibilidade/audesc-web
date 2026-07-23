@@ -14,41 +14,25 @@
 <p><a class="button-link" href="cadastrar-evento.html">Torne seu evento acessível e o divulgue aqui</a></p>
 <p><a class="button-link" href="notificacoes.html">Cadastrar e-mail para receber notificações de novos eventos acessíveis</a></p>
 </section>
-<section class="panel"><h2>Buscar eventos</h2><div class="grid"><div><label for="busca">Campo de busca</label><input id="busca" type="search" placeholder="Digite nome, descrição ou local"></div><div><label for="paisFiltro">País</label><select id="paisFiltro"><option value="Brasil" selected>Brasil</option><option value="Angola">Angola</option><option value="Cabo Verde">Cabo Verde</option><option value="Guiné-Bissau">Guiné-Bissau</option><option value="Guiné Equatorial">Guiné Equatorial</option><option value="Moçambique">Moçambique</option><option value="Portugal">Portugal</option><option value="São Tomé e Príncipe">São Tomé e Príncipe</option><option value="Timor-Leste">Timor-Leste</option><option value="Outros">Outros</option></select></div><div><label for="ufFiltro" id="ufFiltroLabel">Unidade federativa</label><select id="ufFiltro"><option value="">Selecione</option></select></div></div><div id="summary" class="status">Carregando eventos.</div></section>
+<section class="panel"><h2>Buscar eventos</h2><div class="grid"><div><label for="busca">Campo de busca</label><input id="busca" type="search" placeholder="Digite nome, descrição ou local"></div><div><label for="paisFiltro">País</label><select id="paisFiltro"><option value="Brasil" selected>Brasil</option><option value="Angola">Angola</option><option value="Cabo Verde">Cabo Verde</option><option value="Guiné-Bissau">Guiné-Bissau</option><option value="Guiné Equatorial">Guiné Equatorial</option><option value="Moçambique">Moçambique</option><option value="Portugal">Portugal</option><option value="São Tomé e Príncipe">São Tomé e Príncipe</option><option value="Timor-Leste">Timor-Leste</option><option value="Outros">Outros</option></select></div><div><label for="ufFiltro" id="ufFiltroLabel">Unidade federativa</label><select id="ufFiltro"><option value="">Selecione</option></select></div></div><p><button type="button" id="usarLocalizacaoFiltro">Usar minha localização para encontrar eventos próximos</button></p><div id="geoStatus" class="status">Localização não utilizada.</div><div id="summary" class="status">Carregando eventos.</div></section>
 <section class="panel"><h2>Ao vivo agora</h2><ul id="listaLive" class="event-list"></ul></section>
 <section class="panel"><h2>Próximos eventos</h2><ul id="listaProximos" class="event-list"></ul></section>
 <section class="panel"><h2>Eventos anteriores</h2><ul id="listaAnteriores" class="event-list"></ul></section>
 <p><a href="meus-eventos.html">Acessar Meus Eventos</a></p>
 </main>
+<script src="data/paises-unidades.js"></script>
 <script>
-const API_URL='https://audesc-events-api.onrender.com';let eventos=[];
-const unidadesAdministrativas={Brasil:{rotulo:'Unidade federativa',padrao:'DF',opcoes:[['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']] },Angola:{rotulo:'Província',padrao:'',opcoes:['Bengo','Benguela','Bié','Cabinda','Cuando Cubango','Cuanza Norte','Cuanza Sul','Cunene','Huambo','Huíla','Luanda','Lunda Norte','Lunda Sul','Malanje','Moxico','Namibe','Uíge','Zaire']},'Cabo Verde':{rotulo:'Ilha',padrao:'',opcoes:['Boa Vista','Brava','Fogo','Maio','Sal','Santiago','Santo Antão','São Nicolau','São Vicente']},'Guiné-Bissau':{rotulo:'Região',padrao:'',opcoes:['Bafatá','Biombo','Bolama/Bijagós','Cacheu','Gabú','Oio','Quinara','Tombali','Setor Autônomo de Bissau']},'Guiné Equatorial':{rotulo:'Província',padrao:'',opcoes:['Annobón','Bioko Norte','Bioko Sul','Centro Sul','Djibloho','Kie-Ntem','Litoral','Wele-Nzas']},Moçambique:{rotulo:'Província',padrao:'',opcoes:['Cabo Delgado','Gaza','Inhambane','Manica','Maputo','Maputo Cidade','Nampula','Niassa','Sofala','Tete','Zambézia']},Portugal:{rotulo:'Distrito ou região autônoma',padrao:'',opcoes:['Aveiro','Beja','Braga','Bragança','Castelo Branco','Coimbra','Évora','Faro','Guarda','Leiria','Lisboa','Portalegre','Porto','Santarém','Setúbal','Viana do Castelo','Vila Real','Viseu','Açores','Madeira']},'São Tomé e Príncipe':{rotulo:'Distrito ou região autônoma',padrao:'',opcoes:['Água Grande','Cantagalo','Caué','Lembá','Lobata','Mé-Zóchi','Região Autônoma do Príncipe']},'Timor-Leste':{rotulo:'Município ou região administrativa especial',padrao:'',opcoes:['Aileu','Ainaro','Ataúro','Baucau','Bobonaro','Covalima','Díli','Ermera','Lautém','Liquiçá','Manatuto','Manufahi','Oecusse','Viqueque']}};
-
-function codigoPaisTimezone(nome){
- const mapa={Brasil:'BR',Portugal:'PT',Angola:'AO',Moçambique:'MZ','Cabo Verde':'CV','Guiné-Bissau':'GW','Guiné Equatorial':'GQ','São Tomé e Príncipe':'ST','Timor-Leste':'TL'};
- return mapa[nome] || '';
-}
-function timezonePorLocalFrontend(pais, unidade, origem){
- const paisRef = pais === 'Internacional' ? origem : pais;
- const codigo = codigoPaisTimezone(paisRef);
- const porPais={BR:'America/Sao_Paulo',PT:'Europe/Lisbon',AO:'Africa/Luanda',MZ:'Africa/Maputo',CV:'Atlantic/Cape_Verde',GW:'Africa/Bissau',GQ:'Africa/Malabo',ST:'Africa/Sao_Tome',TL:'Asia/Dili'};
- const br={AC:'America/Rio_Branco',AM:'America/Manaus',RO:'America/Porto_Velho',RR:'America/Boa_Vista',MT:'America/Cuiaba',MS:'America/Campo_Grande',DF:'America/Sao_Paulo'};
- const pt={ACO:'Atlantic/Azores',Açores:'Atlantic/Azores',Azores:'Atlantic/Azores',MAD:'Europe/Lisbon',Madeira:'Europe/Lisbon'};
- if(codigo==='BR' && br[unidade]) return br[unidade];
- if(codigo==='PT' && pt[unidade]) return pt[unidade];
- return porPais[codigo] || 'America/Sao_Paulo';
-}
-function formatarDataComTimezone(valor, timezone){
- if(!valor) return '';
- const d=new Date(valor);
- if(Number.isNaN(d.getTime())) return '';
- try{
-  return d.toLocaleString('pt-BR',{timeZone:timezone||'America/Sao_Paulo',dateStyle:'short',timeStyle:'short'}) + (timezone ? ' ('+timezone+')' : '');
- }catch(e){ return d.toLocaleString('pt-BR'); }
-}
-
+const API_URL='https://audesc-events-api.onrender.com';let eventos=[];let usuarioCoords=null;
+const unidadesAdministrativas=window.AUDESC_UNIDADES_ADMINISTRATIVAS||{};
+window.AUDESC_LOCAIS?.preencherSelectPaises(document.getElementById('paisFiltro'), document.getElementById('paisFiltro')?.value || 'Brasil', {incluirEspeciais:true});
 function criarOpcao(valor,texto){const opt=document.createElement('option');opt.value=valor;opt.textContent=texto||valor;return opt}
 function preencherUnidadeAdministrativa(paisSelect,localSelect,labelEl){const dados=unidadesAdministrativas[paisSelect.value];localSelect.innerHTML='';localSelect.appendChild(criarOpcao('','Selecione'));if(dados){if(labelEl)labelEl.textContent=dados.rotulo;dados.opcoes.forEach(item=>{if(Array.isArray(item))localSelect.appendChild(criarOpcao(item[0],item[1]+' ('+item[0]+')'));else localSelect.appendChild(criarOpcao(item,item));});localSelect.disabled=false;localSelect.value=dados.padrao||'';}else{if(labelEl)labelEl.textContent='Local';localSelect.value='';localSelect.disabled=true;}}
+
+function distanciaKm(lat1,lon1,lat2,lon2){const R=6371;const dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
+function distanciaEvento(e){const lat=Number(e.latitude),lon=Number(e.longitude);if(!usuarioCoords||!Number.isFinite(lat)||!Number.isFinite(lon))return null;return distanciaKm(usuarioCoords.lat,usuarioCoords.lon,lat,lon);}
+async function reverseGeocodeEventos(lat,lon){const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&accept-language=pt-BR');if(!r.ok)throw new Error('Não foi possível identificar o local.');return await r.json();}
+function ajustarFiltroPorLocalizacao(info){const a=info.address||{};const pais=(window.AUDESC_LOCAIS?.paises||[]).find(p=>String(p.codigo).toLowerCase()===String(a.country_code||'').toLowerCase())?.nome;if(pais&&paisFiltro.querySelector(`option[value="${CSS.escape(pais)}"]`)){paisFiltro.value=pais;preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);if(pais==='Brasil'){const uf=(a.state_code||a['ISO3166-2-lvl4']||'').split('-').pop().toUpperCase();if(uf)ufFiltro.value=uf;}}}
+
 function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function fmt(v){return v?new Date(v).toLocaleString('pt-BR'):''}
 function isLive(e){if(!e.data_evento||!e.duracao_horas)return false;const st=new Date(e.data_evento).getTime(),end=st+Number(e.duracao_horas)*3600000,now=Date.now();return now>=st&&now<=end}
@@ -79,10 +63,10 @@ function item(e){
  const li=document.createElement('li');
  li.id='evento-'+e.id;
  const title=e.titulo_publicado||e.titulo_original||'Evento sem título';
- li.innerHTML=`<a id="link-evento-${e.id}" href="${detailUrl(e)}" onclick="salvarEstado()">${esc(title)}</a><br><span>${esc(formatarDataComTimezone(e.data_evento,e.timezone))}</span> ${isLive(e)?'<span class="badge live-badge">AO VIVO</span>':''}`;
+ const d=distanciaEvento(e); li.innerHTML=`<a id="link-evento-${e.id}" href="${detailUrl(e)}" onclick="salvarEstado()">${esc(title)}</a><br><span>${esc(fmt(e.data_evento))}</span> ${isLive(e)?'<span class="badge live-badge">AO VIVO</span>':''}${e.local_evento?'<br><span>Local: '+esc(e.local_evento)+'</span>':''}${d!==null?'<br><span>Distância aproximada: '+d.toFixed(1).replace('.',',')+' km</span>':''}`;
  return li;
 }
-function filtered(){const q=document.getElementById('busca').value.toLowerCase().trim(),p=document.getElementById('paisFiltro').value,uf=document.getElementById('ufFiltro').value;return eventos.filter(e=>{const h=[e.titulo_publicado,e.titulo_original,e.descricao_publicada,e.descricao_original,e.pais,e.uf].join(' ').toLowerCase();return(!q||h.includes(q))&&(!p||e.pais===p)&&(!uf||e.uf===uf)})}
+function filtered(){const q=document.getElementById('busca').value.toLowerCase().trim(),p=document.getElementById('paisFiltro').value,uf=document.getElementById('ufFiltro').value;let lista=eventos.filter(e=>{const h=[e.titulo_publicado,e.titulo_original,e.descricao_publicada,e.descricao_original,e.pais,e.uf,e.local_evento].join(' ').toLowerCase();return(!q||h.includes(q))&&(!p||e.pais===p)&&(!uf||e.uf===uf)});if(usuarioCoords){lista=lista.slice().sort((a,b)=>(distanciaEvento(a)??999999)-(distanciaEvento(b)??999999));}return lista}
 function render(){const fs=filtered(),live=fs.filter(isLive).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0)),prox=fs.filter(e=>!isLive(e)&&!isPast(e)).sort((a,b)=>new Date(a.data_evento||'2999-01-01')-new Date(b.data_evento||'2999-01-01')),ant=fs.filter(isPast).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0));document.getElementById('summary').textContent=`Total de eventos: ${fs.length}. Futuros: ${prox.length}. Ao vivo: ${live.length}.`;[['listaLive',live],['listaProximos',prox],['listaAnteriores',ant]].forEach(([id,arr])=>{const el=document.getElementById(id);el.innerHTML='';if(!arr.length){el.innerHTML='<li>Nenhum evento nesta seção.</li>';return}arr.forEach(e=>el.appendChild(item(e)))})}
 async function load(){try{const r=await fetch(API_URL+'/public/eventos'),j=await r.json();if(!r.ok)throw new Error(j.error);eventos=j.eventos||[];render()}catch(e){document.getElementById('summary').textContent='Erro: '+e.message}}
 document.getElementById('busca').addEventListener('input',()=>{salvarEstado();render()});
@@ -90,6 +74,7 @@ const paisFiltro=document.getElementById('paisFiltro'),ufFiltro=document.getElem
 function atualizarFiltroLocal(){preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);salvarEstado();render()}
 paisFiltro.addEventListener('change',atualizarFiltroLocal);
 ufFiltro.addEventListener('change',()=>{salvarEstado();render()});
+document.getElementById('usarLocalizacaoFiltro')?.addEventListener('click',()=>{const st=document.getElementById('geoStatus');if(!navigator.geolocation){st.textContent='Este navegador não oferece localização por GPS.';return;}st.textContent='Solicitando permissão de localização...';navigator.geolocation.getCurrentPosition(async pos=>{usuarioCoords={lat:pos.coords.latitude,lon:pos.coords.longitude};try{const info=await reverseGeocodeEventos(usuarioCoords.lat,usuarioCoords.lon);ajustarFiltroPorLocalizacao(info);salvarEstado();}catch(e){}st.textContent='Localização autorizada. Os eventos com coordenadas aparecem ordenados por proximidade.';render();},err=>{st.textContent='Não foi possível obter localização: '+(err.message||'permissão negada.');},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});});
 
 function aplicarEstadoInicial(){
  const params=new URLSearchParams(location.search);
