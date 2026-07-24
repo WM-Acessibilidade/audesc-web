@@ -149,45 +149,12 @@ function showEmailStep(msg,cls){document.getElementById('emailStep').classList.r
 function showForm(email){document.getElementById('emailStep').classList.add('hidden');document.getElementById('formStep').classList.remove('hidden');document.getElementById('verifiedEmailInfo').textContent='E-mail confirmado: '+(email||'')+'. Por questão de segurança, clique em sair ou feche o navegador quando terminar.'}
 function sessionAgeMinutes(session){const raw=session?.user?.last_sign_in_at||session?.created_at||session?.expires_at;if(!raw)return 999999;const base=new Date(raw).getTime();if(!base||Number.isNaN(base))return 999999;return (Date.now()-base)/60000}
 
-function limparParametrosDeAutenticacao(){
- const url=new URL(location.href);
- ['code','token_hash','type','error','error_code','error_description'].forEach(chave=>url.searchParams.delete(chave));
- url.hash='';
- history.replaceState(null,'',url.pathname+(url.searchParams.toString()?'?'+url.searchParams.toString():''));
-}
-
-async function obterSessaoDoRetorno(){
- const url=new URL(location.href);
- const code=url.searchParams.get('code');
- if(code){
-  const {data,error}=await sb.auth.exchangeCodeForSession(code);
-  if(error)throw error;
-  if(data?.session)return data.session;
- }
- const hash=new URLSearchParams(location.hash.replace(/^#/,''));
- const token=hash.get('access_token'),refresh=hash.get('refresh_token');
- if(token&&refresh){
-  const {data,error}=await sb.auth.setSession({access_token:token,refresh_token:refresh});
-  if(error)throw error;
-  if(data?.session)return data.session;
- }
- const {data,error}=await sb.auth.getSession();
- if(error)throw error;
- return data?.session||null;
-}
-
 async function checkSession(){
- const temRetornoAuth=location.search.includes('code=')||location.hash.includes('access_token=');
- if(temRetornoAuth)showEmailStep('Validando o link recebido...','');
- try{
-  const session=await obterSessaoDoRetorno();
-  if(!session){showEmailStep('Informe o e-mail para receber o link de validação.','');return}
-  accessToken=session.access_token;
-  limparParametrosDeAutenticacao();
-  showForm(session.user.email);
- }catch(e){
-  showEmailStep('Não foi possível validar este link. Solicite um novo link de validação.','error');
- }
+ const {data}=await sb.auth.getSession();
+ const session=data?.session;
+ if(!session){showEmailStep('Informe o e-mail para receber o link de validação.','');return}
+ accessToken=session.access_token;
+ showForm(session.user.email);
 }
 
 document.getElementById('logoutBtn').onclick=async()=>{await sb.auth.signOut();accessToken='';document.getElementById('logoutBtn').classList.add('hidden');showEmailStep('Sessão encerrada. Informe o e-mail que deseja validar.','')};
@@ -197,7 +164,7 @@ document.getElementById('sendLinkBtn').onclick=async()=>{
  if(!email||!email.includes('@')){setStatus('emailStatus','Informe um e-mail válido.','error');return}
  document.getElementById('sendLinkBtn').disabled=true;setStatus('emailStatus','Enviando link de validação...','');
  try{
-  const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:new URL(location.pathname,location.origin).href}});
+  const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:location.origin+location.pathname}});
   if(error)throw error;
   setStatus('emailStatus','Link de validação enviado. Abra o e-mail e clique no link para continuar. Caso o e-mail não chegue em um prazo de três minutos, verifique sua caixa de Spam antes de realizar uma nova solicitação.','success');
  }catch(e){setStatus('emailStatus','Erro ao enviar link: '+(e.message||'falha desconhecida.'),'error')}
@@ -650,6 +617,14 @@ function aplicarCamposFormulario(){
   if(!Object.prototype.hasOwnProperty.call(cfg,id)) return;
   setCampoVisivel(id, cfg[id].visivel !== false, !!cfg[id].obrigatorio);
  });
+ const categoriaCfg = cfg.categoria_evento || {visivel:true,obrigatorio:true};
+ const categoriaVisivel = categoriaCfg.visivel !== false;
+ const categoriaBox = document.getElementById('categoriaEventoBox');
+ if(categoriaBox) categoriaBox.classList.toggle('hidden', !categoriaVisivel);
+ document.querySelectorAll('input[name="categoria_evento"]').forEach(radio=>{
+  radio.disabled = !categoriaVisivel;
+  radio.required = categoriaVisivel && !!categoriaCfg.obrigatorio;
+ });
 }
 function aplicarConfiguracaoFormulario(){
  atualizarOpcoesServico();
@@ -665,10 +640,6 @@ function atualizarOpcoesServico(){
  servicosSolicitadosOpcoes.querySelectorAll('input').forEach(el=>el.addEventListener('change',()=>{const outros=[...servicosSolicitadosOpcoes.querySelectorAll('input')];if(el.checked)outros.forEach(outro=>{if(outro!==el&&window.AUDESC_CONFIG?.servicos.saoIncompativeis(el.value,outro.value))outro.checked=false;});ajustarVisibilidade();}));
 }
 
- const categoriaCfg=campos.categoria_evento||{visivel:true,obrigatorio:true};
- const categoriaBox=document.getElementById('categoriaEventoBox');
- if(categoriaBox) categoriaBox.classList.toggle('hidden',categoriaCfg.visivel===false);
- document.querySelectorAll('input[name="categoria_evento"]').forEach(r=>{r.disabled=categoriaCfg.visivel===false;r.required=categoriaCfg.visivel!==false&&!!categoriaCfg.obrigatorio;});
 const tipoEvento = document.getElementById('tipo_evento');
 const visibilidadeBox = document.getElementById('visibilidadeBox');
 const acessoOuvintesBox = document.getElementById('acessoOuvintesBox');
