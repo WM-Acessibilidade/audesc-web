@@ -40,7 +40,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <input id="titulo_original" name="titulo_original" type="text" required maxlength="150" minlength="10" aria-describedby="titulo_original_contador"><div id="titulo_original_contador" class="small" role="status" aria-live="polite">0 de 150 caracteres utilizados.</div>
 <label for="descricao_original">Descrição do evento</label>
 <textarea id="descricao_original" name="descricao_original" maxlength="1500" minlength="100" aria-describedby="descricao_original_contador"></textarea><div id="descricao_original_contador" class="small" role="status" aria-live="polite">0 de 1500 caracteres utilizados.</div>
-<fieldset id="categoriaEventoBox"><legend>Categoria do evento</legend><div id="categoriaEventoOpcoes"></div></fieldset>
+<div id="categoriaEventoBox"><label for="categoria_evento">Categoria do evento</label><select id="categoria_evento" name="categoria_evento"></select></div>
 
 <div class="grid">
 <fieldset id="servicosSolicitadosBox"><legend>Serviços de interesse</legend><p class="small">Escolha um ou mais serviços. Selecione o seu país e a sua unidade administrativa para conhecer os serviços disponibilizados.</p><div id="servicosSolicitadosOpcoes"></div></fieldset>
@@ -465,7 +465,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  if(!session){accessToken='';await sb.auth.signOut();showEmailStep('Sessão não encontrada. Confirme novamente seu e-mail antes de enviar o evento.','error');return}
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
- const categoriaCfg=camposConfigFormulario().categoria_evento||{visivel:true,obrigatorio:true}; if(categoriaCfg.visivel!==false&&categoriaCfg.obrigatorio&&!form.querySelector('input[name="categoria_evento"]:checked')){form.querySelector('input[name="categoria_evento"]')?.focus();throw new Error('Selecione a categoria do evento.');}
+ const categoriaCfg=camposConfigFormulario().categoria_evento||{visivel:true,obrigatorio:true}; const categoriaSelect=form.querySelector('#categoria_evento'); if(categoriaCfg.visivel!==false&&categoriaCfg.obrigatorio&&!categoriaSelect?.value){categoriaSelect?.focus();throw new Error('Selecione a categoria do evento.');}
  const data=Object.fromEntries(new FormData(form).entries());
  data.servicos_solicitados=servicosSelecionadosFormulario();
  data.tipo_servico=window.AUDESC_CONFIG?.servicos.getPrincipalLegado(data.servicos_solicitados)||'audesc_transmissao';
@@ -514,7 +514,7 @@ function aplicarRegrasServicoNoPayload(data){
 }
 
 let FORMULARIO_CONFIG = null;
-function renderizarCategoriasCadastro(selecionada=''){const box=document.getElementById('categoriaEventoOpcoes');if(box)box.innerHTML=window.AUDESC_CATEGORIAS_EVENTO?.radios('categoria_evento',selecionada,false)||'';}
+function renderizarCategoriasCadastro(selecionada=''){const select=document.getElementById('categoria_evento');if(!select)return;const lista=window.AUDESC_CATEGORIAS_EVENTO?.lista||[];select.innerHTML='<option value="">Selecione uma categoria</option>'+lista.map(c=>`<option value="${c.codigo}" ${c.codigo===selecionada?'selected':''}>${c.nome}</option>`).join('');}
 renderizarCategoriasCadastro();
 const CAMPOS_FORMULARIO = window.AUDESC_CONFIG?.catalogo.getCodigosConfiguraveis() || ['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
 async function carregarConfiguracaoFormulario(){
@@ -621,10 +621,11 @@ function aplicarCamposFormulario(){
  const categoriaVisivel = categoriaCfg.visivel !== false;
  const categoriaBox = document.getElementById('categoriaEventoBox');
  if(categoriaBox) categoriaBox.classList.toggle('hidden', !categoriaVisivel);
- document.querySelectorAll('input[name="categoria_evento"]').forEach(radio=>{
-  radio.disabled = !categoriaVisivel;
-  radio.required = categoriaVisivel && !!categoriaCfg.obrigatorio;
- });
+ const categoriaSelect = document.getElementById('categoria_evento');
+ if(categoriaSelect){
+  categoriaSelect.disabled = !categoriaVisivel;
+  categoriaSelect.required = categoriaVisivel && !!categoriaCfg.obrigatorio;
+ }
 }
 function aplicarConfiguracaoFormulario(){
  atualizarOpcoesServico();

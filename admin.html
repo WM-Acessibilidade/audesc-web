@@ -500,7 +500,7 @@ function renderEvent(ev){
     <label>Nome do evento</label>
     <input data-field="titulo_publicado" value="${attr(ev.titulo_publicado||ev.titulo_original||'')}">
     <label>Descrição do evento</label>
-    <textarea data-field="descricao_publicada">${escapeHtml(ev.descricao_publicada||ev.descricao_original||'')}</textarea><fieldset class="categoria-evento-admin-box"><legend>Categoria do evento</legend>${window.AUDESC_CATEGORIAS_EVENTO?.radios(`categoria_evento_${ev.id}`,ev.categoria_evento||'',false)||''}</fieldset>
+    <textarea data-field="descricao_publicada">${escapeHtml(ev.descricao_publicada||ev.descricao_original||'')}</textarea><div class="categoria-evento-admin-box"><label for="categoria_evento_${ev.id}">Categoria do evento</label><select id="categoria_evento_${ev.id}" data-field="categoria_evento"><option value="">Selecione uma categoria</option>${(window.AUDESC_CATEGORIAS_EVENTO?.lista||[]).map(c=>`<option value="${c.codigo}" ${c.codigo===(ev.categoria_evento||'')?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select></div>
     <div class="grid">
       <div><label>Status publicação</label><select data-field="status_publicacao">
         ${opt('pendente',ev.status_publicacao)}${opt('aprovado',ev.status_publicacao)}${opt('rejeitado',ev.status_publicacao)}${opt('removido',ev.status_publicacao)}
@@ -801,7 +801,7 @@ async function saveEvent(id,card){
     if(regra.comportamento === 'fixo') body[campo] = regra.valor ?? '';
     if(regra.comportamento === 'oculto_sem_valor') delete body[campo];
   });
-  body.categoria_evento=card.querySelector(`input[name="categoria_evento_${id}"]:checked`)?.value||null;
+  body.categoria_evento=card.querySelector('[data-field="categoria_evento"]')?.value||null;
   const regrasEstruturais=window.AUDESC_CONFIG?.servicos.getRegras(body.servicos_solicitados) || {};
   if(!regrasEstruturais.visibilidadeEditavel) body.tipo_evento=regrasEstruturais.visibilidadeFixa || 'publico';
   if(!regrasEstruturais.usaDuracao) delete body.duracao_horas;
