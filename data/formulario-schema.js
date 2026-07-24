@@ -2,6 +2,7 @@
   'use strict';
   const campos=[
     {codigo:'titulo_original',nome:'Nome do evento',grupo:'identificacao',tipo:'texto',configuravel:false,limites:{minimo:10,maximo:150}},
+    {codigo:'categoria_evento',nome:'Categoria do evento',grupo:'identificacao',tipo:'radio',configuravel:true,boxId:'categoriaEventoBox'},
     {codigo:'descricao_original',nome:'Descrição do evento',grupo:'identificacao',tipo:'textarea',configuravel:true,limites:{minimo:100,maximo:1500}},
     {codigo:'tipo_evento',nome:'Visibilidade pública ou restrita',grupo:'identificacao',tipo:'select',configuravel:true,regraPorServico:true,boxId:'tipoEventoBox'},
     {codigo:'divulgar_acesso_ouvintes',nome:'Permitir acesso de ouvintes pela página pública',grupo:'identificacao',tipo:'booleano',configuravel:true,regraPorServico:true,boxId:'acessoOuvintesBox'},

@@ -53,6 +53,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <input id="titulo_original" name="titulo_original" type="text" required maxlength="150" minlength="10" aria-describedby="titulo_original_contador"><div id="titulo_original_contador" class="small" role="status" aria-live="polite">0 de 150 caracteres utilizados.</div>
 <label for="descricao_original">Descrição do evento</label>
 <textarea id="descricao_original" name="descricao_original" maxlength="1500" minlength="100" aria-describedby="descricao_original_contador"></textarea><div id="descricao_original_contador" class="small" role="status" aria-live="polite">0 de 1500 caracteres utilizados.</div>
+<fieldset id="categoriaEventoBox"><legend>Categoria do evento</legend><div id="categoriaEventoOpcoes"></div></fieldset>
 
 <div class="grid">
 <fieldset id="servicosSolicitadosBox"><legend>Serviços de interesse</legend><p class="small">Escolha um ou mais serviços. Selecione o seu país e a sua unidade administrativa para conhecer os serviços disponibilizados.</p><div id="servicosSolicitadosOpcoes"></div></fieldset>
@@ -144,6 +145,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 
 <script src="data/paises-unidades.js"></script>
 <script src="data/servicos.js"></script>
+<script src="data/categorias-eventos.js"></script>
 <script src="data/formulario-schema.js"></script>
 <script src="data/regras-servicos.js"></script>
 <script src="data/config-registry.js"></script>
@@ -476,6 +478,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  if(!session){accessToken='';await sb.auth.signOut();showEmailStep('Sessão não encontrada. Confirme novamente seu e-mail antes de enviar o evento.','error');return}
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
+ const categoriaCfg=camposConfigFormulario().categoria_evento||{visivel:true,obrigatorio:true}; if(categoriaCfg.visivel!==false&&categoriaCfg.obrigatorio&&!form.querySelector('input[name="categoria_evento"]:checked')){form.querySelector('input[name="categoria_evento"]')?.focus();throw new Error('Selecione a categoria do evento.');}
  const data=Object.fromEntries(new FormData(form).entries());
  data.servicos_solicitados=servicosSelecionadosFormulario();
  data.tipo_servico=window.AUDESC_CONFIG?.servicos.getPrincipalLegado(data.servicos_solicitados)||'audesc_transmissao';
@@ -524,6 +527,8 @@ function aplicarRegrasServicoNoPayload(data){
 }
 
 let FORMULARIO_CONFIG = null;
+function renderizarCategoriasCadastro(selecionada=''){const box=document.getElementById('categoriaEventoOpcoes');if(box)box.innerHTML=window.AUDESC_CATEGORIAS_EVENTO?.radios('categoria_evento',selecionada,false)||'';}
+renderizarCategoriasCadastro();
 const CAMPOS_FORMULARIO = window.AUDESC_CONFIG?.catalogo.getCodigosConfiguraveis() || ['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
 async function carregarConfiguracaoFormulario(){
  try{
@@ -609,7 +614,7 @@ function setCampoVisivel(id, visivel, obrigatorio){
  if(comportamento === 'fixo' || comportamento === 'oculto_sem_valor') visivel = false;
  const el = document.getElementById(id);
  const label = document.querySelector('label[for="'+id+'"]');
- const boxMap = {tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox',local_evento:'localEventoBox',latitude:'latitudeBox',longitude:'longitudeBox'};
+ const boxMap = {categoria_evento:'categoriaEventoBox',tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox',local_evento:'localEventoBox',latitude:'latitudeBox',longitude:'longitudeBox'};
  const box = boxMap[id] ? document.getElementById(boxMap[id]) : null;
  [el,label,box].filter(Boolean).forEach(x=>x.classList.toggle('hidden', !visivel));
  if(el){
@@ -639,6 +644,11 @@ function atualizarOpcoesServico(){
  servicosSolicitadosOpcoes.innerHTML=lista.map(s=>`<label class="servico-check"><input type="checkbox" name="servicos_solicitados" value="${s.codigo}" ${atuais.has(s.codigo)||(!atuais.size&&s.codigo==='audesc_transmissao')?'checked':''}> ${s.nome}</label>`).join('');
  servicosSolicitadosOpcoes.querySelectorAll('input').forEach(el=>el.addEventListener('change',()=>{const outros=[...servicosSolicitadosOpcoes.querySelectorAll('input')];if(el.checked)outros.forEach(outro=>{if(outro!==el&&window.AUDESC_CONFIG?.servicos.saoIncompativeis(el.value,outro.value))outro.checked=false;});ajustarVisibilidade();}));
 }
+
+ const categoriaCfg=campos.categoria_evento||{visivel:true,obrigatorio:true};
+ const categoriaBox=document.getElementById('categoriaEventoBox');
+ if(categoriaBox) categoriaBox.classList.toggle('hidden',categoriaCfg.visivel===false);
+ document.querySelectorAll('input[name="categoria_evento"]').forEach(r=>{r.disabled=categoriaCfg.visivel===false;r.required=categoriaCfg.visivel!==false&&!!categoriaCfg.obrigatorio;});
 const tipoEvento = document.getElementById('tipo_evento');
 const visibilidadeBox = document.getElementById('visibilidadeBox');
 const acessoOuvintesBox = document.getElementById('acessoOuvintesBox');

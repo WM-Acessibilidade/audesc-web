@@ -14,15 +14,16 @@
 <p><a class="button-link" href="cadastrar-evento.html">Torne seu evento acessível e o divulgue aqui</a></p>
 <p><a class="button-link" href="notificacoes.html">Cadastrar e-mail para receber notificações de novos eventos acessíveis</a></p>
 </section>
-<section class="panel"><h2>Buscar eventos</h2><div class="grid"><div><label for="busca">Campo de busca</label><input id="busca" type="search" placeholder="Digite nome, descrição ou local"></div><div><label for="paisFiltro">País</label><select id="paisFiltro"><option value="Brasil" selected>Brasil</option><option value="Angola">Angola</option><option value="Cabo Verde">Cabo Verde</option><option value="Guiné-Bissau">Guiné-Bissau</option><option value="Guiné Equatorial">Guiné Equatorial</option><option value="Moçambique">Moçambique</option><option value="Portugal">Portugal</option><option value="São Tomé e Príncipe">São Tomé e Príncipe</option><option value="Timor-Leste">Timor-Leste</option><option value="Outros">Outros</option></select></div><div><label for="ufFiltro" id="ufFiltroLabel">Unidade federativa</label><select id="ufFiltro"><option value="">Selecione</option></select></div></div><p><button type="button" id="usarLocalizacaoFiltro">Usar minha localização para encontrar eventos próximos</button></p><div id="geoStatus" class="status">Localização não utilizada.</div><div id="summary" class="status">Carregando eventos.</div></section>
+<section class="panel"><h2>Buscar eventos</h2><div class="grid"><div><label for="busca">Campo de busca</label><input id="busca" type="search" placeholder="Digite nome, descrição ou local"></div><div><label for="paisFiltro">País</label><select id="paisFiltro"><option value="Brasil" selected>Brasil</option><option value="Angola">Angola</option><option value="Cabo Verde">Cabo Verde</option><option value="Guiné-Bissau">Guiné-Bissau</option><option value="Guiné Equatorial">Guiné Equatorial</option><option value="Moçambique">Moçambique</option><option value="Portugal">Portugal</option><option value="São Tomé e Príncipe">São Tomé e Príncipe</option><option value="Timor-Leste">Timor-Leste</option><option value="Outros">Outros</option></select></div><div><label for="ufFiltro" id="ufFiltroLabel">Unidade federativa</label><select id="ufFiltro"><option value="">Selecione</option></select></div></div><p><button type="button" id="usarLocalizacaoFiltro">Usar minha localização para encontrar eventos próximos</button></p><div id="geoStatus" class="status">Localização não utilizada.</div><fieldset id="categoriasFiltroBox"><legend>Categorias</legend><p class="small">Marque uma ou mais categorias. Nenhuma marcada exibe todas.</p><div id="categoriasFiltro"></div><button type="button" id="limparCategorias">Limpar filtros de categoria</button></fieldset><div id="summary" class="status">Carregando eventos.</div></section>
 <section class="panel"><h2>Ao vivo agora</h2><ul id="listaLive" class="event-list"></ul></section>
 <section class="panel"><h2>Próximos eventos</h2><ul id="listaProximos" class="event-list"></ul></section>
 <section class="panel"><h2>Eventos anteriores</h2><ul id="listaAnteriores" class="event-list"></ul></section>
 <p><a href="meus-eventos.html">Acessar Meus Eventos</a></p>
 </main>
 <script src="data/paises-unidades.js"></script>
+<script src="data/categorias-eventos.js"></script>
 <script>
-const API_URL='https://audesc-events-api.onrender.com';let eventos=[];let usuarioCoords=null;
+const API_URL='https://audesc-events-api.onrender.com';let eventos=[];let usuarioCoords=null;let formularioConfig=null;let categoriasIniciais=[];
 const unidadesAdministrativas=window.AUDESC_UNIDADES_ADMINISTRATIVAS||{};
 window.AUDESC_LOCAIS?.preencherSelectPaises(document.getElementById('paisFiltro'), document.getElementById('paisFiltro')?.value || 'Brasil', {incluirEspeciais:true});
 function criarOpcao(valor,texto){const opt=document.createElement('option');opt.value=valor;opt.textContent=texto||valor;return opt}
@@ -41,7 +42,8 @@ function estadoAtual(){
  return {
   pais:document.getElementById('paisFiltro').value||'',
   uf:document.getElementById('ufFiltro').value||'',
-  busca:document.getElementById('busca').value||''
+  busca:document.getElementById('busca').value||'',
+  categorias:document.querySelectorAll('input[name="categoria_filtro"]').length?[...document.querySelectorAll('input[name="categoria_filtro"]:checked')].map(i=>i.value):categoriasIniciais
  };
 }
 function salvarEstado(){
@@ -56,6 +58,7 @@ function detailUrl(e){
  if(estado.pais)params.set('pais',estado.pais);
  if(estado.uf)params.set('uf',estado.uf);
  if(estado.busca)params.set('busca',estado.busca);
+ if(estado.categorias?.length)params.set('categorias',estado.categorias.join(','));
  params.set('retorno',e.id);
  return 'evento.html?'+params.toString();
 }
@@ -63,17 +66,24 @@ function item(e){
  const li=document.createElement('li');
  li.id='evento-'+e.id;
  const title=e.titulo_publicado||e.titulo_original||'Evento sem título';
- const d=distanciaEvento(e); li.innerHTML=`<a id="link-evento-${e.id}" href="${detailUrl(e)}" onclick="salvarEstado()">${esc(title)}</a><br><span>${esc(fmt(e.data_evento))}</span> ${isLive(e)?'<span class="badge live-badge">AO VIVO</span>':''}${e.local_evento?'<br><span>Local: '+esc(e.local_evento)+'</span>':''}${d!==null?'<br><span>Distância aproximada: '+d.toFixed(1).replace('.',',')+' km</span>':''}`;
+ const d=distanciaEvento(e); li.innerHTML=`<a id="link-evento-${e.id}" href="${detailUrl(e)}" onclick="salvarEstado()">${esc(title)}</a><br><span>${esc(fmt(e.data_evento))}</span> ${isLive(e)?'<span class="badge live-badge">AO VIVO</span>':''}${e.categoria_evento?'<br><span>Categoria: '+esc(window.AUDESC_CATEGORIAS_EVENTO?.nome(e.categoria_evento)||e.categoria_evento)+'</span>':''}${e.local_evento?'<br><span>Local: '+esc(e.local_evento)+'</span>':''}${d!==null?'<br><span>Distância aproximada: '+d.toFixed(1).replace('.',',')+' km</span>':''}`;
  return li;
 }
-function filtered(){const q=document.getElementById('busca').value.toLowerCase().trim(),p=document.getElementById('paisFiltro').value,uf=document.getElementById('ufFiltro').value;let lista=eventos.filter(e=>{const h=[e.titulo_publicado,e.titulo_original,e.descricao_publicada,e.descricao_original,e.pais,e.uf,e.local_evento].join(' ').toLowerCase();return(!q||h.includes(q))&&(!p||e.pais===p)&&(!uf||e.uf===uf)});if(usuarioCoords){lista=lista.slice().sort((a,b)=>(distanciaEvento(a)??999999)-(distanciaEvento(b)??999999));}return lista}
+function filtered(){const q=document.getElementById('busca').value.toLowerCase().trim(),p=document.getElementById('paisFiltro').value,uf=document.getElementById('ufFiltro').value,cats=new Set([...document.querySelectorAll('input[name="categoria_filtro"]:checked')].map(i=>i.value));let lista=eventos.filter(e=>{const h=[e.titulo_publicado,e.titulo_original,e.descricao_publicada,e.descricao_original,e.pais,e.uf,e.local_evento].join(' ').toLowerCase();return(!q||h.includes(q))&&(!p||e.pais===p)&&(!uf||e.uf===uf)&&(!cats.size||cats.has(e.categoria_evento))});if(usuarioCoords){lista=lista.slice().sort((a,b)=>(distanciaEvento(a)??999999)-(distanciaEvento(b)??999999));}return lista}
 function render(){const fs=filtered(),live=fs.filter(isLive).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0)),prox=fs.filter(e=>!isLive(e)&&!isPast(e)).sort((a,b)=>new Date(a.data_evento||'2999-01-01')-new Date(b.data_evento||'2999-01-01')),ant=fs.filter(isPast).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0));document.getElementById('summary').textContent=`Total de eventos: ${fs.length}. Futuros: ${prox.length}. Ao vivo: ${live.length}.`;[['listaLive',live],['listaProximos',prox],['listaAnteriores',ant]].forEach(([id,arr])=>{const el=document.getElementById(id);el.innerHTML='';if(!arr.length){el.innerHTML='<li>Nenhum evento nesta seção.</li>';return}arr.forEach(e=>el.appendChild(item(e)))})}
-async function load(){try{const r=await fetch(API_URL+'/public/eventos'),j=await r.json();if(!r.ok)throw new Error(j.error);eventos=j.eventos||[];render()}catch(e){document.getElementById('summary').textContent='Erro: '+e.message}}
+function codigoPaisFiltro(){return window.AUDESC_LOCAIS?.obterCodigoPais?.(paisFiltro.value)||window.AUDESC_LOCAIS?.paises?.find(p=>p.nome===paisFiltro.value)?.codigo||'';}
+function categoriaAtivaNoLocal(){const padrao=formularioConfig?.padrao?.campos?.categoria_evento||{visivel:true};const pc=String(codigoPaisFiltro()||'').toUpperCase(),uc=String(ufFiltro.value||'').toUpperCase();const regra=(formularioConfig?.regras||[]).find(r=>String(r.pais_codigo||'').toUpperCase()===pc&&String(r.unidade_codigo||'').toUpperCase()===uc);return (regra?.campos?.categoria_evento||padrao).visivel!==false;}
+function renderCategoriasFiltro(selecionadas=[]){categoriasIniciais=[...selecionadas];const box=document.getElementById('categoriasFiltroBox'),alvo=document.getElementById('categoriasFiltro');const ativa=categoriaAtivaNoLocal();box.hidden=!ativa;if(!ativa){alvo.innerHTML='';return;}alvo.innerHTML=window.AUDESC_CATEGORIAS_EVENTO?.checks('categoria_filtro',selecionadas)||'';alvo.querySelectorAll('input').forEach(i=>i.addEventListener('change',()=>{salvarEstado();atualizarUrlFiltros();render();}));}
+function atualizarUrlFiltros(){const e=estadoAtual(),p=new URLSearchParams(location.search);['pais','uf','busca','categorias'].forEach(k=>p.delete(k));if(e.pais)p.set('pais',e.pais);if(e.uf)p.set('uf',e.uf);if(e.busca)p.set('busca',e.busca);if(e.categorias.length)p.set('categorias',e.categorias.join(','));history.replaceState(null,'',location.pathname+(p.toString()?'?'+p.toString():''));}
+async function load(){try{const [re,rc]=await Promise.all([fetch(API_URL+'/public/eventos'),fetch(API_URL+'/formulario-config')]);const j=await re.json(),cj=await rc.json().catch(()=>({}));if(!re.ok)throw new Error(j.error);eventos=j.eventos||[];formularioConfig=cj.config||null;let estadoSalvo={};try{estadoSalvo=JSON.parse(localStorage.getItem('audesc_eventos_estado')||'{}')}catch(e){}renderCategoriasFiltro(estadoSalvo.categorias||[]);render()}catch(e){document.getElementById('summary').textContent='Erro: '+e.message}}
+/*const r=await fetch(API_URL+'/public/eventos'),j=await r.json();if(!r.ok)throw new Error(j.error);eventos=j.eventos||[];render()}catch(e){document.getElementById('summary').textContent='Erro: '+e.message}}
+*/
 document.getElementById('busca').addEventListener('input',()=>{salvarEstado();render()});
 const paisFiltro=document.getElementById('paisFiltro'),ufFiltro=document.getElementById('ufFiltro'),ufFiltroLabel=document.getElementById('ufFiltroLabel');
-function atualizarFiltroLocal(){preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);salvarEstado();render()}
+function atualizarFiltroLocal(){preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);renderCategoriasFiltro([]);salvarEstado();atualizarUrlFiltros();render()}
 paisFiltro.addEventListener('change',atualizarFiltroLocal);
-ufFiltro.addEventListener('change',()=>{salvarEstado();render()});
+ufFiltro.addEventListener('change',()=>{renderCategoriasFiltro([]);salvarEstado();atualizarUrlFiltros();render()});
+document.getElementById('limparCategorias')?.addEventListener('click',()=>{document.querySelectorAll('input[name="categoria_filtro"]:checked').forEach(i=>i.checked=false);salvarEstado();atualizarUrlFiltros();render();});
 document.getElementById('usarLocalizacaoFiltro')?.addEventListener('click',()=>{const st=document.getElementById('geoStatus');if(!navigator.geolocation){st.textContent='Este navegador não oferece localização por GPS.';return;}st.textContent='Solicitando permissão de localização...';navigator.geolocation.getCurrentPosition(async pos=>{usuarioCoords={lat:pos.coords.latitude,lon:pos.coords.longitude};try{const info=await reverseGeocodeEventos(usuarioCoords.lat,usuarioCoords.lon);ajustarFiltroPorLocalizacao(info);salvarEstado();}catch(e){}st.textContent='Localização autorizada. Os eventos com coordenadas aparecem ordenados por proximidade.';render();},err=>{st.textContent='Não foi possível obter localização: '+(err.message||'permissão negada.');},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});});
 
 function aplicarEstadoInicial(){
@@ -83,6 +93,7 @@ function aplicarEstadoInicial(){
  const pais=params.get('pais')||estado.pais||'Brasil';
  const uf=params.get('uf')||estado.uf||'DF';
  const busca=params.get('busca')||estado.busca||'';
+ const categorias=(params.get('categorias')||'').split(',').filter(Boolean);estado.categorias=categorias.length?categorias:(estado.categorias||[]);categoriasIniciais=[...estado.categorias];
  if(paisFiltro.querySelector(`option[value="${CSS.escape(pais)}"]`)) paisFiltro.value=pais;
  preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);
  if(uf) ufFiltro.value=uf;
