@@ -94,6 +94,7 @@ pre{white-space:pre-wrap}
 <script src="data/paises-unidades.js"></script>
 <script src="data/servicos.js"></script>
 <script src="data/categorias-eventos.js"></script>
+<script src="data/classificacoes-etarias.js"></script>
 <script src="data/formulario-schema.js"></script>
 <script src="data/regras-servicos.js"></script>
 <script src="data/config-registry.js"></script>
@@ -480,7 +481,7 @@ function renderEvent(ev){
     <p class="small">ID: ${ev.id}<br>${ageInfo}${olderThan2Days && ev.status_publicacao==='pendente' ? '<br><strong>Atenção: pendente há mais de 2 dias.</strong>' : ''}</p>
     <div class="grid">
       <div><strong>Serviço:</strong> ${nomeServicoAdmin(ev.tipo_servico, ev.servicos_solicitados)}</div>
-      <div><strong>Visibilidade:</strong> ${nomeVisibilidadeAdmin(ev.tipo_evento)}</div><div><strong>Categoria:</strong> ${escapeHtml(window.AUDESC_CATEGORIAS_EVENTO?.nome(ev.categoria_evento)||'Não informada')}</div>
+      <div><strong>Visibilidade:</strong> ${nomeVisibilidadeAdmin(ev.tipo_evento)}</div><div><strong>Categoria:</strong> ${escapeHtml(window.AUDESC_CATEGORIAS_EVENTO?.nome(ev.categoria_evento)||'Não informada')}</div><div><strong>Classificação etária:</strong> ${escapeHtml(window.AUDESC_CLASSIFICACOES_ETARIAS?.nome(ev.classificacao_etaria)||'Não informada')}</div>
       <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
       <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>${servicoDependeAgenda(ev.servicos_solicitados?.length ? ev.servicos_solicitados : ev.tipo_servico) ? `<div><strong>Agenda:</strong> ${ev.status_agenda || 'pendente'}</div><div><strong>Valor final de agenda:</strong> ${ev.valor_final_agenda != null ? formatarMoedaAdmin(ev.valor_final_agenda, moedaEventoAdmin(ev)) : 'a definir'}</div>` : ''}
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
@@ -500,7 +501,7 @@ function renderEvent(ev){
     <label>Nome do evento</label>
     <input data-field="titulo_publicado" value="${attr(ev.titulo_publicado||ev.titulo_original||'')}">
     <label>Descrição do evento</label>
-    <textarea data-field="descricao_publicada">${escapeHtml(ev.descricao_publicada||ev.descricao_original||'')}</textarea><div class="categoria-evento-admin-box"><label for="categoria_evento_${ev.id}">Categoria do evento</label><select id="categoria_evento_${ev.id}" data-field="categoria_evento"><option value="">Selecione uma categoria</option>${(window.AUDESC_CATEGORIAS_EVENTO?.lista||[]).map(c=>`<option value="${c.codigo}" ${c.codigo===(ev.categoria_evento||'')?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select></div>
+    <textarea data-field="descricao_publicada">${escapeHtml(ev.descricao_publicada||ev.descricao_original||'')}</textarea><div class="categoria-evento-admin-box"><label for="categoria_evento_${ev.id}">Categoria do evento</label><select id="categoria_evento_${ev.id}" data-field="categoria_evento"><option value="">Selecione uma categoria</option>${(window.AUDESC_CATEGORIAS_EVENTO?.lista||[]).map(c=>`<option value="${c.codigo}" ${c.codigo===(ev.categoria_evento||'')?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select></div><div class="classificacao-etaria-admin-box"><label for="classificacao_etaria_${ev.id}">Classificação etária</label><select id="classificacao_etaria_${ev.id}" data-field="classificacao_etaria"><option value="">Selecione uma classificação etária</option>${(window.AUDESC_CLASSIFICACOES_ETARIAS?.lista||[]).map(c=>`<option value="${c.codigo}" ${String(c.codigo)===String(ev.classificacao_etaria||'')?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select></div>
     <div class="grid">
       <div><label>Status publicação</label><select data-field="status_publicacao">
         ${opt('pendente',ev.status_publicacao)}${opt('aprovado',ev.status_publicacao)}${opt('rejeitado',ev.status_publicacao)}${opt('removido',ev.status_publicacao)}
@@ -802,6 +803,7 @@ async function saveEvent(id,card){
     if(regra.comportamento === 'oculto_sem_valor') delete body[campo];
   });
   body.categoria_evento=card.querySelector('[data-field="categoria_evento"]')?.value||null;
+  body.classificacao_etaria=card.querySelector('[data-field="classificacao_etaria"]')?.value||null;
   const regrasEstruturais=window.AUDESC_CONFIG?.servicos.getRegras(body.servicos_solicitados) || {};
   if(!regrasEstruturais.visibilidadeEditavel) body.tipo_evento=regrasEstruturais.visibilidadeFixa || 'publico';
   if(!regrasEstruturais.usaDuracao) delete body.duracao_horas;
