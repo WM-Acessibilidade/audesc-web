@@ -154,12 +154,29 @@ function showForm(email){document.getElementById('emailStep').classList.add('hid
 function sessionAgeMinutes(session){const raw=session?.user?.last_sign_in_at||session?.created_at||session?.expires_at;if(!raw)return 999999;const base=new Date(raw).getTime();if(!base||Number.isNaN(base))return 999999;return (Date.now()-base)/60000}
 
 async function checkSession(){
- const {data}=await sb.auth.getSession();
- const session=data?.session;
- if(!session){showEmailStep('Informe o e-mail para receber o link de validação.','');return}
- accessToken=session.access_token;
- showForm(session.user.email);
+ try{
+  const {data,error}=await sb.auth.getSession();
+  if(error) throw error;
+  const session=data?.session;
+  if(!session){showEmailStep('Informe o e-mail para receber o link de validação.','');return false}
+  accessToken=session.access_token;
+  showForm(session.user.email);
+  return true;
+ }catch(e){
+  showEmailStep('Não foi possível confirmar a sessão. Abra novamente o link de validação ou solicite um novo link.','error');
+  return false;
+ }
 }
+
+// A autenticação não pode depender da inicialização dos demais campos do formulário.
+// Esta verificação ocorre antes das rotinas de modalidade, localização e divulgação.
+checkSession();
+sb.auth.onAuthStateChange((_event,session)=>{
+ if(session){
+  accessToken=session.access_token;
+  showForm(session.user?.email||'');
+ }
+});
 
 document.getElementById('logoutBtn').onclick=async()=>{await sb.auth.signOut();accessToken='';document.getElementById('logoutBtn').classList.add('hidden');showEmailStep('Sessão encerrada. Informe o e-mail que deseja validar.','')};
 
@@ -737,8 +754,6 @@ const logoutBtnForm = document.getElementById('logoutBtnForm');
 if(logoutBtnForm){
  logoutBtnForm.addEventListener('click', logoutAndResetEmail);
 }
-
-checkSession();
 
 async function logoutAndResetEmail(){
  try{
