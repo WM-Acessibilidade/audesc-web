@@ -69,7 +69,23 @@ function item(e){
  const d=distanciaEvento(e); li.innerHTML=`<a id="link-evento-${e.id}" href="${detailUrl(e)}" onclick="salvarEstado()">${esc(title)}</a><br><span>${esc(fmt(e.data_evento))}</span> ${isLive(e)?'<span class="badge live-badge">AO VIVO</span>':''}${e.categoria_evento?'<br><span class="categoria-evento">'+esc(window.AUDESC_CATEGORIAS_EVENTO?.nome(e.categoria_evento)||e.categoria_evento)+'</span>':''}${e.local_evento?'<br><span>Local: '+esc(e.local_evento)+'</span>':''}${d!==null?'<br><span>Distância aproximada: '+d.toFixed(1).replace('.',',')+' km</span>':''}`;
  return li;
 }
-function filtered(){const q=document.getElementById('busca').value.toLowerCase().trim(),p=document.getElementById('paisFiltro').value,uf=document.getElementById('ufFiltro').value,cats=new Set([...document.querySelectorAll('input[name="categoria_filtro"]:checked')].map(i=>i.value));let lista=eventos.filter(e=>{const h=[e.titulo_publicado,e.titulo_original,e.descricao_publicada,e.descricao_original,e.pais,e.uf,e.local_evento].join(' ').toLowerCase();return(!q||h.includes(q))&&(!p||e.pais===p)&&(!uf||e.uf===uf)&&(!cats.size||cats.has(e.categoria_evento))});if(usuarioCoords){lista=lista.slice().sort((a,b)=>(distanciaEvento(a)??999999)-(distanciaEvento(b)??999999));}return lista}
+function codigoPaisPorNome(nome){return String(window.AUDESC_LOCAIS?.obterCodigoPais?.(nome)||window.AUDESC_LOCAIS?.paises?.find(p=>p.nome===nome)?.codigo||'').toUpperCase();}
+function paisEquivalente(valor,nome,codigo){const v=String(valor||'').trim(),n=String(nome||'').trim(),c=String(codigo||'').trim().toUpperCase();if(!v)return false;if(v.toUpperCase()===c||v===n)return true;return codigoPaisPorNome(v)===c;}
+function eventoDisponivelNoLocal(e,paisSelecionado,unidadeSelecionada){
+ const codigoPaisSelecionado=codigoPaisPorNome(paisSelecionado);
+ const codigoPaisEvento=String(e.pais_codigo||codigoPaisPorNome(e.pais)).toUpperCase();
+ const abrangencia=String(e.abrangencia_divulgacao||'').toLowerCase();
+ if(abrangencia==='internacional'){
+  const destinos=Array.isArray(e.paises_divulgacao)?e.paises_divulgacao:[];
+  return destinos.some(destino=>paisEquivalente(destino,paisSelecionado,codigoPaisSelecionado));
+ }
+ if(codigoPaisSelecionado&&codigoPaisEvento!==codigoPaisSelecionado)return false;
+ if(abrangencia==='nacional')return true;
+ if(!unidadeSelecionada)return true;
+ const unidadeEvento=String(e.unidade_codigo||e.uf||'').toUpperCase();
+ return unidadeEvento===String(unidadeSelecionada).toUpperCase();
+}
+function filtered(){const q=document.getElementById('busca').value.toLowerCase().trim(),p=document.getElementById('paisFiltro').value,uf=document.getElementById('ufFiltro').value,cats=new Set([...document.querySelectorAll('input[name="categoria_filtro"]:checked')].map(i=>i.value));let lista=eventos.filter(e=>{const h=[e.titulo_publicado,e.titulo_original,e.descricao_publicada,e.descricao_original,e.pais,e.uf,e.local_evento].join(' ').toLowerCase();return(!q||h.includes(q))&&eventoDisponivelNoLocal(e,p,uf)&&(!cats.size||cats.has(e.categoria_evento))});if(usuarioCoords){lista=lista.slice().sort((a,b)=>(distanciaEvento(a)??999999)-(distanciaEvento(b)??999999));}return lista}
 function render(){const fs=filtered(),live=fs.filter(isLive).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0)),prox=fs.filter(e=>!isLive(e)&&!isPast(e)).sort((a,b)=>new Date(a.data_evento||'2999-01-01')-new Date(b.data_evento||'2999-01-01')),ant=fs.filter(isPast).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0));document.getElementById('summary').textContent=`Total de eventos: ${fs.length}. Futuros: ${prox.length}. Ao vivo: ${live.length}.`;[['listaLive',live],['listaProximos',prox],['listaAnteriores',ant]].forEach(([id,arr])=>{const el=document.getElementById(id);el.innerHTML='';if(!arr.length){el.innerHTML='<li>Nenhum evento nesta seção.</li>';return}arr.forEach(e=>el.appendChild(item(e)))})}
 function codigoPaisFiltro(){return window.AUDESC_LOCAIS?.obterCodigoPais?.(paisFiltro.value)||window.AUDESC_LOCAIS?.paises?.find(p=>p.nome===paisFiltro.value)?.codigo||'';}
 function categoriaAtivaNoLocal(){const padrao=formularioConfig?.padrao?.campos?.categoria_evento||{visivel:true};const pc=String(codigoPaisFiltro()||'').toUpperCase(),uc=String(ufFiltro.value||'').toUpperCase();const regra=(formularioConfig?.regras||[]).find(r=>String(r.pais_codigo||'').toUpperCase()===pc&&String(r.unidade_codigo||'').toUpperCase()===uc);return (regra?.campos?.categoria_evento||padrao).visivel!==false;}
