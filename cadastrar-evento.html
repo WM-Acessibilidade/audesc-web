@@ -428,7 +428,6 @@ function configurarBuscaAssistidaLocal(){
 configurarBuscaAssistidaLocal();
 paisSelect?.addEventListener('change',fecharSugestoesLocal);
 ufSelect?.addEventListener('change',fecharSugestoesLocal);
-origemTransmissaoSelect?.addEventListener('change',fecharSugestoesLocal);
 
 document.getElementById('usarMinhaLocalizacao')?.addEventListener('click',()=>{
  if(!navigator.geolocation){setLocalizacaoStatus('Este navegador não oferece localização por GPS.','error');return;}
