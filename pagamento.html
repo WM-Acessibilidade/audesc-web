@@ -131,7 +131,7 @@ function rotuloUnidadePagamento(ev){
 function localizacaoResumoPagamento(ev){
  let html='';
  if(ev.pais) html+=`<p><strong>País:</strong> ${t(ev.pais)}</p>`;
- if(ev.pais==='Internacional'){
+ if(false){
   if(ev.origem_transmissao) html+=`<p><strong>Origem da transmissão:</strong> ${t(ev.origem_transmissao)}</p>`;
  } else if(ev.uf && ev.uf!=='Não se aplica' && ev.uf!=='Nacional'){
   html+=`<p><strong>${rotuloUnidadePagamento(ev)}:</strong> ${t(ev.uf)}</p>`;
@@ -153,7 +153,6 @@ function renderEvento(ev){
   ${requerAgendaProfissional(ev)?`<p><strong>Status da agenda:</strong> ${mensagemAgenda(ev)}</p>`:''}
   <p><strong>Data:</strong> ${t(ev.data_evento?new Date(ev.data_evento).toLocaleString('pt-BR'):'')}</p>
   <p><strong>País:</strong> ${t(ev.pais)}</p>
-  ${ev.pais==='Internacional'?`<p><strong>Origem da transmissão:</strong> ${t(ev.origem_transmissao)}</p>`:''}
   <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
   <p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>
   <p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>

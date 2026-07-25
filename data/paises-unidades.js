@@ -28,7 +28,7 @@
 
   function nomesPaises(incluirEspeciais){
     const nomes = paisesBase.map(p => p.nome);
-    return incluirEspeciais ? nomes.concat(['Outros','Internacional']) : nomes.slice();
+    return incluirEspeciais ? nomes.concat(['Outros']) : nomes.slice();
   }
   function codigoPaisISO(nome){ return paisCodigo[nome] || ''; }
   function codigoUnidade(nomePais, valor, texto){
@@ -50,7 +50,7 @@
   function opcoesUnidades(nomePais, opcoes){
     const dados = unidades[nomePais];
     if (!dados) return [];
-    const incluirNacional = opcoes?.incluirNacional !== false;
+    const incluirNacional = opcoes?.incluirNacional === true;
     const lista = dados.opcoes.map(item => Array.isArray(item)
       ? { valor:item[0], texto:`${item[1]} (${item[0]})`, nome:item[1], especial:false }
       : { valor:item, texto:item, nome:item, especial:false });

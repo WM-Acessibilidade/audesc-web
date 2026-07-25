@@ -95,6 +95,7 @@ pre{white-space:pre-wrap}
 <script src="data/servicos.js"></script>
 <script src="data/categorias-eventos.js"></script>
 <script src="data/classificacoes-etarias.js"></script>
+<script src="data/modalidades-evento.js"></script>
 <script src="data/formulario-schema.js"></script>
 <script src="data/regras-servicos.js"></script>
 <script src="data/config-registry.js"></script>
@@ -116,7 +117,7 @@ const unidadesAdministrativas = window.AUDESC_UNIDADES_ADMINISTRATIVAS || {};
 
 
 function paisesAdminOptions(valorAtual){
-  const paises = window.AUDESC_CONFIG?.localizacao.getNomesPaises(true) || ['Brasil','Outros','Internacional'];
+  const paises = window.AUDESC_CONFIG?.localizacao.getNomesPaises(true) || ['Brasil','Outros'];
   return paises.map(p => `<option value="${attr(p)}" ${p === valorAtual ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('');
 }
 function rotuloLocal(pais){ return pais === 'Internacional' ? 'Origem da transmissão' : (unidadesAdministrativas[pais]?.rotulo || 'Local'); }
@@ -136,7 +137,7 @@ function nomeLocal(pais, valor){
   return valor;
 }
 function locaisAdminOptions(pais, valorAtual){
-  return window.AUDESC_CONFIG?.localizacao.getHtmlOpcoesUnidades(pais, valorAtual, {incluirNacional:true}) || '<option value="">Não se aplica</option>';
+  return window.AUDESC_CONFIG?.localizacao.getHtmlOpcoesUnidades(pais, valorAtual, {incluirNacional:false}) || '<option value="">Não se aplica</option>';
 }
 
 function resumoLocalizacaoAdmin(ev){
@@ -501,7 +502,7 @@ function renderEvent(ev){
     <label>Nome do evento</label>
     <input data-field="titulo_publicado" value="${attr(ev.titulo_publicado||ev.titulo_original||'')}">
     <label>Descrição do evento</label>
-    <textarea data-field="descricao_publicada">${escapeHtml(ev.descricao_publicada||ev.descricao_original||'')}</textarea><div class="categoria-evento-admin-box"><label for="categoria_evento_${ev.id}">Categoria do evento</label><select id="categoria_evento_${ev.id}" data-field="categoria_evento"><option value="">Selecione uma categoria</option>${(window.AUDESC_CATEGORIAS_EVENTO?.lista||[]).map(c=>`<option value="${c.codigo}" ${c.codigo===(ev.categoria_evento||'')?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select></div><div class="classificacao-etaria-admin-box"><label for="classificacao_etaria_${ev.id}">Classificação etária</label><select id="classificacao_etaria_${ev.id}" data-field="classificacao_etaria"><option value="">Selecione uma classificação etária</option>${(window.AUDESC_CLASSIFICACOES_ETARIAS?.lista||[]).map(c=>`<option value="${c.codigo}" ${String(c.codigo)===String(ev.classificacao_etaria||'')?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select></div>
+    <textarea data-field="descricao_publicada">${escapeHtml(ev.descricao_publicada||ev.descricao_original||'')}</textarea><div class="categoria-evento-admin-box"><label for="categoria_evento_${ev.id}">Categoria do evento</label><select id="categoria_evento_${ev.id}" data-field="categoria_evento"><option value="">Selecione uma categoria</option>${(window.AUDESC_CATEGORIAS_EVENTO?.lista||[]).map(c=>`<option value="${c.codigo}" ${c.codigo===(ev.categoria_evento||'')?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select></div><div class="classificacao-etaria-admin-box"><label for="classificacao_etaria_${ev.id}">Classificação etária</label><select id="classificacao_etaria_${ev.id}" data-field="classificacao_etaria"><option value="">Selecione uma classificação etária</option>${(window.AUDESC_CLASSIFICACOES_ETARIAS?.lista||[]).map(c=>`<option value="${c.codigo}" ${String(c.codigo)===String(ev.classificacao_etaria||'')?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select></div><div class="modalidade-admin-box"><label>Modalidade do evento</label><select data-field="modalidade_evento"><option value="presencial" ${(!ev.modalidade_evento||ev.modalidade_evento==='presencial')?'selected':''}>Presencial</option><option value="distancia" ${ev.modalidade_evento==='distancia'?'selected':''}>Transmissão a distância</option><option value="hibrido" ${ev.modalidade_evento==='hibrido'?'selected':''}>Presencial e transmissão a distância</option></select></div><div class="abrangencia-admin-box"><label>Abrangência da divulgação</label><select data-field="abrangencia_divulgacao"><option value="">Selecione</option><option value="nacional" ${ev.abrangencia_divulgacao==='nacional'?'selected':''}>Nacional</option><option value="internacional" ${ev.abrangencia_divulgacao==='internacional'?'selected':''}>Internacional</option></select></div><fieldset class="paises-divulgacao-admin-box"><legend>Países de divulgação internacional</legend>${(window.AUDESC_MODALIDADES_EVENTO?.paisesDivulgacao()||[]).map(p=>`<label><input type="checkbox" data-field="pais_divulgacao" value="${escapeHtml(p)}" ${(ev.paises_divulgacao||[]).includes(p)?'checked':''}> ${escapeHtml(p)}</label>`).join('')}</fieldset>
     <div class="grid">
       <div><label>Status publicação</label><select data-field="status_publicacao">
         ${opt('pendente',ev.status_publicacao)}${opt('aprovado',ev.status_publicacao)}${opt('rejeitado',ev.status_publicacao)}${opt('removido',ev.status_publicacao)}
@@ -804,6 +805,9 @@ async function saveEvent(id,card){
   });
   body.categoria_evento=card.querySelector('[data-field="categoria_evento"]')?.value||null;
   body.classificacao_etaria=card.querySelector('[data-field="classificacao_etaria"]')?.value||null;
+  body.modalidade_evento=card.querySelector('[data-field="modalidade_evento"]')?.value||'presencial';
+  body.abrangencia_divulgacao=card.querySelector('[data-field="abrangencia_divulgacao"]')?.value||null;
+  body.paises_divulgacao=[...card.querySelectorAll('[data-field="pais_divulgacao"]:checked')].map(i=>i.value);
   const regrasEstruturais=window.AUDESC_CONFIG?.servicos.getRegras(body.servicos_solicitados) || {};
   if(!regrasEstruturais.visibilidadeEditavel) body.tipo_evento=regrasEstruturais.visibilidadeFixa || 'publico';
   if(!regrasEstruturais.usaDuracao) delete body.duracao_horas;

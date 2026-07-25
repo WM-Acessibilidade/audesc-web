@@ -74,6 +74,20 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 </select></div>
 </div>
 
+<h2>Modalidade e divulgação</h2>
+<div class="grid">
+<div id="modalidadeEventoBox"><label for="modalidade_evento">Modalidade do evento</label><select id="modalidade_evento" name="modalidade_evento">
+<option value="presencial">Presencial</option><option value="distancia">Transmissão a distância</option><option value="hibrido">Presencial e transmissão a distância</option>
+</select></div>
+<div id="abrangenciaDivulgacaoBox" class="hidden"><label for="abrangencia_divulgacao">Abrangência da divulgação</label><select id="abrangencia_divulgacao" name="abrangencia_divulgacao">
+<option value="">Selecione</option><option value="nacional">Nacional</option><option value="internacional">Internacional</option>
+</select></div>
+</div>
+<div id="paisesDivulgacaoBox" class="hidden">
+<button type="button" id="alternarPaisesDivulgacao" aria-expanded="false" aria-controls="paisesDivulgacaoPainel">Países de divulgação</button>
+<div id="paisesDivulgacaoPainel" hidden><fieldset><legend>Selecione os países onde o evento será divulgado</legend><div id="paisesDivulgacaoOpcoes"></div></fieldset><button type="button" id="selecionarTodosPaises">Selecionar todos</button><button type="button" id="limparPaises">Limpar seleção</button></div>
+</div>
+
 <h2>Local do evento</h2>
 <div class="grid">
 <div><label for="pais">País</label><select id="pais" name="pais">
@@ -87,21 +101,8 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <option value="São Tomé e Príncipe">São Tomé e Príncipe</option>
 <option value="Timor-Leste">Timor-Leste</option>
 <option value="Outros">Outros</option>
-<option value="Internacional">Internacional</option>
 </select></div>
 <div id="paisOutroBox" class="hidden"><label for="pais_outro">Informe o país</label><input id="pais_outro" name="pais_outro" type="text" maxlength="100"></div>
-<div id="origemTransmissaoBox" class="hidden"><label for="origem_transmissao">Origem da transmissão</label><select id="origem_transmissao" name="origem_transmissao">
-<option value="">Selecione</option>
-<option value="Brasil">Brasil</option>
-<option value="Angola">Angola</option>
-<option value="Cabo Verde">Cabo Verde</option>
-<option value="Guiné-Bissau">Guiné-Bissau</option>
-<option value="Guiné Equatorial">Guiné Equatorial</option>
-<option value="Moçambique">Moçambique</option>
-<option value="Portugal">Portugal</option>
-<option value="São Tomé e Príncipe">São Tomé e Príncipe</option>
-<option value="Timor-Leste">Timor-Leste</option>
-</select></div>
 <div><label for="uf" id="ufLabel">Unidade administrativa</label>
 <select id="uf" name="uf">
 <option value="">Selecione</option>
@@ -135,6 +136,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <script src="data/servicos.js"></script>
 <script src="data/categorias-eventos.js"></script>
 <script src="data/classificacoes-etarias.js"></script>
+<script src="data/modalidades-evento.js"></script>
 <script src="data/formulario-schema.js"></script>
 <script src="data/regras-servicos.js"></script>
 <script src="data/config-registry.js"></script>
@@ -173,10 +175,9 @@ document.getElementById('sendLinkBtn').onclick=async()=>{
  finally{document.getElementById('sendLinkBtn').disabled=false}
 };
 
-const paisSelect=document.getElementById('pais'),ufSelect=document.getElementById('uf'),paisOutroBox=document.getElementById('paisOutroBox'),paisOutroInput=document.getElementById('pais_outro'),origemTransmissaoBox=document.getElementById('origemTransmissaoBox'),origemTransmissaoSelect=document.getElementById('origem_transmissao');
+const paisSelect=document.getElementById('pais'),ufSelect=document.getElementById('uf'),paisOutroBox=document.getElementById('paisOutroBox'),paisOutroInput=document.getElementById('pais_outro');
 const unidadesAdministrativas = window.AUDESC_UNIDADES_ADMINISTRATIVAS || {};
 window.AUDESC_CONFIG?.localizacao.preencherPaises(paisSelect, paisSelect?.value || 'Brasil', {incluirEspeciais:true});
-if (origemTransmissaoSelect) window.AUDESC_CONFIG?.localizacao.preencherPaises(origemTransmissaoSelect, origemTransmissaoSelect.value || '', {incluirVazio:true, incluirEspeciais:false});
 
 
 function criarOpcao(valor, texto){
@@ -195,23 +196,12 @@ function atualizarLocalizacao(){
  ufSelect.innerHTML = '';
  ufSelect.appendChild(criarOpcao('', 'Selecione'));
 
- if(pais === 'Internacional'){
-  label.textContent = 'Unidade administrativa';
-  ufSelect.value = '';
-  ufSelect.disabled = true;
-  if(ufContainer) ufContainer.classList.add('hidden');
-  if(origemTransmissaoBox) origemTransmissaoBox.classList.remove('hidden');
-  if(origemTransmissaoSelect) origemTransmissaoSelect.required = true;
- }else if(dados){
-  if(origemTransmissaoBox) origemTransmissaoBox.classList.add('hidden');
-  if(origemTransmissaoSelect){ origemTransmissaoSelect.required=false; origemTransmissaoSelect.value=''; }
+ if(dados){
   if(ufContainer) ufContainer.classList.remove('hidden');
-  const resultadoUnidades = window.AUDESC_CONFIG?.localizacao.preencherUnidades(ufSelect, pais, dados.padrao || '', {incluirNacional:true});
+  const resultadoUnidades = window.AUDESC_CONFIG?.localizacao.preencherUnidades(ufSelect, pais, dados.padrao || '', {incluirNacional:false});
   label.textContent = resultadoUnidades?.rotulo || dados.rotulo;
   ufSelect.disabled=false;
  }else{
-  if(origemTransmissaoBox) origemTransmissaoBox.classList.add('hidden');
-  if(origemTransmissaoSelect){ origemTransmissaoSelect.required=false; origemTransmissaoSelect.value=''; }
   if(ufContainer) ufContainer.classList.remove('hidden');
   label.textContent = 'Unidade administrativa';
   ufSelect.value='';
@@ -454,10 +444,26 @@ const AUDESC_TIMEZONES_FRONTEND = {
   "Timor-Leste": {"default":"Asia/Dili"}
 };
 function timezonePorLocalFrontend(pais, unidade, origem){
-  const chave = pais === 'Internacional' ? origem : pais;
+  const chave = pais;
   const mapa = AUDESC_TIMEZONES_FRONTEND[chave] || {};
   return mapa[unidade] || mapa.default || 'America/Sao_Paulo';
 }
+
+const modalidadeSelect=document.getElementById('modalidade_evento');
+const abrangenciaSelect=document.getElementById('abrangencia_divulgacao');
+const abrangenciaBox=document.getElementById('abrangenciaDivulgacaoBox');
+const paisesDivulgacaoBox=document.getElementById('paisesDivulgacaoBox');
+const paisesDivulgacaoPainel=document.getElementById('paisesDivulgacaoPainel');
+const alternarPaisesDivulgacao=document.getElementById('alternarPaisesDivulgacao');
+function paisesDivulgacaoSelecionados(){return [...document.querySelectorAll('input[name="paises_divulgacao"]:checked')].map(i=>i.value);}
+function renderizarPaisesDivulgacao(selecionados=[]){const box=document.getElementById('paisesDivulgacaoOpcoes');if(!box)return;const set=new Set(selecionados);box.innerHTML=(window.AUDESC_MODALIDADES_EVENTO?.paisesDivulgacao()||[]).map(p=>`<label class="check"><input type="checkbox" name="paises_divulgacao" value="${p}" ${set.has(p)?'checked':''}> ${p}</label>`).join('');box.querySelectorAll('input').forEach(i=>i.addEventListener('change',atualizarRotuloPaises));atualizarRotuloPaises();}
+function atualizarRotuloPaises(){const n=paisesDivulgacaoSelecionados().length;if(alternarPaisesDivulgacao)alternarPaisesDivulgacao.textContent=n?`Países de divulgação (${n})`:'Países de divulgação';}
+function atualizarModalidade(){const tem=window.AUDESC_MODALIDADES_EVENTO?.temTransmissao(modalidadeSelect?.value);abrangenciaBox?.classList.toggle('hidden',!tem);if(abrangenciaSelect){abrangenciaSelect.disabled=!tem;abrangenciaSelect.required=!!tem;if(!tem)abrangenciaSelect.value='';}const internacional=tem&&abrangenciaSelect?.value==='internacional';paisesDivulgacaoBox?.classList.toggle('hidden',!internacional);document.querySelectorAll('input[name="paises_divulgacao"]').forEach(i=>i.disabled=!internacional);}
+modalidadeSelect?.addEventListener('change',atualizarModalidade);abrangenciaSelect?.addEventListener('change',atualizarModalidade);
+alternarPaisesDivulgacao?.addEventListener('click',()=>{const abrir=paisesDivulgacaoPainel.hasAttribute('hidden');paisesDivulgacaoPainel.toggleAttribute('hidden',!abrir);alternarPaisesDivulgacao.setAttribute('aria-expanded',String(abrir));});
+document.getElementById('selecionarTodosPaises')?.addEventListener('click',()=>{document.querySelectorAll('input[name="paises_divulgacao"]').forEach(i=>i.checked=true);atualizarRotuloPaises();});
+document.getElementById('limparPaises')?.addEventListener('click',()=>{document.querySelectorAll('input[name="paises_divulgacao"]').forEach(i=>i.checked=false);atualizarRotuloPaises();});
+renderizarPaisesDivulgacao();atualizarModalidade();
 
 document.getElementById('eventoForm').onsubmit=async(e)=>{
  e.preventDefault();
@@ -469,6 +475,9 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const camposCfgEnvio=camposConfigFormulario(); const categoriaCfg=camposCfgEnvio.categoria_evento||{visivel:true,obrigatorio:true}; const categoriaSelect=form.querySelector('#categoria_evento'); if(categoriaCfg.visivel!==false&&categoriaCfg.obrigatorio&&!categoriaSelect?.value){categoriaSelect?.focus();btn.disabled=false;setStatus('status','Selecione a categoria do evento.','error');return;} const classificacaoCfg=camposCfgEnvio.classificacao_etaria||{visivel:true,obrigatorio:false}; const classificacaoSelect=form.querySelector('#classificacao_etaria'); if(classificacaoCfg.visivel!==false&&classificacaoCfg.obrigatorio&&!classificacaoSelect?.value){classificacaoSelect?.focus();btn.disabled=false;setStatus('status','Selecione a classificação etária.','error');return;}
  const data=Object.fromEntries(new FormData(form).entries());
+ data.paises_divulgacao=paisesDivulgacaoSelecionados();
+ if(window.AUDESC_MODALIDADES_EVENTO?.temTransmissao(data.modalidade_evento)&&!data.abrangencia_divulgacao){setStatus('status','Selecione a abrangência da divulgação.','error');btn.disabled=false;return;}
+ if(data.abrangencia_divulgacao==='internacional'&&!data.paises_divulgacao.length){setStatus('status','Selecione pelo menos um país para a divulgação internacional.','error');btn.disabled=false;return;}
  data.servicos_solicitados=servicosSelecionadosFormulario();
  data.tipo_servico=window.AUDESC_CONFIG?.servicos.getPrincipalLegado(data.servicos_solicitados)||'audesc_transmissao';
  if(!data.servicos_solicitados.length){setStatus('status','Selecione pelo menos um serviço.','error');btn.disabled=false;return;}
@@ -478,9 +487,8 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  data.pais_codigo=ctxLocalizacao.paisCodigo || '';
  data.unidade_codigo=ctxLocalizacao.unidadeCodigo || '';
  data.cidade='';
- data.timezone = timezonePorLocalFrontend(data.pais, data.uf, data.origem_transmissao);
- if(data.pais!=='Outros'&&data.pais!=='Internacional'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
- if(data.pais==='Internacional'&&!data.origem_transmissao){setStatus('status','Selecione a origem da transmissão.','error');btn.disabled=false;return}
+ data.timezone = timezonePorLocalFrontend(data.pais, data.uf, '');
+ if(data.pais!=='Outros'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
  
  const perfilServicos=window.AUDESC_CONFIG?.servicos.getRegras(data.servicos_solicitados)||{};
  const temTransmissao=!!perfilServicos.usaTransmissao;
@@ -605,7 +613,7 @@ function setCampoVisivel(id, visivel, obrigatorio){
  if(comportamento === 'fixo' || comportamento === 'oculto_sem_valor') visivel = false;
  const el = document.getElementById(id);
  const label = document.querySelector('label[for="'+id+'"]');
- const boxMap = {categoria_evento:'categoriaEventoBox',classificacao_etaria:'classificacaoEtariaBox',tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox',local_evento:'localEventoBox',latitude:'latitudeBox',longitude:'longitudeBox'};
+ const boxMap = {categoria_evento:'categoriaEventoBox',classificacao_etaria:'classificacaoEtariaBox',modalidade_evento:'modalidadeEventoBox',abrangencia_divulgacao:'abrangenciaDivulgacaoBox',paises_divulgacao:'paisesDivulgacaoBox',tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox',local_evento:'localEventoBox',latitude:'latitudeBox',longitude:'longitudeBox'};
  const box = boxMap[id] ? document.getElementById(boxMap[id]) : null;
  [el,label,box].filter(Boolean).forEach(x=>x.classList.toggle('hidden', !visivel));
  if(el){
