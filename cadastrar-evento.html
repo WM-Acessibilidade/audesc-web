@@ -369,6 +369,19 @@ async function buscarSugestoesLocal(q){
  if(!r.ok) throw new Error(j.error||'Não foi possível buscar sugestões.');
  return Array.isArray(j.resultados)?j.resultados:[];
 }
+async function completarDetalhesLocal(item){
+ if(!item?.precisa_detalhes)return item;
+ const params=new URLSearchParams({place_id:item.place_id||item.id||''});
+ const r=await fetch(API_URL+'/geocode/detalhes?'+params.toString());
+ const j=await r.json().catch(()=>({}));
+ if(!r.ok)throw new Error(j.error||'Não foi possível obter os detalhes do local.');
+ return j.resultado||item;
+}
+async function registrarLocalSelecionado(item){
+ try{
+  await fetch(API_URL+'/geocode/locais-conhecidos',{method:'POST',headers:{'Content-Type':'application/json',...(accessToken?{'Authorization':'Bearer '+accessToken}:{})},body:JSON.stringify(item)});
+ }catch(e){console.warn('Não foi possível registrar o local no diretório interno.',e);}
+}
 function ativarSugestaoLocal(indice){
  const input=document.getElementById('local_evento');
  const opcoes=[...document.querySelectorAll('#sugestoesLocalEvento [role="option"]')];
@@ -389,13 +402,18 @@ function renderizarSugestoesLocal(lista){
   const b=document.createElement('button');b.type='button';b.id='sugestao-local-'+i;b.setAttribute('role','option');b.setAttribute('aria-selected','false');
   b.textContent=item.nome+(item.endereco&&item.endereco!==item.nome?' — '+item.endereco:'');
   b.addEventListener('click',async()=>{
-   const ctx=contextoBuscaEndereco();
-   input.value=textoCompletoLocal(item);
-   preencherCoordenadas(item.lat,item.lon);guardarLocalCadastro(item);
-   document.getElementById('local_nome').value=item.nome||'';document.getElementById('local_endereco').value=item.endereco||'';document.getElementById('google_place_id').value=item.place_id||item.id||'';document.getElementById('local_pais_codigo').value=item.pais_codigo||'';document.getElementById('local_unidade_codigo').value=item.unidade_codigo||'';
-   if(await confirmarAtualizacaoRegiaoCadastro(item,ctx))aplicarRegiaoCadastro(item);
-   fecharSugestoesLocal();
-   setLocalizacaoStatus('Local selecionado com nome, endereço e coordenadas. Confira o país e a unidade administrativa.','success');
+   try{
+    const ctx=contextoBuscaEndereco();
+    setLocalizacaoStatus('Carregando detalhes do local...','');
+    const selecionado=await completarDetalhesLocal(item);
+    input.value=textoCompletoLocal(selecionado);
+    preencherCoordenadas(selecionado.lat,selecionado.lon);guardarLocalCadastro(selecionado);
+    document.getElementById('local_nome').value=selecionado.nome||'';document.getElementById('local_endereco').value=selecionado.endereco||'';document.getElementById('google_place_id').value=selecionado.place_id||selecionado.id||'';document.getElementById('local_pais_codigo').value=selecionado.pais_codigo||'';document.getElementById('local_unidade_codigo').value=selecionado.unidade_codigo||'';
+    if(await confirmarAtualizacaoRegiaoCadastro(selecionado,ctx))aplicarRegiaoCadastro(selecionado);
+    registrarLocalSelecionado(selecionado);
+    fecharSugestoesLocal();
+    setLocalizacaoStatus('Local selecionado com nome, endereço e coordenadas. Confira o país e a unidade administrativa.','success');
+   }catch(e){setLocalizacaoStatus(e.message||'Não foi possível selecionar o local.','error');}
   });
   box.appendChild(b);
  });
