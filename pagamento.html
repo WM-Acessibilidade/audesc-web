@@ -41,8 +41,26 @@ async function inicializarPaddle(){if(paddleInicializado)return;const r=await fe
 });paddleInicializado=true}
 async function abrirCheckoutPaddle(transactionId){await inicializarPaddle();Paddle.Checkout.open({transactionId})}
 
-const SERVICOS_COM_AGENDA = ['audesc_com_audiodescritor','somente_audiodescritor','somente_consultor'];
-function requerAgendaProfissional(ev){return SERVICOS_COM_AGENDA.includes(String(ev?.tipo_servico||'').trim())}
+function servicosPagamento(ev){
+ const origem=Array.isArray(ev?.servicos_solicitados)&&ev.servicos_solicitados.length
+  ? ev.servicos_solicitados
+  : ev?.tipo_servico;
+ return window.AUDESC_SERVICOS?.normalizarSelecao(origem) || (Array.isArray(origem)?origem:[origem].filter(Boolean));
+}
+function nomesServicosPagamento(ev){
+ const nomes=window.AUDESC_SERVICOS?.nomesSelecionados(servicosPagamento(ev)) || servicosPagamento(ev).map(nomeServicoPagamento);
+ return nomes.length?nomes.join(' + '):'—';
+}
+function requerAgendaProfissional(ev){
+ return !!(window.AUDESC_SERVICOS?.requerAgendaSelecao(servicosPagamento(ev)) || servicosPagamento(ev).some(c=>['somente_audiodescritor','somente_consultor'].includes(c)));
+}
+function usaTransmissaoPagamento(ev){
+ return !!(window.AUDESC_SERVICOS?.usaTransmissaoSelecao(servicosPagamento(ev)) || servicosPagamento(ev).includes('audesc_transmissao'));
+}
+function somenteDivulgacaoPagamento(ev){
+ const servicos=servicosPagamento(ev);
+ return servicos.length===1 && servicos[0]==='divulgacao_gratuita';
+}
 function statusAgendaEvento(ev){return requerAgendaProfissional(ev)?String(ev?.status_agenda||'pendente').trim():'nao_aplicavel'}
 function mensagemAgenda(ev){
  const status=statusAgendaEvento(ev);
@@ -142,6 +160,15 @@ function localizacaoResumoPagamento(ev){
 function renderEvento(ev){
  const pago=ev.status_pagamento==='pago';
  const agendaBloqueada=pagamentoBloqueadoPorAgenda(ev);
+ const usaTransmissao=usaTransmissaoPagamento(ev);
+ const somenteDivulgacao=somenteDivulgacaoPagamento(ev);
+ const detalhesItens=Array.isArray(calculoAtual?.pacote?.detalhes?.itens)?calculoAtual.pacote.detalhes.itens:[];
+ const detalhesValores=detalhesItens.map(item=>`<p><strong>${t(item.descricao)}:</strong> ${formatarMoeda(item.valor, calculoAtual.moeda)}</p>`).join('');
+ const resumoPacote=calculoAtual && usaTransmissao
+  ? `<p><strong>Pacote:</strong> ${calculoAtual.pacote.ouvintes?calculoAtual.pacote.ouvintes+' ouvintes por ':''}${calculoAtual.pacote.duracao_horas} hora(s)</p>`
+  : (calculoAtual && requerAgendaProfissional(ev) && !somenteDivulgacao
+    ? `<p><strong>Duração do serviço profissional:</strong> ${calculoAtual.pacote.duracao_horas} hora(s)</p>`
+    : '');
 
  document.getElementById('conteudo').innerHTML=`
  <section class="card">
@@ -149,20 +176,16 @@ function renderEvento(ev){
   <p><strong>Status do pagamento:</strong> ${t(ev.status_pagamento)}</p>
   <p><strong>Status da publicação:</strong> ${t(ev.status_publicacao)}</p>
   <p><strong>Status da operação:</strong> ${t(ev.status_operacao)}</p>
-  <p><strong>Tipo:</strong> ${nomeServicoPagamento(ev.tipo_servico)}</p>
+  <p><strong>Serviços:</strong> ${nomesServicosPagamento(ev)}</p>
   ${requerAgendaProfissional(ev)?`<p><strong>Status da agenda:</strong> ${mensagemAgenda(ev)}</p>`:''}
   <p><strong>Data:</strong> ${t(ev.data_evento?new Date(ev.data_evento).toLocaleString('pt-BR'):'')}</p>
   <p><strong>País:</strong> ${t(ev.pais)}</p>
   <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
-  <p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p>
-  <p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>
+  ${usaTransmissao?`<p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p><p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>`:''}
   <p><strong>Gateway de pagamento:</strong> ${gatewayPagamento(ev)==='mercadopago'?'Mercado Pago / PIX e cartões no Brasil':'Paddle / pagamento internacional'}</p>
   ${calculoAtual?`
-  <p><strong>Pacote:</strong> ${calculoAtual.pacote.ouvintes?calculoAtual.pacote.ouvintes+' ouvintes por ':''}${calculoAtual.pacote.duracao_horas} hora(s)</p>
-  ${calculoAtual.pacote.detalhes?.valor_audesc!==undefined?`<p><strong>Transmissão Audesc (transmissor e receptores):</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_audesc, calculoAtual.moeda)}</p>`:''}
-  ${calculoAtual.pacote.detalhes?.valor_audiodescritor!==undefined?`<p><strong>Audiodescritor:</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_audiodescritor, calculoAtual.moeda)}</p>`:''}
-  ${calculoAtual.pacote.detalhes?.valor_servico!==undefined?`<p><strong>Valor do serviço:</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_servico, calculoAtual.moeda)}</p>`:''}
-  ${calculoAtual.pacote.detalhes?.valor_hora!==undefined?`<p><strong>Valor por hora:</strong> ${formatarMoeda(calculoAtual.pacote.detalhes.valor_hora, calculoAtual.moeda)}</p>`:''}
+  ${resumoPacote}
+  ${detalhesValores}
   <p><strong>Valor original:</strong> ${formatarMoeda(calculoAtual.valor_original, calculoAtual.moeda)}</p>
   <p><strong>Desconto:</strong> ${formatarMoeda(calculoAtual.desconto_aplicado, calculoAtual.moeda)}</p>
   <p><strong>Valor final:</strong> ${formatarMoeda(calculoAtual.valor_final, calculoAtual.moeda)}</p>
