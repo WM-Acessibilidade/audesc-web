@@ -74,9 +74,7 @@ function paisPagamento(ev){
  if(pais.toLowerCase()==='internacional'&&ev?.origem_transmissao) return String(ev.origem_transmissao||'').trim();
  return pais;
 }
-function gatewayPagamento(ev){
- return paisPagamento(ev).toLowerCase()==='brasil' ? 'mercadopago' : 'paddle';
-}
+function gatewayPagamento(){ return calculoAtual?.plataforma_pagamento || 'paddle'; }
 
 function moedaSimbolo(m){return m==='BRL'?'R$':(m==='EUR'?'€':'US$')}
 function formatarMoeda(valor, moeda){
@@ -160,6 +158,7 @@ function localizacaoResumoPagamento(ev){
 function renderEvento(ev){
  const pago=ev.status_pagamento==='pago';
  const agendaBloqueada=pagamentoBloqueadoPorAgenda(ev);
+ const pagamentoIndisponivel=!!calculoAtual && (calculoAtual.pagamentos_ativos===false || calculoAtual.plataforma_disponivel===false);
  const usaTransmissao=usaTransmissaoPagamento(ev);
  const somenteDivulgacao=somenteDivulgacaoPagamento(ev);
  const detalhesItens=Array.isArray(calculoAtual?.pacote?.detalhes?.itens)?calculoAtual.pacote.detalhes.itens:[];
@@ -182,26 +181,26 @@ function renderEvento(ev){
   <p><strong>País:</strong> ${t(ev.pais)}</p>
   <p><strong>Unidade administrativa:</strong> ${t(ev.uf)}</p>
   ${usaTransmissao?`<p><strong>Sala:</strong> ${t(ev.sala_codigo)}</p><p><strong>Senha do transmissor:</strong> ${t(ev.senha_transmissor)}</p>`:''}
-  <p><strong>Gateway de pagamento:</strong> ${gatewayPagamento(ev)==='mercadopago'?'Mercado Pago / PIX e cartões no Brasil':'Paddle / pagamento internacional'}</p>
+  <p><strong>Gateway de pagamento:</strong> ${gatewayPagamento()==='mercadopago'?'Mercado Pago':'Paddle'}</p>
   ${calculoAtual?`
   ${resumoPacote}
   ${detalhesValores}
-  <p><strong>Valor original:</strong> ${formatarMoeda(calculoAtual.valor_original, calculoAtual.moeda)}</p>
-  <p><strong>Desconto:</strong> ${formatarMoeda(calculoAtual.desconto_aplicado, calculoAtual.moeda)}</p>
+  ${Number(calculoAtual.desconto_promocional||0)>0?`<p><strong>Preço de tabela:</strong> ${formatarMoeda(calculoAtual.valor_tabela, calculoAtual.moeda)}</p><p><strong>Desconto promocional:</strong> ${formatarMoeda(calculoAtual.desconto_promocional, calculoAtual.moeda)}</p>`:''}<p><strong>Subtotal promocional:</strong> ${formatarMoeda(calculoAtual.valor_original, calculoAtual.moeda)}</p>
+  <p><strong>Desconto do cupom:</strong> ${formatarMoeda(calculoAtual.desconto_aplicado, calculoAtual.moeda)}</p>
   <p><strong>Valor final:</strong> ${formatarMoeda(calculoAtual.valor_final, calculoAtual.moeda)}</p>
   `:''}
   ${pago?'<p class="msg success">Pagamento confirmado. Os dados do evento estão atualizados.</p>':(agendaBloqueada?`
   <div class="msg">
    <p><strong>${mensagemAgenda(ev)}</strong></p>
    <p>O pagamento ficará disponível somente após confirmação da agenda profissional pela administração do Audesc.</p>
-  </div>`:`
+  </div>`:(pagamentoIndisponivel?`<div class="msg error"><p><strong>Pagamento indisponível para este país.</strong></p><p>A administração precisa ativar uma plataforma e uma moeda compatíveis.</p></div>`:`
   <div class="msg">
    <label for="cupomInput"><strong>Código promocional</strong></label><br>
    <input id="cupomInput" type="text" value="${calculoAtual?.cupom_codigo||''}" placeholder="Digite o cupom, se houver">
    <br>
    <button type="button" onclick="aplicarCupom()">Aplicar cupom</button>
    <button type="button" onclick="pagar()">Pagar agora</button>
-  </div>`)}
+  </div>`))}
  </section>`;
 
  if(!pago){
