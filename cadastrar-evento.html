@@ -352,6 +352,7 @@ function guardarLocalCadastro(item){CadastroSelecionado={place_id:item.place_id|
 let sugestoesLocalTimer=null;
 let sugestoesLocalAbort=null;
 let sugestaoLocalAtiva=-1;
+let diagnosticoSugestoesLocal={};
 function fecharSugestoesLocal(){
  const box=document.getElementById('sugestoesLocalEvento');
  const input=document.getElementById('local_evento');
@@ -367,6 +368,11 @@ async function buscarSugestoesLocal(q){
  const r=await fetch(API_URL+'/geocode/sugestoes?'+params.toString(),{signal:sugestoesLocalAbort.signal});
  const j=await r.json().catch(()=>({}));
  if(!r.ok) throw new Error(j.error||'Não foi possível buscar sugestões.');
+ diagnosticoSugestoesLocal={
+  indisponivelTemporariamente:Boolean(j.indisponivel_temporariamente),
+  googleIndisponivel:Boolean(j.google_indisponivel),
+  motivo:j.motivo||''
+ };
  return Array.isArray(j.resultados)?j.resultados:[];
 }
 async function completarDetalhesLocal(item){
@@ -397,7 +403,14 @@ function renderizarSugestoesLocal(lista){
  const input=document.getElementById('local_evento');
  if(!box||!input)return;
  box.innerHTML='';sugestaoLocalAtiva=-1;
- if(!lista.length){fecharSugestoesLocal();setLocalizacaoStatus('Nenhuma sugestão encontrada. Você ainda pode usar o botão Buscar coordenadas pelo endereço.','');return;}
+ if(!lista.length){
+  fecharSugestoesLocal();
+  const mensagem=diagnosticoSugestoesLocal.indisponivelTemporariamente
+   ? 'O serviço externo de sugestões está temporariamente indisponível por limite de consultas. Você ainda pode informar o endereço e usar o botão Buscar coordenadas.'
+   : 'Nenhuma sugestão encontrada. Você ainda pode usar o botão Buscar coordenadas pelo endereço.';
+  setLocalizacaoStatus(mensagem,'');
+  return;
+ }
  lista.slice(0,5).forEach((item,i)=>{
   const b=document.createElement('button');b.type='button';b.id='sugestao-local-'+i;b.setAttribute('role','option');b.setAttribute('aria-selected','false');
   b.textContent=item.nome+(item.endereco&&item.endereco!==item.nome?' — '+item.endereco:'');
