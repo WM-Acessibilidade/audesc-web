@@ -77,7 +77,7 @@
         Elementos.uf,
         Elementos.pais.value,
         undefined,
-        { incluirNacional: true }
+        { incluirNacional: false }
       );
       Elementos.ufLabel.textContent = resultado?.rotulo || 'Unidade administrativa';
       Elementos.uf.disabled = !resultado?.disponivel;

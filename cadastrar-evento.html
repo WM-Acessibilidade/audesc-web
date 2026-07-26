@@ -522,7 +522,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
   const status = document.getElementById('status');
   status.className = 'status success';
   status.innerHTML = 'Evento recebido. Você pode continuar cadastrando eventos. Assim que terminar, acesse <a href="meus-eventos.html">Meus Eventos</a> para efetuar o pagamento.';
-  form.reset();atualizarOpcoesServico();atualizarLocalizacao();aplicarLimitesTextoFormulario();
+  form.reset();atualizarOpcoesServico();atualizarLocalizacao();atualizarModalidade();aplicarLimitesTextoFormulario();
   status.focus();
  }catch(err){setStatus('status','Erro: '+(err.message||'não foi possível enviar.'),'error')}
  finally{btn.disabled=false}
@@ -627,6 +627,9 @@ function setCampoVisivel(id, visivel, obrigatorio){
  const regraServico = regraCampoServicoAtual(id);
  const comportamento = regraServico?.comportamento || 'usuario';
  if(comportamento === 'fixo' || comportamento === 'oculto_sem_valor') visivel = false;
+ // Campos dependentes da modalidade nunca devem ser exibidos fora do contexto aplicável.
+ if(id === 'abrangencia_divulgacao') visivel = visivel && !!window.AUDESC_MODALIDADES_EVENTO?.temTransmissao(modalidadeSelect?.value);
+ if(id === 'paises_divulgacao') visivel = visivel && !!window.AUDESC_MODALIDADES_EVENTO?.temTransmissao(modalidadeSelect?.value) && abrangenciaSelect?.value === 'internacional';
  const el = document.getElementById(id);
  const label = document.querySelector('label[for="'+id+'"]');
  const boxMap = {categoria_evento:'categoriaEventoBox',classificacao_etaria:'classificacaoEtariaBox',modalidade_evento:'modalidadeEventoBox',abrangencia_divulgacao:'abrangenciaDivulgacaoBox',paises_divulgacao:'paisesDivulgacaoBox',tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox',local_evento:'localEventoBox',latitude:'latitudeBox',longitude:'longitudeBox'};
@@ -667,6 +670,7 @@ function aplicarCamposFormulario(){
 function aplicarConfiguracaoFormulario(){
  atualizarOpcoesServico();
  aplicarCamposFormulario();
+ atualizarModalidade();
  ajustarVisibilidade();
 }
 const servicosSolicitadosOpcoes=document.getElementById('servicosSolicitadosOpcoes');
