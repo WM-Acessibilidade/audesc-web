@@ -10,7 +10,26 @@
     { nome:'Moçambique', codigo:'MZ', rotulo:'Província', padrao:'', unidades:['Cabo Delgado','Gaza','Inhambane','Manica','Maputo','Maputo Cidade','Nampula','Niassa','Sofala','Tete','Zambézia'], codigos:{'Maputo Cidade':'MPM','Maputo':'MAP'} },
     { nome:'Portugal', codigo:'PT', rotulo:'Distrito ou região autônoma', padrao:'', unidades:['Aveiro','Beja','Braga','Bragança','Castelo Branco','Coimbra','Évora','Faro','Guarda','Leiria','Lisboa','Portalegre','Porto','Santarém','Setúbal','Viana do Castelo','Vila Real','Viseu','Açores','Madeira'], codigos:{'Lisboa':'LIS','Porto':'POR','Açores':'ACO','Madeira':'MAD'} },
     { nome:'São Tomé e Príncipe', codigo:'ST', rotulo:'Distrito ou região autônoma', padrao:'', unidades:['Água Grande','Cantagalo','Caué','Lembá','Lobata','Mé-Zóchi','Região Autônoma do Príncipe'], codigos:{'Água Grande':'AG','Região Autônoma do Príncipe':'PR'} },
-    { nome:'Timor-Leste', codigo:'TL', rotulo:'Município ou região administrativa especial', padrao:'', unidades:['Aileu','Ainaro','Ataúro','Baucau','Bobonaro','Covalima','Díli','Ermera','Lautém','Liquiçá','Manatuto','Manufahi','Oecusse','Viqueque'], codigos:{'Díli':'DI','Baucau':'BA','Oecusse':'OE'} }
+    { nome:'Timor-Leste', codigo:'TL', rotulo:'Município ou região administrativa especial', padrao:'', unidades:['Aileu','Ainaro','Ataúro','Baucau','Bobonaro','Covalima','Díli','Ermera','Lautém','Liquiçá','Manatuto','Manufahi','Oecusse','Viqueque'], codigos:{'Díli':'DI','Baucau':'BA','Oecusse':'OE'} },
+    { nome:"Estados Unidos", codigo:'US', rotulo:"Estado", padrao:'', unidades:[] },
+    { nome:"Canadá", codigo:'CA', rotulo:"Província ou território", padrao:'', unidades:[] },
+    { nome:"Espanha", codigo:'ES', rotulo:"Comunidade autônoma", padrao:'', unidades:[] },
+    { nome:"França", codigo:'FR', rotulo:"Região", padrao:'', unidades:[] },
+    { nome:"Alemanha", codigo:'DE', rotulo:"Estado federado", padrao:'', unidades:[] },
+    { nome:"Reino Unido", codigo:'GB', rotulo:"País constituinte ou região", padrao:'', unidades:[] },
+    { nome:"Itália", codigo:'IT', rotulo:"Região", padrao:'', unidades:[] },
+    { nome:"Países Baixos", codigo:'NL', rotulo:"Província", padrao:'', unidades:[] },
+    { nome:"Irlanda", codigo:'IE', rotulo:"Condado", padrao:'', unidades:[] },
+    { nome:"Suíça", codigo:'CH', rotulo:"Cantão", padrao:'', unidades:[] },
+    { nome:"Austrália", codigo:'AU', rotulo:"Estado ou território", padrao:'', unidades:[] },
+    { nome:"Nova Zelândia", codigo:'NZ', rotulo:"Região", padrao:'', unidades:[] },
+    { nome:"México", codigo:'MX', rotulo:"Estado", padrao:'', unidades:[] },
+    { nome:"Argentina", codigo:'AR', rotulo:"Província", padrao:'', unidades:[] },
+    { nome:"Chile", codigo:'CL', rotulo:"Região", padrao:'', unidades:[] },
+    { nome:"Colômbia", codigo:'CO', rotulo:"Departamento", padrao:'', unidades:[] },
+    { nome:"Japão", codigo:'JP', rotulo:"Prefeitura", padrao:'', unidades:[] },
+    { nome:"Coreia do Sul", codigo:'KR', rotulo:"Província ou cidade especial", padrao:'', unidades:[] },
+    { nome:"Emirados Árabes Unidos", codigo:'AE', rotulo:"Emirado", padrao:'', unidades:[] }
   ];
 
   const unidades = {};
@@ -26,8 +45,10 @@
     }
   }
 
+  let codigosHabilitados = new Set(['BR','AO','CV','GW','GQ','MZ','PT','ST','TL']);
+  function definirPaisesHabilitados(codigos){ codigosHabilitados = new Set((codigos||[]).map(c=>String(c).toUpperCase())); }
   function nomesPaises(incluirEspeciais){
-    const nomes = paisesBase.map(p => p.nome);
+    const nomes = paisesBase.filter(p=>!codigosHabilitados || codigosHabilitados.has(p.codigo)).map(p => p.nome);
     return incluirEspeciais ? nomes.concat(['Outros']) : nomes.slice();
   }
   function codigoPaisISO(nome){ return paisCodigo[nome] || ''; }
@@ -84,6 +105,6 @@
     return (incluirVazio ? `<option value="">${textoVazio}</option>` : '') + lista.map(item => `<option value="${item.valor}" ${item.valor === valorAtual ? 'selected' : ''}>${item.texto}</option>`).join('');
   }
 
-  window.AUDESC_LOCAIS = { paises:paisesBase, unidadesAdministrativas:unidades, nomesPaises, codigoPaisISO, codigoUnidade, preencherSelectPaises, opcoesUnidades, preencherSelectUnidades, htmlOpcoesUnidades };
+  window.AUDESC_LOCAIS = { paises:paisesBase, definirPaisesHabilitados, unidadesAdministrativas:unidades, nomesPaises, codigoPaisISO, codigoUnidade, preencherSelectPaises, opcoesUnidades, preencherSelectUnidades, htmlOpcoesUnidades };
   window.AUDESC_UNIDADES_ADMINISTRATIVAS = unidades;
 })();

@@ -7,7 +7,8 @@
 
   const Estado = {
     adminToken: '',
-    config: null
+    config: null,
+    paises: []
   };
 
   const Elementos = {
@@ -16,6 +17,7 @@
     adminToken: document.getElementById('adminToken'),
     loginBtn: document.getElementById('loginBtn'),
     loginStatus: document.getElementById('loginStatus'),
+    paisesPanel: document.getElementById('paisesPanel'), togglePaises: document.getElementById('togglePaises'), conteudoPaises: document.getElementById('conteudoPaises'), buscarPais: document.getElementById('buscarPais'), listaLusofonos: document.getElementById('listaLusofonos'), listaPrioritarios: document.getElementById('listaPrioritarios'), qtdLusofonos: document.getElementById('qtdLusofonos'), qtdPrioritarios: document.getElementById('qtdPrioritarios'), qtdTotalPaises: document.getElementById('qtdTotalPaises'), selecionarLusofonos: document.getElementById('selecionarLusofonos'), selecionarPrioritarios: document.getElementById('selecionarPrioritarios'), desmarcarInternacionais: document.getElementById('desmarcarInternacionais'), salvarPaises: document.getElementById('salvarPaises'), statusPaises: document.getElementById('statusPaises'),
     pais: document.getElementById('pais'),
     uf: document.getElementById('uf'),
     ufLabel: document.getElementById('ufLabel'),
@@ -63,6 +65,52 @@
       const corpo = await resposta.json().catch(() => ({}));
       if (!resposta.ok) throw new Error(corpo.error || 'Erro na API');
       return corpo;
+    }
+  };
+
+
+
+  const CatalogoPaises = {
+    async carregar(){
+      const corpo=await Api.requisitar('/admin/paises-disponiveis');
+      Estado.paises=Array.isArray(corpo.paises)?corpo.paises:[];
+      this.render();
+      this.aplicarNosSelects();
+    },
+    itemHtml(p){
+      const status=p.configurado?'Configurado':'Configuração pendente';
+      const classe=p.configurado?'configurado':'pendente';
+      return `<div class="pais-item" data-nome-pais="${Util.esc(p.nome.toLowerCase())}"><label class="check"><input type="checkbox" data-pais-codigo="${Util.esc(p.codigo_iso)}" ${p.habilitado?'checked':''}> ${Util.esc(p.nome)}</label><span class="${classe}">${status}</span></div>`;
+    },
+    render(){
+      const filtro=String(Elementos.buscarPais?.value||'').trim().toLowerCase();
+      const visiveis=Estado.paises.filter(p=>!filtro||String(p.nome).toLowerCase().includes(filtro));
+      Elementos.listaLusofonos.innerHTML=visiveis.filter(p=>p.grupo==='lusofono').map(p=>this.itemHtml(p)).join('')||'<p>Nenhum país encontrado.</p>';
+      Elementos.listaPrioritarios.innerHTML=visiveis.filter(p=>p.grupo==='prioritario').map(p=>this.itemHtml(p)).join('')||'<p>Nenhum país encontrado.</p>';
+      this.resumo();
+    },
+    sincronizarEstado(){
+      document.querySelectorAll('[data-pais-codigo]').forEach(c=>{const p=Estado.paises.find(x=>x.codigo_iso===c.dataset.paisCodigo);if(p)p.habilitado=c.checked;});
+      this.resumo();
+    },
+    resumo(){
+      const ativos=Estado.paises.filter(p=>p.habilitado);
+      Elementos.qtdLusofonos.textContent=ativos.filter(p=>p.grupo==='lusofono').length;
+      Elementos.qtdPrioritarios.textContent=ativos.filter(p=>p.grupo==='prioritario').length;
+      Elementos.qtdTotalPaises.textContent=ativos.length;
+      Elementos.togglePaises.textContent=`${Elementos.conteudoPaises.classList.contains('hidden')?'Expandir':'Recolher'} países disponíveis no Audesc — ${ativos.length} selecionados`;
+    },
+    marcarGrupo(grupo,valor){ Estado.paises.forEach(p=>{if(p.grupo===grupo)p.habilitado=valor;}); this.render(); },
+    aplicarNosSelects(){
+      window.AUDESC_LOCAIS?.definirPaisesHabilitados(Estado.paises.filter(p=>p.habilitado).map(p=>p.codigo_iso));
+      const atual=Elementos.pais.value||'Brasil'; Localizacao.preencherPaises(); if([...Elementos.pais.options].some(o=>o.value===atual)) Elementos.pais.value=atual; Localizacao.atualizarUnidades();
+    },
+    async salvar(){
+      this.sincronizarEstado();
+      Elementos.statusPaises.textContent='Salvando países disponíveis...';
+      const corpo=await Api.requisitar('/admin/paises-disponiveis',{method:'PATCH',body:JSON.stringify({paises:Estado.paises})});
+      Estado.paises=corpo.paises||Estado.paises; this.render(); this.aplicarNosSelects();
+      Elementos.statusPaises.textContent='Países disponíveis salvos com sucesso.'; Elementos.statusPaises.className='status success';
     }
   };
 
@@ -392,6 +440,8 @@
         }
         Elementos.loginPanel.classList.add('hidden');
         Elementos.configPanel.classList.remove('hidden');
+        Elementos.paisesPanel.classList.remove('hidden');
+        await CatalogoPaises.carregar();
         Localizacao.preencherPaises();
         try {
           await Persistencia.carregar();
@@ -400,7 +450,15 @@
         }
       };
 
-      Elementos.pais.addEventListener('change', () => {
+      Elementos.togglePaises.addEventListener('click',()=>{const abrir=Elementos.conteudoPaises.classList.contains('hidden');Elementos.conteudoPaises.classList.toggle('hidden',!abrir);Elementos.togglePaises.setAttribute('aria-expanded',String(abrir));CatalogoPaises.resumo();});
+  Elementos.buscarPais.addEventListener('input',()=>CatalogoPaises.render());
+  Elementos.selecionarLusofonos.addEventListener('click',()=>CatalogoPaises.marcarGrupo('lusofono',true));
+  Elementos.selecionarPrioritarios.addEventListener('click',()=>CatalogoPaises.marcarGrupo('prioritario',true));
+  Elementos.desmarcarInternacionais.addEventListener('click',()=>CatalogoPaises.marcarGrupo('prioritario',false));
+  Elementos.salvarPaises.addEventListener('click',()=>CatalogoPaises.salvar().catch(e=>{Elementos.statusPaises.textContent=e.message;Elementos.statusPaises.className='status error';}));
+  document.addEventListener('change',e=>{if(e.target.matches('[data-pais-codigo]'))CatalogoPaises.sincronizarEstado();});
+
+  Elementos.pais.addEventListener('change', () => {
         Localizacao.atualizarUnidades();
         Render.tudo();
       });

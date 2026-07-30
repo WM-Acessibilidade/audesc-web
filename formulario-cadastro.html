@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Configuração do formulário de cadastro — Audesc</title>
+<title>Configurações do Audesc</title>
 <style>
 body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;margin:0;background:#f7f7f7;color:#111}
 header,main{max-width:1000px;margin:0 auto;padding:20px}.panel{background:#fff;border:1px solid #ddd;border-radius:12px;padding:20px;margin-top:16px}
 label{display:block;font-weight:700;margin-top:12px}input,select,textarea,button{font:inherit}input,select,textarea{width:100%;box-sizing:border-box;padding:10px;margin-top:5px;border:1px solid #999;border-radius:8px;background:#fff;color:#111}textarea{min-height:110px}
-button{margin:12px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:pointer;font-weight:700;background:#111;color:#fff}.secondary{background:#555}.status{margin-top:12px;padding:10px;border-radius:8px;border:1px solid #aaa;background:#f0f0f0}.success{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}.check{display:block;font-weight:400;margin:8px 0}.check input{width:auto;margin-right:8px}.small{font-size:.95rem;color:#444}.preview{border:1px dashed #777;border-radius:10px;padding:14px;background:#fafafa}.hidden{display:none!important}
+button{margin:12px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:pointer;font-weight:700;background:#111;color:#fff}.secondary{background:#555}.status{margin-top:12px;padding:10px;border-radius:8px;border:1px solid #aaa;background:#f0f0f0}.success{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}.check{display:block;font-weight:400;margin:8px 0}.check input{width:auto;margin-right:8px}.small{font-size:.95rem;color:#444}.preview{border:1px dashed #777;border-radius:10px;padding:14px;background:#fafafa}.hidden{display:none!important}.expansivel{width:100%;text-align:left;background:#222}.resumo-paises{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:12px 0}.resumo-paises div{border:1px solid #bbb;border-radius:8px;padding:10px}.acoes-paises{display:flex;flex-wrap:wrap;gap:8px}.lista-paises{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;margin-top:12px}.pais-item{border:1px solid #ccc;border-radius:8px;padding:10px}.pais-item label{margin:0}.pendente{color:#8a4b00}.configurado{color:#237a3b}
 </style>
 </head>
 <body>
 <header>
 <a href="admin.html">Voltar ao painel administrativo</a>
-<h1>Configuração do formulário de cadastro</h1>
-<p>Defina quais serviços e campos aparecem para cada país e unidade administrativa. Por padrão, a transmissão Audesc e a divulgação ficam disponíveis para todos os locais.</p>
+<h1>Configurações do Audesc</h1>
+<p>Administre os países atendidos e as regras de formulário, serviços e funcionamento do Audesc.</p>
 </header>
 <main>
 <section class="panel" id="loginPanel">
@@ -25,6 +25,20 @@ button{margin:12px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:p
 <button id="loginBtn" type="button">Entrar</button>
 <div id="loginStatus" class="status">Informe a senha administrativa.</div>
 </section>
+
+
+<section class="panel hidden" id="paisesPanel">
+<button type="button" id="togglePaises" class="expansivel" aria-expanded="false" aria-controls="conteudoPaises">Expandir países disponíveis no Audesc</button>
+<div id="conteudoPaises" class="hidden">
+<h2>Países disponíveis no Audesc</h2>
+<p class="small">Os países marcados aparecem nas caixas de país destinadas aos usuários. Desativar um país não apaga eventos nem configurações anteriores.</p>
+<div class="resumo-paises" aria-live="polite"><div><strong id="qtdLusofonos">0</strong><br>lusófonos</div><div><strong id="qtdPrioritarios">0</strong><br>mercados prioritários</div><div><strong id="qtdTotalPaises">0</strong><br>total habilitado</div></div>
+<label for="buscarPais">Pesquisar país</label><input id="buscarPais" type="search" autocomplete="off" placeholder="Digite parte do nome do país">
+<div class="acoes-paises"><button type="button" id="selecionarLusofonos" class="secondary">Selecionar países lusófonos</button><button type="button" id="selecionarPrioritarios" class="secondary">Selecionar mercados prioritários</button><button type="button" id="desmarcarInternacionais" class="secondary">Desmarcar mercados internacionais</button></div>
+<h3>Países de língua portuguesa</h3><div id="listaLusofonos" class="lista-paises"></div>
+<h3>Mercados internacionais prioritários</h3><div id="listaPrioritarios" class="lista-paises"></div>
+<button type="button" id="salvarPaises">Salvar países disponíveis</button><div id="statusPaises" class="status" role="status" aria-live="polite">Catálogo ainda não carregado.</div>
+</div></section>
 
 <section class="panel hidden" id="configPanel">
 <h2>Local da regra</h2>
@@ -62,6 +76,7 @@ button{margin:12px 8px 0 0;padding:10px 14px;border:0;border-radius:8px;cursor:p
 </section>
 </main>
 <script src="data/paises-unidades.js"></script>
+<script src="data/paises-disponiveis.js"></script>
 <script src="data/servicos.js"></script>
 <script src="data/categorias-eventos.js"></script>
 <script src="data/classificacoes-etarias.js"></script>
