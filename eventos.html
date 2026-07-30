@@ -32,7 +32,17 @@ function preencherUnidadeAdministrativa(paisSelect,localSelect,labelEl){const da
 function distanciaKm(lat1,lon1,lat2,lon2){const R=6371;const dLat=(lat2-lat1)*Math.PI/180,dLon=(lon2-lon1)*Math.PI/180;const a=Math.sin(dLat/2)**2+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 function distanciaEvento(e){const lat=Number(e.latitude),lon=Number(e.longitude);if(!usuarioCoords||!Number.isFinite(lat)||!Number.isFinite(lon))return null;return distanciaKm(usuarioCoords.lat,usuarioCoords.lon,lat,lon);}
 async function reverseGeocodeEventos(lat,lon){const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon)+'&accept-language=pt-BR');if(!r.ok)throw new Error('Não foi possível identificar o local.');return await r.json();}
-function ajustarFiltroPorLocalizacao(info){const a=info.address||{};const pais=(window.AUDESC_LOCAIS?.paises||[]).find(p=>String(p.codigo).toLowerCase()===String(a.country_code||'').toLowerCase())?.nome;if(pais&&paisFiltro.querySelector(`option[value="${CSS.escape(pais)}"]`)){paisFiltro.value=pais;preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);if(pais==='Brasil'){const uf=(a.state_code||a['ISO3166-2-lvl4']||'').split('-').pop().toUpperCase();if(uf)ufFiltro.value=uf;}}}
+function normalizarLocalEventos(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s*\([^)]*\)\s*$/,'').trim();}
+function ajustarFiltroPorCodigo(paisCodigo,unidadeCodigo,unidadeNome){
+ const pais=(window.AUDESC_LOCAIS?.paises||[]).find(p=>String(p.codigo).toLowerCase()===String(paisCodigo||'').toLowerCase())?.nome;
+ if(!pais||!paisFiltro.querySelector(`option[value="${CSS.escape(pais)}"]`))return false;
+ paisFiltro.value=pais;preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);
+ const codigo=String(unidadeCodigo||'').split('-').pop().toUpperCase(),nome=normalizarLocalEventos(unidadeNome);
+ const opcao=[...ufFiltro.options].find(o=>String(o.value).toUpperCase()===codigo||(nome&&normalizarLocalEventos(o.textContent)===nome));
+ if(opcao)ufFiltro.value=opcao.value;
+ return true;
+}
+function ajustarFiltroPorLocalizacao(info){const a=info.address||{};return ajustarFiltroPorCodigo(a.country_code,a.state_code||a['ISO3166-2-lvl4'],a.state);}
 
 function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function fmt(v){return v?new Date(v).toLocaleString('pt-BR'):''}
@@ -97,26 +107,47 @@ async function load(){try{const [re,rc]=await Promise.all([fetch(API_URL+'/publi
 */
 document.getElementById('busca').addEventListener('input',()=>{salvarEstado();render()});
 const paisFiltro=document.getElementById('paisFiltro'),ufFiltro=document.getElementById('ufFiltro'),ufFiltroLabel=document.getElementById('ufFiltroLabel');
+const CHAVE_LOCALIZACAO_PREFERIDA='audesc_localizacao_preferida';
+function lerLocalizacaoPreferidaEventos(){try{return JSON.parse(localStorage.getItem(CHAVE_LOCALIZACAO_PREFERIDA)||'null')}catch(e){return null}}
+function salvarLocalizacaoPreferidaEventos(fonte='manual'){
+ const pais=paisFiltro.value||'',unidade=ufFiltro.value||'';
+ const paisCodigo=codigoPaisPorNome(pais);if(!paisCodigo)return;
+ const opt=ufFiltro.options[ufFiltro.selectedIndex];
+ localStorage.setItem(CHAVE_LOCALIZACAO_PREFERIDA,JSON.stringify({pais_codigo:paisCodigo,unidade_codigo:unidade,pais_nome:pais,unidade_nome:opt?.textContent?.replace(/\s*\([^)]*\)\s*$/,'').trim()||'',fonte,confirmado_pelo_usuario:fonte!=='ip'}));
+ localStorage.setItem('audesc_eventos_localizacao_confirmada','true');
+}
+async function obterLocalizacaoAproximadaEventos(){try{const r=await fetch(API_URL+'/localizacao-aproximada');const j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)return null;return j.localizacao||null}catch(e){return null}}
+function anunciarLocalizacaoEventos(prefixo){const nome=[ufFiltro.options[ufFiltro.selectedIndex]?.textContent?.replace(/\s*\([^)]*\)\s*$/,'').trim(),paisFiltro.value].filter(Boolean).join(', ');document.getElementById('geoStatus').textContent=prefixo+(nome?': '+nome+'.':'.');}
+
 function atualizarFiltroLocal(){preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);renderCategoriasFiltro([]);salvarEstado();atualizarUrlFiltros();render()}
-paisFiltro.addEventListener('change',atualizarFiltroLocal);
-ufFiltro.addEventListener('change',()=>{renderCategoriasFiltro([]);salvarEstado();atualizarUrlFiltros();render()});
+paisFiltro.addEventListener('change',()=>{atualizarFiltroLocal();salvarLocalizacaoPreferidaEventos('manual');});
+ufFiltro.addEventListener('change',()=>{salvarLocalizacaoPreferidaEventos('manual');renderCategoriasFiltro([]);salvarEstado();atualizarUrlFiltros();render()});
 document.getElementById('alternarCategorias')?.addEventListener('click',()=>{const botao=document.getElementById('alternarCategorias'),painel=document.getElementById('categoriasFiltroPainel');const abrir=botao.getAttribute('aria-expanded')!=='true';botao.setAttribute('aria-expanded',String(abrir));painel.hidden=!abrir;if(abrir){const primeiro=painel.querySelector('input');if(primeiro)setTimeout(()=>primeiro.focus(),0);}});
 document.getElementById('limparCategorias')?.addEventListener('click',()=>{document.querySelectorAll('input[name="categoria_filtro"]:checked').forEach(i=>i.checked=false);atualizarRotuloCategorias();salvarEstado();atualizarUrlFiltros();render();});
-document.getElementById('usarLocalizacaoFiltro')?.addEventListener('click',()=>{const st=document.getElementById('geoStatus');if(!navigator.geolocation){st.textContent='Este navegador não oferece localização por GPS.';return;}st.textContent='Solicitando permissão de localização...';navigator.geolocation.getCurrentPosition(async pos=>{usuarioCoords={lat:pos.coords.latitude,lon:pos.coords.longitude};try{const info=await reverseGeocodeEventos(usuarioCoords.lat,usuarioCoords.lon);ajustarFiltroPorLocalizacao(info);salvarEstado();}catch(e){}st.textContent='Localização autorizada. Os eventos com coordenadas aparecem ordenados por proximidade.';render();},err=>{st.textContent='Não foi possível obter localização: '+(err.message||'permissão negada.');},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});});
+document.getElementById('usarLocalizacaoFiltro')?.addEventListener('click',()=>{const st=document.getElementById('geoStatus');if(!navigator.geolocation){st.textContent='Este navegador não oferece localização por GPS.';return;}st.textContent='Solicitando permissão de localização...';navigator.geolocation.getCurrentPosition(async pos=>{usuarioCoords={lat:pos.coords.latitude,lon:pos.coords.longitude};try{const info=await reverseGeocodeEventos(usuarioCoords.lat,usuarioCoords.lon);ajustarFiltroPorLocalizacao(info);salvarLocalizacaoPreferidaEventos('geolocalizacao');salvarEstado();}catch(e){}st.textContent='Localização autorizada. Os eventos com coordenadas aparecem ordenados por proximidade.';render();},err=>{st.textContent='Não foi possível obter localização: '+(err.message||'permissão negada.');},{enableHighAccuracy:true,timeout:12000,maximumAge:60000});});
 
-function aplicarEstadoInicial(){
+async function aplicarEstadoInicial(){
  const params=new URLSearchParams(location.search);
- let estado={};
- try{estado=JSON.parse(localStorage.getItem('audesc_eventos_estado')||'{}')}catch(e){estado={}}
- const pais=params.get('pais')||estado.pais||'Brasil';
- const uf=params.get('uf')||estado.uf||'DF';
+ let estado={};try{estado=JSON.parse(localStorage.getItem('audesc_eventos_estado')||'{}')}catch(e){estado={}}
+ const preferida=lerLocalizacaoPreferidaEventos();
+ const urlTemLocal=params.has('pais')||params.has('uf');
+ let aplicou=false;
+ if(urlTemLocal){
+  const pais=params.get('pais')||'Brasil',uf=params.get('uf')||'';
+  if(paisFiltro.querySelector(`option[value="${CSS.escape(pais)}"]`)){paisFiltro.value=pais;preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);if(uf)ufFiltro.value=uf;aplicou=true;}
+ }else if(preferida?.pais_codigo){
+  aplicou=ajustarFiltroPorCodigo(preferida.pais_codigo,preferida.unidade_codigo,preferida.unidade_nome);
+  if(aplicou)anunciarLocalizacaoEventos('Localização recuperada da sua preferência');
+ }else if(localStorage.getItem('audesc_eventos_localizacao_confirmada')==='true'&&estado.pais){
+  paisFiltro.value=estado.pais;preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);if(estado.uf)ufFiltro.value=estado.uf;aplicou=true;
+ }else{
+  const aproximada=await obterLocalizacaoAproximadaEventos();
+  if(aproximada?.pais_codigo){aplicou=ajustarFiltroPorCodigo(aproximada.pais_codigo,aproximada.unidade_codigo,aproximada.unidade_nome);if(aplicou)anunciarLocalizacaoEventos('Localização aproximada sugerida');}
+ }
+ if(!aplicou){paisFiltro.value='Brasil';preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);ufFiltro.value='DF';}
  const busca=params.get('busca')||estado.busca||'';
  const categorias=(params.get('categorias')||'').split(',').filter(Boolean);estado.categorias=categorias.length?categorias:(estado.categorias||[]);categoriasIniciais=[...estado.categorias];
- if(paisFiltro.querySelector(`option[value="${CSS.escape(pais)}"]`)) paisFiltro.value=pais;
- preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);
- if(uf) ufFiltro.value=uf;
- document.getElementById('busca').value=busca;
- salvarEstado();
+ document.getElementById('busca').value=busca;salvarEstado();atualizarUrlFiltros();
 }
 function focarEventoRetorno(){
  const params=new URLSearchParams(location.search);
@@ -132,7 +163,6 @@ function focarEventoRetorno(){
 const renderOriginal=render;
 render=function(){renderOriginal();setTimeout(focarEventoRetorno,0)};
 
-aplicarEstadoInicial();
-load();
+aplicarEstadoInicial().then(load);
 </script>
 </body></html>
