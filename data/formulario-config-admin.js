@@ -89,7 +89,7 @@
         moeda: moedas[pais.codigo] || '',
         grupo: lusofonos.has(pais.codigo) ? 'lusofono' : 'prioritario',
         habilitado: true,
-        configurado: lusofonos.has(pais.codigo),
+        configurado: true,
         ordem: indice + 1
       }));
     },
