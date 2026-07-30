@@ -48,7 +48,7 @@
   let codigosHabilitados = new Set(['BR','AO','CV','GW','GQ','MZ','PT','ST','TL']);
   function definirPaisesHabilitados(codigos){ codigosHabilitados = new Set((codigos||[]).map(c=>String(c).toUpperCase())); }
   function nomesPaises(incluirEspeciais){
-    const nomes = paisesBase.filter(p=>!codigosHabilitados || codigosHabilitados.has(p.codigo)).map(p => p.nome);
+    const nomes = paisesBase.filter(p=>!codigosHabilitados || codigosHabilitados.has(p.codigo)).map(p => p.nome).sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
     return incluirEspeciais ? nomes.concat(['Outros']) : nomes.slice();
   }
   function codigoPaisISO(nome){ return paisCodigo[nome] || ''; }
