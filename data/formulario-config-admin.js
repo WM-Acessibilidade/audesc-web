@@ -63,7 +63,15 @@
 
       const resposta = await fetch(API_URL + caminho, Object.assign({}, opcoes, { headers }));
       const corpo = await resposta.json().catch(() => ({}));
-      if (!resposta.ok) throw new Error(corpo.error || 'Erro na API');
+      if (!resposta.ok) {
+        let mensagem = corpo.error || corpo.message || `Erro HTTP ${resposta.status}`;
+        if (resposta.status === 401 || resposta.status === 403) mensagem = 'Senha administrativa recusada pelo servidor.';
+        if (resposta.status === 404) mensagem = 'A rota do catálogo de países ainda não está disponível no backend publicado.';
+        const erro = new Error(mensagem);
+        erro.status = resposta.status;
+        erro.caminho = caminho;
+        throw erro;
+      }
       return corpo;
     }
   };
@@ -71,11 +79,41 @@
 
 
   const CatalogoPaises = {
+    catalogoIncorporado(){
+      const moedas = {BR:'BRL',AO:'AOA',CV:'CVE',GW:'XOF',GQ:'XAF',MZ:'MZN',PT:'EUR',ST:'STN',TL:'USD',US:'USD',CA:'CAD',ES:'EUR',FR:'EUR',DE:'EUR',GB:'GBP',IT:'EUR',NL:'EUR',IE:'EUR',CH:'CHF',AU:'AUD',NZ:'NZD',MX:'MXN',AR:'ARS',CL:'CLP',CO:'COP',JP:'JPY',KR:'KRW',AE:'AED'};
+      const lusofonos = new Set(['BR','AO','CV','GW','GQ','MZ','PT','ST','TL']);
+      const base = Array.isArray(window.AUDESC_LOCAIS?.paises) ? window.AUDESC_LOCAIS.paises : [];
+      return base.map((pais, indice) => ({
+        codigo_iso: pais.codigo,
+        nome: pais.nome,
+        moeda: moedas[pais.codigo] || '',
+        grupo: lusofonos.has(pais.codigo) ? 'lusofono' : 'prioritario',
+        habilitado: true,
+        configurado: lusofonos.has(pais.codigo),
+        ordem: indice + 1
+      }));
+    },
     async carregar(){
-      const corpo=await Api.requisitar('/admin/paises-disponiveis');
-      Estado.paises=Array.isArray(corpo.paises)?corpo.paises:[];
-      this.render();
-      this.aplicarNosSelects();
+      Elementos.statusPaises.textContent='Carregando catálogo de países...';
+      Elementos.statusPaises.className='status';
+      try {
+        const corpo=await Api.requisitar('/admin/paises-disponiveis');
+        if(!Array.isArray(corpo.paises) || !corpo.paises.length) throw new Error('O servidor respondeu sem países cadastrados.');
+        Estado.paises=corpo.paises;
+        this.render();
+        this.aplicarNosSelects();
+        Elementos.statusPaises.textContent='Catálogo de países carregado com sucesso.';
+        Elementos.statusPaises.className='status success';
+        return true;
+      } catch (erro) {
+        Estado.paises=this.catalogoIncorporado();
+        this.render();
+        this.aplicarNosSelects();
+        Elementos.statusPaises.textContent=`Catálogo local exibido. Não foi possível consultar o catálogo salvo no servidor: ${erro.message}`;
+        Elementos.statusPaises.className='status error';
+        console.error('Falha ao carregar catálogo administrativo de países:', erro);
+        return false;
+      }
     },
     itemHtml(p){
       const status=p.configurado?'Configurado':'Configuração pendente';
@@ -445,8 +483,16 @@
         Localizacao.preencherPaises();
         try {
           await Persistencia.carregar();
+          Elementos.loginStatus.textContent = 'Acesso administrativo confirmado.';
         } catch (erro) {
           Util.setStatus('Erro: ' + erro.message, 'error');
+          if (erro.status === 401 || erro.status === 403) {
+            Elementos.loginPanel.classList.remove('hidden');
+            Elementos.configPanel.classList.add('hidden');
+            Elementos.paisesPanel.classList.add('hidden');
+            Elementos.loginStatus.textContent = erro.message;
+            Elementos.loginStatus.className = 'status error';
+          }
         }
       };
 
