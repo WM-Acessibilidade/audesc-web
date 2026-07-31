@@ -78,6 +78,8 @@
         <div class="collapse-body">
           <div class="stack-actions">
             <button id="msgHowAudioBtn" class="secondary" type="button">Como está o áudio?</button>
+            <button id="requestADEvaluationBtn" class="secondary" type="button">Pedir avaliação da audiodescrição</button>
+            <div id="adEvaluationRequestStatus" class="status" role="status" aria-live="polite"></div>
             <button id="msgAdjustingBtn" class="secondary" type="button">Estamos ajustando o áudio.</button>
             <button id="msgHelpProvidedBtn" class="secondary" type="button">Auxílio providenciado.</button>
             <button id="msgHelpUnavailableBtn" class="secondary" type="button">Impossibilidade de auxílio no momento.</button>
@@ -88,6 +90,7 @@
     <details class="collapse" id="sentMessagesDetails">
       <summary id="sentMessagesSummary">Mensagens recebidas (0)</summary>
       <div class="collapse-body">
+        <div id="adEvaluationSummary" class="status" aria-live="polite" hidden></div>
         <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
       </div>
     </details>
@@ -194,6 +197,7 @@
   let receiverList = [], messages = [], selectedReceiver = null, activeSession = false; anotherTransmitterDetected = false; checkingTransmitterPresence = false; messagesBlocked = false;
   let maxOuvintesPermitidos = null;
   let transmissionWindowTimer = null;
+  let currentADEvaluationRequest = null, adEvaluationPollTimer = null, seenADEvaluationIds = new Set();
   let lastTransmissionWindow = null;
 
   C.attachBeforeUnload(() => activeSession);
@@ -750,23 +754,24 @@
       renderParticipants();
     }));
   }
+  function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
   function renderMessages() {
     const box = document.getElementById('messagesBox');
     const summary = document.getElementById('sentMessagesSummary');
     const receivedCount = messages.filter(item => (item.from || '') !== 'Você').length;
     if (summary) summary.textContent = 'Mensagens recebidas (' + receivedCount + ')';
-    if (!messages.length) {
-      box.textContent = 'Nenhuma mensagem recebida ainda.';
-      return;
-    }
-    box.innerHTML = messages.map(item => `
-      <div class="message-item">
-        <div><strong>${item.from || 'Você'}</strong></div>
-        <div>${item.text}</div>
-      </div>
-    `).join('');
+    if (!messages.length) { box.textContent = 'Nenhuma mensagem recebida ainda.'; return; }
+    box.innerHTML = messages.map(item => `<div class="message-item message-type-${escapeHtml(item.type||'mensagem')}"><div><strong>[${escapeHtml((item.type||'mensagem').toUpperCase())}] ${escapeHtml(item.from||'Você')}</strong></div><div>${escapeHtml(item.text)}</div></div>`).join('');
   }
-  function addMessage(from, text) { messages.unshift({from, text}); messages = messages.slice(0, 30); if ((from || '') !== 'Você') playMessageBeep(); renderMessages(); }
+  function addMessage(from, text, type='mensagem') { messages.unshift({from,text,type}); messages=messages.slice(0,50); if((from||'')!=='Você')playMessageBeep(); renderMessages(); }
+  function renderADEvaluationSummary(j){
+    const el=document.getElementById('adEvaluationSummary'); if(!el)return; el.hidden=false;
+    const d=j.distribuicao||{}; el.innerHTML='<strong>Avaliação da audiodescrição:</strong> '+Number(j.media||0).toFixed(1)+' de 5 — '+Number(j.quantidade||0)+' resposta(s).<br>5 estrelas: '+(d[5]||0)+'; 4: '+(d[4]||0)+'; 3: '+(d[3]||0)+'; 2: '+(d[2]||0)+'; 1: '+(d[1]||0)+'.';
+  }
+  async function pollADEvaluations(){
+    if(!currentADEvaluationRequest||!roomCode)return;
+    try{const u=EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea/resumo?senha='+encodeURIComponent(eventPassword)+'&pedido_id='+encodeURIComponent(currentADEvaluationRequest.id);const r=await fetch(u,{cache:'no-store'});const j=await r.json();if(!r.ok)return;renderADEvaluationSummary(j);(j.respostas||[]).forEach(a=>{if(seenADEvaluationIds.has(a.id))return;seenADEvaluationIds.add(a.id);addMessage(a.nome_ouvinte||'Ouvinte',(a.nota)+' de 5 estrelas'+(a.comentario?' — '+a.comentario:''),'avaliacao');});}catch(e){}
+  }
   function updateReceiverList() {
     if (!room) return;
     const list = [];
@@ -806,7 +811,7 @@
       limite:maxOuvintesPermitidos,
       mensagem:'A sala atingiu o número máximo de ouvintes permitido para este evento.'
     }, [alvo]);
-    addMessage('Sistema', 'Entrada recusada por limite de ouvintes: ' + alvo + '. Limite atual: ' + maxOuvintesPermitidos + '.');
+    addMessage('Sistema', 'Entrada recusada por limite de ouvintes: ' + alvo + '. Limite atual: ' + maxOuvintesPermitidos + '.','alerta');
   }
 
   async function consultarJanelaTransmissao(){
@@ -952,9 +957,9 @@
         }
         return;
       }
-      if (msg.type === 'feedback') addMessage(from, 'Feedback: ' + msg.text);
-      if (msg.type === 'help-request') addMessage(from, 'Pedido de ajuda recebido.');
-      if (msg.type === 'receiver-hello') { addMessage(from, 'Entrou na sala.'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }, [from]); }
+      if (msg.type === 'feedback') addMessage(from, 'Feedback: ' + msg.text,'mensagem');
+      if (msg.type === 'help-request') addMessage(from, 'Pedido de ajuda recebido.','alerta');
+      if (msg.type === 'receiver-hello') { addMessage(from, 'Entrou na sala.','sistema'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }, [from]); }
     });
     await room.connect(C.livekitUrl, tokenData.token);
 
@@ -1057,6 +1062,19 @@
   document.getElementById('msgHowAudioBtn').addEventListener('click', async () => {
     await broadcastPayload({ type:'request-feedback', text:'Como está o áudio?' }, selectedReceiver.length ? selectedReceiver : undefined);
     addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos ouvintes marcados' : 'a todos os ouvintes') + ': Como está o áudio?');
+  });
+  document.getElementById('requestADEvaluationBtn').addEventListener('click', async () => {
+    if(!window.confirm('Enviar um pedido de avaliação para todos os ouvintes atualmente conectados? O pedido ficará disponível por 15 minutos.')) return;
+    try{
+      const r=await fetch(EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea/pedidos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha:eventPassword,solicitado_por:transmitterName})});
+      const j=await r.json(); if(!r.ok) throw new Error(j.error||'Não foi possível criar o pedido.');
+      currentADEvaluationRequest={id:j.pedido_id,expiraEm:j.expira_em}; seenADEvaluationIds=new Set();
+      await broadcastPayload({type:'ad-evaluation-request',pedidoId:j.pedido_id,expiresAt:j.expira_em,text:'Por gentileza, avalie a minha audiodescrição.'});
+      addMessage('Sistema','Pedido de avaliação enviado a '+j.elegiveis+' ouvinte(s).','sistema');
+      C.setStatus('adEvaluationRequestStatus','Pedido enviado. Novo pedido disponível em 15 minutos.','success');
+      clearInterval(adEvaluationPollTimer); adEvaluationPollTimer=setInterval(pollADEvaluations,4000); pollADEvaluations();
+      const btn=document.getElementById('requestADEvaluationBtn'); btn.disabled=true; setTimeout(()=>{btn.disabled=false;C.setStatus('adEvaluationRequestStatus','Você já pode solicitar uma nova avaliação.','success');},15*60*1000);
+    }catch(e){C.setStatus('adEvaluationRequestStatus',e.message||'Falha ao pedir avaliação.','warning');}
   });
   document.getElementById('msgAdjustingBtn').addEventListener('click', async () => {
     await broadcastPayload({ type:'help-response', text:'Estamos ajustando o áudio.' }, selectedReceiver.length ? selectedReceiver : undefined);

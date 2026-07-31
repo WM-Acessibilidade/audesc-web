@@ -69,3 +69,9 @@ details.collapse .collapse-body {
 .top-link-wrap {
   margin: 16px 16px 0 16px;
 }
+
+/* Fase 6.14 - tipos de mensagens */
+.message-type-avaliacao { color: #176b35; }
+.message-type-sistema { color: #165a9b; }
+.message-type-alerta { color: #a32920; font-weight: 600; background: rgba(163,41,32,.06); }
+.message-type-mensagem { color: inherit; }
