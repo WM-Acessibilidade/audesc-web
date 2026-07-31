@@ -1090,18 +1090,10 @@
       C.setStatus('muteStatus', 'Microfone ativo.', 'success');
     }
   });
-  document.getElementById('endBtn').addEventListener('click', () => {
-    const ok = window.confirm('Deseja encerrar a transmissão e fechar a sala?');
-    if (!ok) return;
-    pararMonitoramentoJanelaTransmissao();
-    cleanupAudioSources(true);
-    if (room) room.disconnect();
-    room = null; receiverList=[]; messages=[]; selectedReceiver=null;
-    renderParticipants(); renderMessages();
-    C.clearState('transmitter');
-    C.switchStep('step-form');
-    C.setStatus('transmitterStatus', 'Status: transmissão encerrada.', 'warning');
-    updateAudioDiagnostics('Transmissão encerrada.');
+  document.getElementById('endBtn').addEventListener('click', async () => {
+    const ok = window.confirm('Deseja encerrar a transmissão e disponibilizar a avaliação aos ouvintes elegíveis?'); if(!ok)return;
+    try{const r=await fetch(EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/encerrar-transmissao',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha:eventPassword})});const j=await r.json();if(!r.ok)throw new Error(j.error);broadcastPayload({type:'transmission-ended',evaluationAvailable:j.avaliacao_ativa,expiresAt:j.expira_em});C.setStatus('transmitterStatus','Transmissão encerrada. Avaliação disponibilizada a '+j.elegiveis+' ouvinte(s) elegível(is) por '+j.prazo_minutos+' minutos.','success');}catch(e){C.setStatus('transmitterStatus','A transmissão foi encerrada, mas houve falha ao preparar a avaliação: '+e.message,'warning');}
+    activeSession=false; pararMonitoramentoJanelaTransmissao(); if(room)room.disconnect();
   });
 
   setupSoundAlertControls();
