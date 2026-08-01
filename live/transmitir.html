@@ -14,6 +14,7 @@
 </header>
 
 <main class="main">
+  <div id="actionAnnouncement" class="sr-only" role="status" aria-live="assertive" aria-atomic="true"></div>
   <section id="step-form" class="screen-step active">
     <section class="panel">
       <h2>Entrar como audiodescritor(a)</h2>
@@ -74,15 +75,15 @@
     </details>
 
 <details class="collapse" id="instantMessagesDetails">
-        <summary>Mensagens instantâneas</summary>
+        <summary>Comunicação instantânea</summary>
         <div class="collapse-body">
           <div class="stack-actions">
             <button id="msgHowAudioBtn" class="secondary" type="button">Como está o áudio?</button>
-            <button id="requestADEvaluationBtn" class="secondary" type="button">Pedir avaliação da audiodescrição</button>
-            <div id="adEvaluationRequestStatus" class="status" role="status" aria-live="polite"></div>
             <button id="msgAdjustingBtn" class="secondary" type="button">Estamos ajustando o áudio.</button>
             <button id="msgHelpProvidedBtn" class="secondary" type="button">Auxílio providenciado.</button>
             <button id="msgHelpUnavailableBtn" class="secondary" type="button">Impossibilidade de auxílio no momento.</button>
+            <button id="requestADEvaluationBtn" class="secondary" type="button">Pedir avaliação da audiodescrição</button>
+            <div id="adEvaluationRequestStatus" class="status" role="status" aria-live="polite"></div>
           </div>
         </div>
       </details>
@@ -113,7 +114,6 @@
           </span>
         </label>
         <p class="hint">Ao marcar esta opção, os ouvintes serão avisados da indisponibilidade do audiodescritor(a) para interagir com mensagens no momento.</p>
-        <p class="hint">Por padrão, o alerta sonoro fica desativado para o audiodescritor(a), pois podem chegar mensagens de vários ouvintes.</p>
 
         <hr aria-hidden="true">
         <h3>Fontes de áudio</h3>

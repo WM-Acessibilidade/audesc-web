@@ -75,3 +75,16 @@ details.collapse .collapse-body {
 .message-type-sistema { color: #165a9b; }
 .message-type-alerta { color: #a32920; font-weight: 600; background: rgba(163,41,32,.06); }
 .message-type-mensagem { color: inherit; }
+
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}

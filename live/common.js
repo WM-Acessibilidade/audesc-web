@@ -12,8 +12,19 @@
   function setStatus(id, text, tone) {
     const el = document.getElementById(id);
     if (!el) return;
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    el.setAttribute('aria-atomic', 'true');
     el.textContent = text;
     el.className = 'status' + (tone ? ' ' + tone : '');
+
+    // Espelha a informação visual em uma região viva persistente.
+    // Isso garante o anúncio mesmo quando a ação troca imediatamente de tela.
+    const announcement = document.getElementById('actionAnnouncement');
+    if (announcement && announcement !== el) {
+      announcement.textContent = '';
+      window.setTimeout(() => { announcement.textContent = text; }, 20);
+    }
   }
   function readValue(id) {
     const el = document.getElementById(id);
