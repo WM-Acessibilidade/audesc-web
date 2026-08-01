@@ -26,6 +26,15 @@
       window.setTimeout(() => { announcement.textContent = text; }, 20);
     }
   }
+  function setPassiveStatus(id, text, tone) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.removeAttribute('role');
+    el.removeAttribute('aria-live');
+    el.removeAttribute('aria-atomic');
+    el.textContent = text;
+    el.className = 'status passive-status' + (tone ? ' ' + tone : '');
+  }
   function readValue(id) {
     const el = document.getElementById(id);
     return el ? el.value.trim() : '';
@@ -125,7 +134,7 @@
     });
   }
   window.AudescLiveCommon = {
-    livekitUrl, tokenEndpoint, setText, setStatus, readValue, writeValue,
+    livekitUrl, tokenEndpoint, setText, setStatus, setPassiveStatus, readValue, writeValue,
     normalizarSala, gerarSalaAutomatica, obterSalaDaUrl, obterSenhaDaUrl, montarLinkReceptor,
     copiarTexto, pedirToken, carregarLiveKit, criarRoom, saveState, loadState,
     clearState, switchStep, encodePayload, decodePayload, attachBeforeUnload

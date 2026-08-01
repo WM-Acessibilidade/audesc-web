@@ -761,7 +761,7 @@
     const receivedCount = messages.filter(item => (item.from || '') !== 'Você').length;
     if (summary) summary.textContent = 'Mensagens recebidas (' + receivedCount + ')';
     if (!messages.length) { box.textContent = 'Nenhuma mensagem recebida ainda.'; return; }
-    box.innerHTML = messages.map(item => `<div class="message-item message-type-${escapeHtml(item.type||'mensagem')}"><div><strong>[${escapeHtml((item.type||'mensagem').toUpperCase())}] ${escapeHtml(item.from||'Você')}</strong></div><div>${escapeHtml(item.text)}</div></div>`).join('');
+    box.innerHTML = messages.map(item => `<div class="message-item message-type-${escapeHtml(item.type||'mensagem')}"><div><strong>${escapeHtml(item.from||'Você')}</strong></div><div>${escapeHtml(item.text)}</div></div>`).join('');
   }
   function addMessage(from, text, type='mensagem') { messages.unshift({from,text,type}); messages=messages.slice(0,50); if((from||'')!=='Você')playMessageBeep(); renderMessages(); }
   function renderADEvaluationSummary(j){
@@ -829,19 +829,19 @@
 
   function atualizarStatusJanelaTransmissao(j){
     if(!j || !j.configurado){
-      C.setStatus('transmissionTimeStatus', 'Janela de transmissão: sem restrição de horário configurada.', 'warning');
+      C.setPassiveStatus('transmissionTimeStatus', 'Janela de transmissão: sem restrição de horário configurada.', 'warning');
       return;
     }
     if(!j.permitido_permanecer || j.apos_encerramento){
-      C.setStatus('transmissionTimeStatus', 'Janela de transmissão encerrada.', 'warning');
+      C.setPassiveStatus('transmissionTimeStatus', 'Janela de transmissão encerrada.', 'warning');
       return;
     }
     if(j.antes_da_liberacao){
-      C.setStatus('transmissionTimeStatus', j.mensagem || 'Transmissão ainda não liberada.', 'warning');
+      C.setPassiveStatus('transmissionTimeStatus', j.mensagem || 'Transmissão ainda não liberada.', 'warning');
       return;
     }
     const mins = Number(j.minutos_restantes || 0);
-    C.setStatus('transmissionTimeStatus', 'Restam ' + mins + ' minuto(s) para o encerramento da transmissão.', mins <= 5 ? 'warning' : 'success');
+    C.setPassiveStatus('transmissionTimeStatus', 'Restam ' + mins + ' minuto(s) para o encerramento da transmissão.', mins <= 5 ? 'warning' : 'success');
   }
 
   async function validarJanelaTransmissaoAntesDeEntrar(){
@@ -862,7 +862,7 @@
 
   async function encerrarPorJanelaTransmissao(){
     C.setStatus('transmitterStatus', 'Status: transmissão encerrada automaticamente por término da janela autorizada.', 'warning');
-    C.setStatus('transmissionTimeStatus', 'Janela de transmissão encerrada.', 'warning');
+    C.setPassiveStatus('transmissionTimeStatus', 'Janela de transmissão encerrada.', 'warning');
     try { await broadcastPayload({type:'transmission-window-ended', mensagem:'A transmissão foi encerrada porque a janela autorizada terminou.'}); } catch(e) {}
     cleanupAudioSources(true);
     if(room) room.disconnect();

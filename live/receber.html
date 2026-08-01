@@ -52,8 +52,7 @@
       <div id="receiverTimeStatus" class="status">Janela de transmissão: aguardando verificação.</div>
     </section>
 
-    <section class="panel">
-      <h2>Controle do áudio</h2>
+    <section class="panel" aria-label="Áudio da transmissão">
       <audio id="remoteAudio" autoplay playsinline></audio>
     </section>
 
@@ -394,19 +393,19 @@
 
   function atualizarStatusJanelaTransmissao(j){
     if(!j || !j.configurado){
-      C.setStatus('receiverTimeStatus', 'Janela de transmissão: sem restrição de horário configurada.', 'warning');
+      C.setPassiveStatus('receiverTimeStatus', 'Janela de transmissão: sem restrição de horário configurada.', 'warning');
       return;
     }
     if(!j.permitido_permanecer || j.apos_encerramento){
-      C.setStatus('receiverTimeStatus', 'Janela de transmissão encerrada.', 'warning');
+      C.setPassiveStatus('receiverTimeStatus', 'Janela de transmissão encerrada.', 'warning');
       return;
     }
     if(j.antes_da_liberacao){
-      C.setStatus('receiverTimeStatus', j.mensagem || 'Transmissão ainda não liberada.', 'warning');
+      C.setPassiveStatus('receiverTimeStatus', j.mensagem || 'Transmissão ainda não liberada.', 'warning');
       return;
     }
     const mins = Number(j.minutos_restantes || 0);
-    C.setStatus('receiverTimeStatus', 'Restam ' + mins + ' minuto(s) para o encerramento da transmissão.', mins <= 5 ? 'warning' : 'success');
+    C.setPassiveStatus('receiverTimeStatus', 'Restam ' + mins + ' minuto(s) para o encerramento da transmissão.', mins <= 5 ? 'warning' : 'success');
   }
 
   async function validarJanelaTransmissaoAntesDeEntrar(){

@@ -88,3 +88,9 @@ details.collapse .collapse-body {
   white-space: nowrap !important;
   border: 0 !important;
 }
+
+/* Fase 6.14.2 - temporizadores visuais sem anúncios automáticos */
+#transmissionTimeStatus.warning, #receiverTimeStatus.warning {
+  border-width: 2px;
+  font-weight: 700;
+}
