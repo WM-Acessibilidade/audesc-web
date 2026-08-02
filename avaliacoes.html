@@ -1,1 +1,218 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Avaliações das transmissões — Audesc</title><link rel="stylesheet" href="style.css"></head><body><main class="container"><h1>Avaliações das transmissões</h1><p><a href="admin.html">Voltar ao painel</a></p><section><h2>Configurações</h2><label>Token administrativo <input id="token" type="password"></label><label><input id="ativa" type="checkbox" checked> Ativar avaliações</label><label>Prazo após o término <select id="prazo"><option value="30">30 minutos</option><option value="60" selected>60 minutos</option><option value="120">120 minutos</option></select></label><label>Participação mínima <input id="minimo" type="number" min="0" max="60" value="1"> minutos</label><label><input id="edicao" type="checkbox" checked> Permitir edição durante o prazo</label><label><input id="comentario" type="checkbox" checked> Exibir campo de comentário</label><h3>Avaliação instantânea da audiodescrição</h3><label><input id="instantanea" type="checkbox" checked> Ativar avaliação instantânea</label><p>O pedido fica disponível por 15 minutos e um novo pedido só pode ser enviado após 15 minutos.</p><label><input id="comentarioInstantaneo" type="checkbox" checked> Permitir comentário opcional na avaliação instantânea</label><button id="salvar">Salvar configurações</button><div id="status" role="status" aria-live="polite"></div></section><section><h2>Resultados recentes</h2><button id="carregar">Carregar avaliações</button><div id="resultados"></div></section></main><script>const API='https://audesc-events-api.onrender.com';const headers=()=>({'Content-Type':'application/json','x-admin-token':token.value});async function carregarConfig(){const r=await fetch(API+'/admin/avaliacoes/configuracao',{headers:headers()});const j=await r.json();if(!r.ok)throw Error(j.error);ativa.checked=j.config.ativa;prazo.value=j.config.prazo_minutos;minimo.value=j.config.participacao_minima_minutos;edicao.checked=j.config.permitir_edicao;comentario.checked=j.config.comentario_ativo;instantanea.checked=j.config.avaliacao_instantanea_ativa!==false;comentarioInstantaneo.checked=j.config.comentario_instantaneo_ativo!==false}salvar.onclick=async()=>{try{const r=await fetch(API+'/admin/avaliacoes/configuracao',{method:'PUT',headers:headers(),body:JSON.stringify({ativa:ativa.checked,prazo_minutos:Number(prazo.value),participacao_minima_minutos:Number(minimo.value),permitir_edicao:edicao.checked,comentario_ativo:comentario.checked,avaliacao_instantanea_ativa:instantanea.checked,comentario_instantaneo_ativo:comentarioInstantaneo.checked})});const j=await r.json();if(!r.ok)throw Error(j.error);status.textContent='Configurações salvas.'}catch(e){status.textContent=e.message}};carregar.onclick=async()=>{try{await carregarConfig();const r=await fetch(API+'/admin/avaliacoes',{headers:headers()});const j=await r.json();if(!r.ok)throw Error(j.error);resultados.innerHTML='<p>'+j.avaliacoes.length+' avaliação(ões).</p>'+j.avaliacoes.map(a=>'<article><strong>Sala '+a.sala_codigo+'</strong><p>Geral: '+a.avaliacao_geral+'/5; audiodescrição: '+a.qualidade_audiodescricao+'/5; áudio: '+a.qualidade_audio+'/5; autonomia: '+a.autonomia+'/5; recomendação: '+(a.recomendacao??'não respondida')+'</p><p>'+((a.comentario||'').replace(/[<>]/g,''))+'</p></article>').join('')}catch(e){resultados.textContent=e.message}};</script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Avaliações das transmissões — Audesc</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="container">
+  <h1>Avaliações das transmissões</h1>
+  <p><a href="admin.html">Voltar ao painel</a></p>
+
+  <section>
+    <h2>Configurações</h2>
+    <label for="token">Senha administrativa</label>
+    <input id="token" type="password" autocomplete="current-password">
+    <button id="carregarConfig" type="button">Carregar configurações</button>
+
+    <div id="camposConfiguracao">
+      <label><input id="ativa" type="checkbox" checked> Ativar avaliações</label>
+      <label for="prazo">Prazo após o término</label>
+      <select id="prazo">
+        <option value="30">30 minutos</option>
+        <option value="60" selected>60 minutos</option>
+        <option value="120">120 minutos</option>
+      </select>
+
+      <label for="minimo">Participação mínima, em minutos</label>
+      <input id="minimo" type="number" min="0" max="60" value="1">
+
+      <label><input id="edicao" type="checkbox" checked> Permitir edição durante o prazo</label>
+      <label><input id="comentario" type="checkbox" checked> Exibir campo de comentário</label>
+
+      <h3>Avaliação instantânea da audiodescrição</h3>
+      <label><input id="instantanea" type="checkbox" checked> Ativar avaliação instantânea</label>
+      <p>O pedido fica disponível por 15 minutos e um novo pedido só pode ser enviado após 15 minutos.</p>
+      <label><input id="comentarioInstantaneo" type="checkbox" checked> Permitir comentário opcional na avaliação instantânea</label>
+    </div>
+
+    <button id="salvar" type="button">Salvar configurações</button>
+    <div id="mensagemStatus" role="status" aria-live="polite"></div>
+  </section>
+
+  <section>
+    <h2>Resultados recentes</h2>
+    <button id="carregar" type="button">Carregar avaliações</button>
+    <div id="resultados"></div>
+  </section>
+</main>
+<script>
+(() => {
+  'use strict';
+
+  const API = 'https://audesc-events-api.onrender.com';
+  const el = {
+    token: document.getElementById('token'),
+    carregarConfig: document.getElementById('carregarConfig'),
+    ativa: document.getElementById('ativa'),
+    prazo: document.getElementById('prazo'),
+    minimo: document.getElementById('minimo'),
+    edicao: document.getElementById('edicao'),
+    comentario: document.getElementById('comentario'),
+    instantanea: document.getElementById('instantanea'),
+    comentarioInstantaneo: document.getElementById('comentarioInstantaneo'),
+    salvar: document.getElementById('salvar'),
+    mensagemStatus: document.getElementById('mensagemStatus'),
+    carregar: document.getElementById('carregar'),
+    resultados: document.getElementById('resultados')
+  };
+
+  function informar(texto) {
+    el.mensagemStatus.textContent = '';
+    window.setTimeout(() => { el.mensagemStatus.textContent = texto; }, 20);
+  }
+
+  function tokenAdministrativo() {
+    return el.token.value.trim();
+  }
+
+  function headers() {
+    return {
+      'Content-Type': 'application/json',
+      'x-admin-token': tokenAdministrativo()
+    };
+  }
+
+  async function lerResposta(resposta) {
+    const texto = await resposta.text();
+    let dados = {};
+    if (texto) {
+      try { dados = JSON.parse(texto); }
+      catch { dados = { error: texto }; }
+    }
+    if (!resposta.ok) {
+      throw new Error(dados.error || `Erro ${resposta.status} ao acessar o servidor.`);
+    }
+    return dados;
+  }
+
+  function validarSenha() {
+    if (tokenAdministrativo()) return true;
+    informar('Digite a senha administrativa.');
+    el.token.focus();
+    return false;
+  }
+
+  function aplicarConfiguracao(config) {
+    el.ativa.checked = config.ativa !== false;
+    el.prazo.value = String(config.prazo_minutos ?? 60);
+    el.minimo.value = String(config.participacao_minima_minutos ?? 1);
+    el.edicao.checked = config.permitir_edicao !== false;
+    el.comentario.checked = config.comentario_ativo !== false;
+    el.instantanea.checked = config.avaliacao_instantanea_ativa !== false;
+    el.comentarioInstantaneo.checked = config.comentario_instantaneo_ativo !== false;
+  }
+
+  async function carregarConfiguracao({ anunciar = true } = {}) {
+    if (!validarSenha()) return null;
+    const resposta = await fetch(`${API}/admin/avaliacoes/configuracao`, {
+      method: 'GET',
+      headers: headers(),
+      cache: 'no-store'
+    });
+    const dados = await lerResposta(resposta);
+    aplicarConfiguracao(dados.config || {});
+    if (anunciar) informar('Configurações carregadas.');
+    return dados.config || {};
+  }
+
+  async function salvarConfiguracao() {
+    if (!validarSenha()) return;
+    el.salvar.disabled = true;
+    informar('Salvando configurações...');
+    try {
+      const payload = {
+        ativa: el.ativa.checked,
+        prazo_minutos: Number(el.prazo.value),
+        participacao_minima_minutos: Number(el.minimo.value),
+        permitir_edicao: el.edicao.checked,
+        comentario_ativo: el.comentario.checked,
+        avaliacao_instantanea_ativa: el.instantanea.checked,
+        comentario_instantaneo_ativo: el.comentarioInstantaneo.checked
+      };
+      const resposta = await fetch(`${API}/admin/avaliacoes/configuracao`, {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify(payload)
+      });
+      const dados = await lerResposta(resposta);
+      aplicarConfiguracao(dados.config || payload);
+
+      // Confirma que o servidor realmente persistiu a configuração.
+      const confirmada = await carregarConfiguracao({ anunciar: false });
+      if (!confirmada) throw new Error('Não foi possível confirmar a configuração salva.');
+      informar('Configurações salvas e confirmadas no servidor.');
+    } catch (erro) {
+      informar(`Não foi possível salvar: ${erro.message}`);
+    } finally {
+      el.salvar.disabled = false;
+    }
+  }
+
+  function escapar(texto) {
+    return String(texto ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#39;');
+  }
+
+  async function carregarAvaliacoes() {
+    if (!validarSenha()) return;
+    el.carregar.disabled = true;
+    el.resultados.textContent = 'Carregando avaliações...';
+    try {
+      await carregarConfiguracao({ anunciar: false });
+      const resposta = await fetch(`${API}/admin/avaliacoes`, {
+        headers: headers(),
+        cache: 'no-store'
+      });
+      const dados = await lerResposta(resposta);
+      const avaliacoes = Array.isArray(dados.avaliacoes) ? dados.avaliacoes : [];
+      el.resultados.innerHTML = `<p>${avaliacoes.length} avaliação(ões).</p>` + avaliacoes.map(a => `
+        <article>
+          <strong>Sala ${escapar(a.sala_codigo)}</strong>
+          <p>Geral: ${escapar(a.avaliacao_geral)}/5; audiodescrição: ${escapar(a.qualidade_audiodescricao)}/5; áudio: ${escapar(a.qualidade_audio)}/5; autonomia: ${escapar(a.autonomia)}/5; recomendação: ${a.recomendacao ?? 'não respondida'}</p>
+          <p>${escapar(a.comentario)}</p>
+        </article>`).join('');
+      informar('Avaliações carregadas.');
+    } catch (erro) {
+      el.resultados.textContent = `Não foi possível carregar: ${erro.message}`;
+      informar(`Não foi possível carregar as avaliações: ${erro.message}`);
+    } finally {
+      el.carregar.disabled = false;
+    }
+  }
+
+  el.carregarConfig.addEventListener('click', async () => {
+    el.carregarConfig.disabled = true;
+    informar('Carregando configurações...');
+    try { await carregarConfiguracao(); }
+    catch (erro) { informar(`Não foi possível carregar: ${erro.message}`); }
+    finally { el.carregarConfig.disabled = false; }
+  });
+  el.salvar.addEventListener('click', salvarConfiguracao);
+  el.carregar.addEventListener('click', carregarAvaliacoes);
+  el.token.addEventListener('keydown', (evento) => {
+    if (evento.key === 'Enter') {
+      evento.preventDefault();
+      el.carregarConfig.click();
+    }
+  });
+})();
+</script>
+</body>
+</html>
