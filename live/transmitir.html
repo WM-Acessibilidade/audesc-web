@@ -82,7 +82,7 @@
             <button id="msgAdjustingBtn" class="secondary" type="button">Estamos ajustando o áudio.</button>
             <button id="msgHelpProvidedBtn" class="secondary" type="button">Auxílio providenciado.</button>
             <button id="msgHelpUnavailableBtn" class="secondary" type="button">Impossibilidade de auxílio no momento.</button>
-            <button id="requestADEvaluationBtn" class="secondary" type="button">Pedir avaliação da audiodescrição</button>
+            <button id="requestADEvaluationBtn" class="secondary" type="button" hidden>Pedir avaliação da audiodescrição</button>
             <div id="adEvaluationRequestStatus" class="status" role="status" aria-live="polite"></div>
           </div>
         </div>
@@ -193,6 +193,26 @@
 (function() {
   const C = window.AudescLiveCommon;
   const EVENTS_API_URL = 'https://audesc-events-api.onrender.com';
+  let avaliacaoInstantaneaHabilitada = false;
+  async function carregarConfiguracaoAvaliacaoInstantanea(){
+    const btn=document.getElementById('requestADEvaluationBtn');
+    try{
+      const r=await fetch(EVENTS_API_URL+'/public/avaliacoes/configuracao',{cache:'no-store'});
+      const j=await r.json();
+      if(!r.ok) throw new Error(j.error||'Falha ao consultar configuração.');
+      avaliacaoInstantaneaHabilitada=j.avaliacao_instantanea_ativa!==false;
+    }catch(e){
+      avaliacaoInstantaneaHabilitada=false;
+    }
+    if(btn){
+      btn.hidden=!avaliacaoInstantaneaHabilitada;
+      btn.disabled=!avaliacaoInstantaneaHabilitada;
+    }
+    if(!avaliacaoInstantaneaHabilitada){
+      const status=document.getElementById('adEvaluationRequestStatus');
+      if(status) status.textContent='';
+    }
+  }
   let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '', eventPassword = '', messagesBlocked = false, anotherTransmitterDetected = false, checkingTransmitterPresence = false;
   let receiverList = [], messages = [], selectedReceiver = null, activeSession = false; anotherTransmitterDetected = false; checkingTransmitterPresence = false; messagesBlocked = false;
   let maxOuvintesPermitidos = null;
@@ -1064,6 +1084,7 @@
     addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos ouvintes marcados' : 'a todos os ouvintes') + ': Como está o áudio?');
   });
   document.getElementById('requestADEvaluationBtn').addEventListener('click', async () => {
+    if(!avaliacaoInstantaneaHabilitada) return;
     if(!window.confirm('Enviar um pedido de avaliação para todos os ouvintes atualmente conectados? O pedido ficará disponível por 15 minutos.')) return;
     try{
       const r=await fetch(EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea/pedidos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha:eventPassword,solicitado_por:transmitterName})});
@@ -1116,6 +1137,7 @@
 
   setupSoundAlertControls();
   setupAudioSourceControls();
+  carregarConfiguracaoAvaliacaoInstantanea();
 
   const lastRoomForForm = loadLastTransmitterRoom();
   if (lastRoomForForm && lastRoomForForm.roomCode) {
