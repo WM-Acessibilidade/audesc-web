@@ -83,7 +83,7 @@
             <button id="msgHelpProvidedBtn" class="secondary" type="button">Auxílio providenciado.</button>
             <button id="msgHelpUnavailableBtn" class="secondary" type="button">Impossibilidade de auxílio no momento.</button>
             <button id="requestADEvaluationBtn" class="secondary" type="button" hidden>Pedir avaliação da audiodescrição</button>
-            <div id="adEvaluationRequestStatus" class="status" role="status" aria-live="polite"></div>
+            <div id="adEvaluationRequestStatus" class="status"></div>
           </div>
         </div>
       </details>
@@ -187,6 +187,17 @@
   </section>
 </main>
 
+<dialog id="confirmationDialog" class="confirmation-dialog" aria-labelledby="confirmationDialogTitle" aria-describedby="confirmationDialogText">
+  <form method="dialog" class="confirmation-dialog-content">
+    <h2 id="confirmationDialogTitle">Confirmar ação</h2>
+    <p id="confirmationDialogText"></p>
+    <div class="actions">
+      <button id="confirmationCancelBtn" class="secondary" value="cancel" type="submit">Cancelar</button>
+      <button id="confirmationOkBtn" value="confirm" type="submit">OK</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="livekit-config.js"></script>
 <script src="common.js"></script>
 <script>
@@ -194,6 +205,61 @@
   const C = window.AudescLiveCommon;
   const EVENTS_API_URL = 'https://audesc-events-api.onrender.com';
   let avaliacaoInstantaneaHabilitada = false;
+  let adEvaluationCooldownTimer = null;
+  let adEvaluationCooldownEndsAt = 0;
+
+  function confirmarAcao(mensagem, titulo = 'Confirmar ação') {
+    const dialog = document.getElementById('confirmationDialog');
+    const title = document.getElementById('confirmationDialogTitle');
+    const text = document.getElementById('confirmationDialogText');
+    const okBtn = document.getElementById('confirmationOkBtn');
+    if (!dialog || typeof dialog.showModal !== 'function') {
+      return Promise.resolve(window.confirm(mensagem));
+    }
+    title.textContent = titulo;
+    text.textContent = mensagem;
+    return new Promise(resolve => {
+      const concluir = () => {
+        dialog.removeEventListener('close', concluir);
+        resolve(dialog.returnValue === 'confirm');
+      };
+      dialog.addEventListener('close', concluir);
+      dialog.showModal();
+      requestAnimationFrame(() => okBtn.focus());
+    });
+  }
+
+  function formatarContagemRegressiva(ms) {
+    const total = Math.max(0, Math.ceil(ms / 1000));
+    const minutos = Math.floor(total / 60);
+    const segundos = total % 60;
+    return minutos + ':' + String(segundos).padStart(2, '0');
+  }
+
+  function iniciarContagemNovoPedido(expiraEm) {
+    const btn = document.getElementById('requestADEvaluationBtn');
+    const status = document.getElementById('adEvaluationRequestStatus');
+    adEvaluationCooldownEndsAt = new Date(expiraEm).getTime();
+    clearInterval(adEvaluationCooldownTimer);
+    const atualizar = () => {
+      const restante = adEvaluationCooldownEndsAt - Date.now();
+      if (restante <= 0) {
+        clearInterval(adEvaluationCooldownTimer);
+        adEvaluationCooldownTimer = null;
+        btn.disabled = !avaliacaoInstantaneaHabilitada;
+        status.textContent = 'Você já pode solicitar uma nova avaliação.';
+        status.classList.add('success');
+        status.classList.remove('warning');
+        return;
+      }
+      btn.disabled = true;
+      status.textContent = 'Novo pedido disponível em ' + formatarContagemRegressiva(restante) + '.';
+      status.classList.add('warning');
+      status.classList.remove('success');
+    };
+    atualizar();
+    adEvaluationCooldownTimer = setInterval(atualizar, 1000);
+  }
   async function carregarConfiguracaoAvaliacaoInstantanea(){
     const btn=document.getElementById('requestADEvaluationBtn');
     try{
@@ -1085,16 +1151,15 @@
   });
   document.getElementById('requestADEvaluationBtn').addEventListener('click', async () => {
     if(!avaliacaoInstantaneaHabilitada) return;
-    if(!window.confirm('Enviar um pedido de avaliação para todos os ouvintes atualmente conectados? O pedido ficará disponível por 15 minutos.')) return;
+    if(!await confirmarAcao('Enviar um pedido de avaliação para todos os ouvintes atualmente conectados? O pedido ficará disponível por 15 minutos.', 'Pedir avaliação da audiodescrição')) return;
     try{
       const r=await fetch(EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea/pedidos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha:eventPassword,solicitado_por:transmitterName})});
       const j=await r.json(); if(!r.ok) throw new Error(j.error||'Não foi possível criar o pedido.');
       currentADEvaluationRequest={id:j.pedido_id,expiraEm:j.expira_em}; seenADEvaluationIds=new Set();
       await broadcastPayload({type:'ad-evaluation-request',pedidoId:j.pedido_id,expiresAt:j.expira_em,text:'Por gentileza, avalie a minha audiodescrição.'});
       addMessage('Sistema','Pedido de avaliação enviado a '+j.elegiveis+' ouvinte(s).','sistema');
-      C.setStatus('adEvaluationRequestStatus','Pedido enviado. Novo pedido disponível em 15 minutos.','success');
       clearInterval(adEvaluationPollTimer); adEvaluationPollTimer=setInterval(pollADEvaluations,4000); pollADEvaluations();
-      const btn=document.getElementById('requestADEvaluationBtn'); btn.disabled=true; setTimeout(()=>{btn.disabled=false;C.setStatus('adEvaluationRequestStatus','Você já pode solicitar uma nova avaliação.','success');},15*60*1000);
+      iniciarContagemNovoPedido(j.expira_em);
     }catch(e){C.setStatus('adEvaluationRequestStatus',e.message||'Falha ao pedir avaliação.','warning');}
   });
   document.getElementById('msgAdjustingBtn').addEventListener('click', async () => {
@@ -1130,7 +1195,7 @@
     }
   });
   document.getElementById('endBtn').addEventListener('click', async () => {
-    const ok = window.confirm('Deseja encerrar a transmissão e disponibilizar a avaliação aos ouvintes elegíveis?'); if(!ok)return;
+    const ok = await confirmarAcao('Deseja encerrar a transmissão e disponibilizar a avaliação aos ouvintes elegíveis?', 'Encerrar transmissão'); if(!ok)return;
     try{const r=await fetch(EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/encerrar-transmissao',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha:eventPassword})});const j=await r.json();if(!r.ok)throw new Error(j.error);broadcastPayload({type:'transmission-ended',evaluationAvailable:j.avaliacao_ativa,expiresAt:j.expira_em});C.setStatus('transmitterStatus','Transmissão encerrada. Avaliação disponibilizada a '+j.elegiveis+' ouvinte(s) elegível(is) por '+j.prazo_minutos+' minutos.','success');}catch(e){C.setStatus('transmitterStatus','A transmissão foi encerrada, mas houve falha ao preparar a avaliação: '+e.message,'warning');}
     activeSession=false; pararMonitoramentoJanelaTransmissao(); if(room)room.disconnect();
   });
