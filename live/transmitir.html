@@ -260,6 +260,40 @@
     atualizar();
     adEvaluationCooldownTimer = setInterval(atualizar, 1000);
   }
+  async function recuperarEstadoAvaliacaoInstantanea(){
+    if(!roomCode||!eventPassword||!avaliacaoInstantaneaHabilitada) return;
+    try{
+      const u=EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea/estado-transmissor?senha='+encodeURIComponent(eventPassword);
+      const r=await fetch(u,{cache:'no-store'});
+      const j=await r.json();
+      if(!r.ok) throw new Error(j.error||'Não foi possível recuperar o estado da avaliação.');
+      if(j.ativa===false){
+        avaliacaoInstantaneaHabilitada=false;
+        const btn=document.getElementById('requestADEvaluationBtn');
+        if(btn){btn.hidden=true;btn.disabled=true;}
+        return;
+      }
+      if(j.pedido_atual&&j.pedido_atual.id){
+        currentADEvaluationRequest={id:j.pedido_atual.id,expiraEm:j.pedido_atual.expira_em};
+        seenADEvaluationIds=new Set();
+        clearInterval(adEvaluationPollTimer);
+        adEvaluationPollTimer=setInterval(pollADEvaluations,4000);
+        pollADEvaluations();
+      }
+      if(j.pode_solicitar===false&&j.proximo_pedido_em){
+        iniciarContagemNovoPedido(j.proximo_pedido_em);
+      }else{
+        const btn=document.getElementById('requestADEvaluationBtn');
+        const status=document.getElementById('adEvaluationRequestStatus');
+        if(btn) btn.disabled=!avaliacaoInstantaneaHabilitada;
+        if(status){status.textContent='Você já pode solicitar uma nova avaliação.';status.classList.add('success');status.classList.remove('warning');}
+      }
+    }catch(e){
+      const status=document.getElementById('adEvaluationRequestStatus');
+      if(status) status.textContent='Não foi possível recuperar o tempo restante do último pedido.';
+    }
+  }
+
   async function carregarConfiguracaoAvaliacaoInstantanea(){
     const btn=document.getElementById('requestADEvaluationBtn');
     try{
@@ -1100,6 +1134,7 @@
     updateAudioDiagnostics('Transmissão iniciada com sucesso.');
     persist();
     saveLastTransmitterRoom();
+    recuperarEstadoAvaliacaoInstantanea().catch(()=>{});
   }
 
   document.getElementById('startBtn').addEventListener('click', async () => {
@@ -1154,7 +1189,11 @@
     if(!await confirmarAcao('Enviar um pedido de avaliação para todos os ouvintes atualmente conectados? O pedido ficará disponível por 15 minutos.', 'Pedir avaliação da audiodescrição')) return;
     try{
       const r=await fetch(EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea/pedidos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha:eventPassword,solicitado_por:transmitterName})});
-      const j=await r.json(); if(!r.ok) throw new Error(j.error||'Não foi possível criar o pedido.');
+      const j=await r.json();
+      if(!r.ok){
+        if(j.proximo_pedido_em) iniciarContagemNovoPedido(j.proximo_pedido_em);
+        throw new Error(j.error||'Não foi possível criar o pedido.');
+      }
       currentADEvaluationRequest={id:j.pedido_id,expiraEm:j.expira_em}; seenADEvaluationIds=new Set();
       await broadcastPayload({type:'ad-evaluation-request',pedidoId:j.pedido_id,expiresAt:j.expira_em,text:'Por gentileza, avalie a minha audiodescrição.'});
       addMessage('Sistema','Pedido de avaliação enviado a '+j.elegiveis+' ouvinte(s).','sistema');

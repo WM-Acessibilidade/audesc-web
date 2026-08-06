@@ -170,7 +170,16 @@
   function mostrarPedidoAvaliacaoAD(pedidoId,expiraEm,mensagem){
     if(!avaliacaoInstantaneaHabilitada) return ocultarAvaliacaoInstantanea();
     currentADEvaluationRequest={id:pedidoId,expiraEm};
-    const btn=document.getElementById('openADEvaluationBtn'); btn.hidden=false;
+    const painel=document.getElementById('adEvaluationPanel');
+    const formulario=document.getElementById('adEvaluationForm');
+    const enviar=formulario.querySelector('button[type=submit]');
+    document.getElementById('adEvaluationScore').value='';
+    document.getElementById('adEvaluationComment').value='';
+    document.getElementById('adEvaluationCommentLabel').textContent='Comentário opcional.';
+    document.getElementById('adEvaluationStatus').textContent='';
+    if(enviar) enviar.disabled=false;
+    if(painel) painel.hidden=true;
+    const btn=document.getElementById('openADEvaluationBtn'); btn.hidden=false; btn.disabled=false;
     document.getElementById('adEvaluationAnnouncement').textContent=mensagem||'O audiodescritor solicitou uma avaliação da audiodescrição.';
     document.getElementById('adEvaluationDeadline').textContent='Disponível até '+new Date(expiraEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'.';
     addMessage('Audiodescritor(a)',mensagem||'Por gentileza, avalie a minha audiodescrição.','sistema');
