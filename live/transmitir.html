@@ -309,9 +309,13 @@
       btn.disabled=!avaliacaoInstantaneaHabilitada;
     }
     if(!avaliacaoInstantaneaHabilitada){
+      clearInterval(adEvaluationCooldownTimer);
+      adEvaluationCooldownTimer=null;
+      adEvaluationCooldownEndsAt=0;
       const status=document.getElementById('adEvaluationRequestStatus');
       if(status) status.textContent='';
     }
+    return avaliacaoInstantaneaHabilitada;
   }
   let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '', eventPassword = '', messagesBlocked = false, anotherTransmitterDetected = false, checkingTransmitterPresence = false;
   let receiverList = [], messages = [], selectedReceiver = null, activeSession = false; anotherTransmitterDetected = false; checkingTransmitterPresence = false; messagesBlocked = false;
@@ -1134,7 +1138,8 @@
     updateAudioDiagnostics('Transmissão iniciada com sucesso.');
     persist();
     saveLastTransmitterRoom();
-    recuperarEstadoAvaliacaoInstantanea().catch(()=>{});
+    await carregarConfiguracaoAvaliacaoInstantanea();
+    await recuperarEstadoAvaliacaoInstantanea().catch(()=>{});
   }
 
   document.getElementById('startBtn').addEventListener('click', async () => {
