@@ -1241,7 +1241,35 @@
   document.getElementById('endBtn').addEventListener('click', async () => {
     const ok = await confirmarAcao('Deseja encerrar a transmissão e disponibilizar a avaliação aos ouvintes elegíveis?', 'Encerrar transmissão'); if(!ok)return;
     try{const r=await fetch(EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/encerrar-transmissao',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha:eventPassword})});const j=await r.json();if(!r.ok)throw new Error(j.error);broadcastPayload({type:'transmission-ended',evaluationAvailable:j.avaliacao_ativa,expiresAt:j.expira_em});C.setStatus('transmitterStatus','Transmissão encerrada. Avaliação disponibilizada a '+j.elegiveis+' ouvinte(s) elegível(is) por '+j.prazo_minutos+' minutos.','success');}catch(e){C.setStatus('transmitterStatus','A transmissão foi encerrada, mas houve falha ao preparar a avaliação: '+e.message,'warning');}
-    activeSession=false; pararMonitoramentoJanelaTransmissao(); if(room)room.disconnect();
+    // Encerra completamente a sessão local e retorna à tela inicial,
+    // mantendo o mesmo comportamento do encerramento automático.
+    activeSession = false;
+    pararMonitoramentoJanelaTransmissao();
+    clearInterval(adEvaluationCooldownTimer);
+    adEvaluationCooldownTimer = null;
+    adEvaluationCooldownEndsAt = 0;
+    clearInterval(adEvaluationPollTimer);
+    adEvaluationPollTimer = null;
+    currentADEvaluationRequest = null;
+    seenADEvaluationIds = new Set();
+    try { cleanupAudioSources(true); } catch (e) {}
+    try { if (room) room.disconnect(); } catch (e) {}
+    room = null;
+    receiverList = [];
+    messages = [];
+    selectedReceiver = null;
+    renderParticipants();
+    renderMessages();
+    C.clearState('transmitter');
+    C.setPassiveStatus('transmissionTimeStatus', 'Janela de transmissão: aguardando verificação.');
+    const requestStatus = document.getElementById('adEvaluationRequestStatus');
+    if (requestStatus) {
+      requestStatus.textContent = '';
+      requestStatus.classList.remove('success', 'warning');
+    }
+    C.switchStep('step-form');
+    const eventNameInput = document.getElementById('eventName');
+    if (eventNameInput) eventNameInput.focus();
   });
 
   setupSoundAlertControls();
