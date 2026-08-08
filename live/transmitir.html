@@ -15,6 +15,7 @@
 
 <main class="main">
   <div id="actionAnnouncement" class="sr-only" role="status" aria-live="assertive" aria-atomic="true"></div>
+  <div id="receivedMessageAnnouncement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
   <section id="step-form" class="screen-step active">
     <section class="panel">
       <h2>Entrar como audiodescritor(a)</h2>
@@ -112,7 +113,6 @@
             Anunciar mensagens recebidas
           </span>
         </label>
-        <div id="receivedMessageAnnouncement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
         <label class="field">
           <span>
@@ -899,7 +899,13 @@
     const live = document.getElementById('receivedMessageAnnouncement');
     if (!checkbox || !checkbox.checked || !live) return;
     live.textContent = '';
-    setTimeout(() => { live.textContent = (from ? from + ': ' : '') + text; }, 40);
+    const mensagem = (from ? from + ': ' : '') + text;
+    setTimeout(() => {
+      live.textContent = mensagem;
+      setTimeout(() => {
+        if (live.textContent === mensagem) live.textContent = '';
+      }, 5000);
+    }, 40);
   }
   function addMessage(from, text, type='mensagem') {
     messages.unshift({from,text,type});

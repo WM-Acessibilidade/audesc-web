@@ -15,6 +15,7 @@
 
 <main class="main">
   <div id="actionAnnouncement" class="sr-only" role="status" aria-live="assertive" aria-atomic="true"></div>
+  <div id="receivedMessageAnnouncement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
   <section id="step-form" class="screen-step active">
     <section class="panel">
       <h2>Entrar como ouvinte</h2>
@@ -122,7 +123,6 @@
             Anunciar mensagens recebidas
           </span>
         </label>
-        <div id="receivedMessageAnnouncement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
         <p class="hint">Por padrão, o alerta sonoro fica ativado para ouvintes, para avisar quando chegar mensagem do audiodescritor(a).</p>
         <div id="diagnosticBox" class="status">Diagnóstico: recursos de transmissão ainda não carregados.</div>
       </div>
@@ -349,7 +349,13 @@
     const live = document.getElementById('receivedMessageAnnouncement');
     if (!checkbox || !checkbox.checked || !live) return;
     live.textContent = '';
-    setTimeout(() => { live.textContent = (from ? from + ': ' : '') + text; }, 40);
+    const mensagem = (from ? from + ': ' : '') + text;
+    setTimeout(() => {
+      live.textContent = mensagem;
+      setTimeout(() => {
+        if (live.textContent === mensagem) live.textContent = '';
+      }, 5000);
+    }, 40);
   }
 
   function addMessage(from, text, anunciar = true) {
