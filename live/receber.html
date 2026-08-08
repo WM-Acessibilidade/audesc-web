@@ -116,6 +116,13 @@
           </span>
         </label>
         <button id="testSoundAlertBtn" class="ghost" type="button">Testar alerta sonoro</button>
+        <label class="field">
+          <span>
+            <input id="announceReceivedMessages" type="checkbox" checked>
+            Anunciar mensagens recebidas
+          </span>
+        </label>
+        <div id="receivedMessageAnnouncement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
         <p class="hint">Por padrão, o alerta sonoro fica ativado para ouvintes, para avisar quando chegar mensagem do audiodescritor(a).</p>
         <div id="diagnosticBox" class="status">Diagnóstico: recursos de transmissão ainda não carregados.</div>
       </div>
@@ -231,7 +238,7 @@
     const btn=document.getElementById('openADEvaluationBtn'); btn.hidden=false; btn.disabled=false;
     document.getElementById('adEvaluationAnnouncement').textContent=mensagem||'O audiodescritor solicitou uma avaliação da audiodescrição.';
     document.getElementById('adEvaluationDeadline').textContent='Disponível até '+new Date(expiraEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'.';
-    addMessage('Audiodescritor(a)',mensagem||'Por gentileza, avalie a minha audiodescrição.','sistema');
+    addMessage('Audiodescritor(a)',mensagem||'Por gentileza, avalie a minha audiodescrição.',false);
     clearTimeout(adEvaluationTimer); adEvaluationTimer=setTimeout(()=>{btn.disabled=true;document.getElementById('adEvaluationPanel').hidden=true;currentADEvaluationRequest=null;},Math.max(0,new Date(expiraEm).getTime()-Date.now()));
   }
   async function consultarPedidoAvaliacaoAD(){
@@ -337,10 +344,21 @@
   }
 
 
-  function addMessage(from, text) {
+  function anunciarMensagemRecebida(from, text) {
+    const checkbox = document.getElementById('announceReceivedMessages');
+    const live = document.getElementById('receivedMessageAnnouncement');
+    if (!checkbox || !checkbox.checked || !live) return;
+    live.textContent = '';
+    setTimeout(() => { live.textContent = (from ? from + ': ' : '') + text; }, 40);
+  }
+
+  function addMessage(from, text, anunciar = true) {
     messages.unshift({ from, text });
     messages = messages.slice(0, 30);
-    if ((from || '') !== 'Você') playMessageBeep();
+    if ((from || '') !== 'Você') {
+      playMessageBeep();
+      if (anunciar) anunciarMensagemRecebida(from, text);
+    }
     const box = document.getElementById('messagesBox');
     const summary = document.getElementById('receiverMessagesSummary');
     const receivedCount = messages.filter(item => (item.from || '') !== 'Você').length;

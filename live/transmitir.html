@@ -106,6 +106,13 @@
           </span>
         </label>
         <button id="testSoundAlertBtn" class="ghost" type="button">Testar alerta sonoro</button>
+        <label class="field">
+          <span>
+            <input id="announceReceivedMessages" type="checkbox">
+            Anunciar mensagens recebidas
+          </span>
+        </label>
+        <div id="receivedMessageAnnouncement" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
         <label class="field">
           <span>
@@ -887,7 +894,22 @@
     if (!messages.length) { box.textContent = 'Nenhuma mensagem recebida ainda.'; return; }
     box.innerHTML = messages.map(item => `<div class="message-item message-type-${escapeHtml(item.type||'mensagem')}"><div><strong>${escapeHtml(item.from||'Você')}</strong></div><div>${escapeHtml(item.text)}</div></div>`).join('');
   }
-  function addMessage(from, text, type='mensagem') { messages.unshift({from,text,type}); messages=messages.slice(0,50); if((from||'')!=='Você')playMessageBeep(); renderMessages(); }
+  function anunciarMensagemRecebida(from, text) {
+    const checkbox = document.getElementById('announceReceivedMessages');
+    const live = document.getElementById('receivedMessageAnnouncement');
+    if (!checkbox || !checkbox.checked || !live) return;
+    live.textContent = '';
+    setTimeout(() => { live.textContent = (from ? from + ': ' : '') + text; }, 40);
+  }
+  function addMessage(from, text, type='mensagem') {
+    messages.unshift({from,text,type});
+    messages=messages.slice(0,50);
+    if((from||'')!=='Você'){
+      playMessageBeep();
+      anunciarMensagemRecebida(from, text);
+    }
+    renderMessages();
+  }
   function renderADEvaluationSummary(j){
     const el=document.getElementById('adEvaluationSummary'); if(!el)return; el.hidden=false;
     const d=j.distribuicao||{}; el.innerHTML='<strong>Avaliação da audiodescrição:</strong> '+Number(j.media||0).toFixed(1)+' de 5 — '+Number(j.quantidade||0)+' resposta(s).<br>5 estrelas: '+(d[5]||0)+'; 4: '+(d[4]||0)+'; 3: '+(d[3]||0)+'; 2: '+(d[2]||0)+'; 1: '+(d[1]||0)+'.';
