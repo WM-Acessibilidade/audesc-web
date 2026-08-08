@@ -238,7 +238,9 @@
     const btn=document.getElementById('openADEvaluationBtn'); btn.hidden=false; btn.disabled=false;
     document.getElementById('adEvaluationAnnouncement').textContent=mensagem||'O audiodescritor solicitou uma avaliação da audiodescrição.';
     document.getElementById('adEvaluationDeadline').textContent='Disponível até '+new Date(expiraEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'.';
-    addMessage('Audiodescritor(a)',mensagem||'Por gentileza, avalie a minha audiodescrição.',false);
+    const textoPedido = mensagem||'Por gentileza, avalie a minha audiodescrição.';
+    addMessage('Audiodescritor(a)',textoPedido,false);
+    anunciarMensagemRecebida('Audiodescritor(a)',textoPedido);
     clearTimeout(adEvaluationTimer); adEvaluationTimer=setTimeout(()=>{btn.disabled=true;document.getElementById('adEvaluationPanel').hidden=true;currentADEvaluationRequest=null;},Math.max(0,new Date(expiraEm).getTime()-Date.now()));
   }
   async function consultarPedidoAvaliacaoAD(){

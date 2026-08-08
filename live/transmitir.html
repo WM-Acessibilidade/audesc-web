@@ -82,6 +82,7 @@
             <button id="msgHowAudioBtn" class="secondary" type="button">Como está o áudio?</button>
             <button id="msgAdjustingBtn" class="secondary" type="button">Estamos ajustando o áudio.</button>
             <button id="msgHelpProvidedBtn" class="secondary" type="button">Auxílio providenciado.</button>
+            <button id="msgKeepHandRaisedBtn" class="secondary" type="button">Mantenha a mão erguida ou se ponha de pé para identificação.</button>
             <button id="msgHelpUnavailableBtn" class="secondary" type="button">Impossibilidade de auxílio no momento.</button>
             <button id="requestADEvaluationBtn" class="secondary" type="button" hidden>Pedir avaliação da audiodescrição</button>
             <div id="adEvaluationRequestStatus" class="status"></div>
@@ -1241,6 +1242,11 @@
   document.getElementById('msgHelpProvidedBtn').addEventListener('click', async () => {
     await broadcastPayload({ type:'help-response', text:'Auxílio providenciado.' }, selectedReceiver.length ? selectedReceiver : undefined);
     addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos ouvintes marcados' : 'a todos os ouvintes') + ': Auxílio providenciado.');
+  });
+  document.getElementById('msgKeepHandRaisedBtn').addEventListener('click', async () => {
+    const texto = 'Mantenha a mão erguida ou se ponha de pé para identificação.';
+    await broadcastPayload({ type:'help-response', text:texto }, selectedReceiver.length ? selectedReceiver : undefined);
+    addMessage('Você', 'Mensagem enviada ' + (selectedReceiver.length ? 'aos ouvintes marcados' : 'a todos os ouvintes') + ': ' + texto);
   });
   document.getElementById('msgHelpUnavailableBtn').addEventListener('click', async () => {
     await broadcastPayload({ type:'help-response', text:'Impossibilidade de auxílio no momento.' }, selectedReceiver.length ? selectedReceiver : undefined);
