@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Demonstrações — Audesc</title>
+<style>
+body{font-family:Arial,sans-serif;max-width:1100px;margin:0 auto;padding:18px;line-height:1.5;color:#161616;background:#fff}a{color:#0645ad}.panel{border:1px solid #bbb;border-radius:10px;padding:16px;margin:16px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:5px}input,select,button{font:inherit;padding:9px}button{cursor:pointer}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.status{padding:10px;border-radius:7px;background:#f2f2f2;margin-top:10px}.success{background:#e9f7ed}.warning{background:#fff3cd}.danger{background:#fde8e8}.summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}.summary div{border:1px solid #ddd;border-radius:8px;padding:10px}.list{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:850px}th,td{border:1px solid #bbb;padding:8px;text-align:left;vertical-align:top}th{background:#f4f4f4}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}dialog{max-width:520px;border:1px solid #777;border-radius:10px;padding:0}dialog form{padding:18px}.code{font-family:monospace;font-weight:bold}.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.toolbar .field{min-width:260px;flex:1}
+</style>
+</head>
+<body>
+<a href="admin.html">Voltar ao painel administrativo</a>
+<h1>Demonstrações</h1>
+<p>Configure e gerencie salas de demonstração independentes de eventos agendados.</p>
+<div id="announce" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+<section class="panel" id="loginPanel">
+<h2>Acesso administrativo</h2>
+<label class="field" for="adminToken"><span>Senha administrativa</span><input id="adminToken" type="password"></label>
+<button id="loadBtn" type="button">Carregar demonstrações</button>
+<div id="loginStatus" class="status">Informe a senha administrativa.</div>
+</section>
+<div id="content" hidden>
+<section class="panel">
+<h2>Configuração geral</h2>
+<label><input id="habilitada" type="checkbox"> Disponibilizar demonstração</label>
+<div class="grid" style="margin-top:12px">
+<label class="field">Validade<select id="validadeMeses"></select></label>
+<label class="field">Limite de ouvintes<select id="limiteOuvintes"></select></label>
+<label class="field">Duração máxima por sessão<select id="duracaoSessao"></select></label>
+<label class="field">Número máximo de sessões<select id="limiteSessoes"></select></label>
+<label class="field">Limite geral de pedidos<select id="limiteGeral"></select></label>
+<label class="field">Pedidos máximos por e-mail<select id="limiteEmail"></select></label>
+</div>
+<label style="display:block;margin-top:12px"><input id="umaAtivaEmail" type="checkbox" checked> Permitir apenas uma sala ativa por e-mail</label>
+<div class="actions"><button id="saveCfgBtn" type="button">Salvar configurações</button></div>
+<div id="cfgStatus" class="status"></div>
+</section>
+<section class="panel">
+<h2>Contadores</h2>
+<div class="summary">
+<div><strong>Pedidos utilizados</strong><div id="pedidosUtilizados">0</div></div>
+<div><strong>Pedidos restantes</strong><div id="pedidosRestantes">0</div></div>
+<div><strong>Salas ativas</strong><div id="salasAtivas">0</div></div>
+<div><strong>Salas expiradas</strong><div id="salasExpiradas">0</div></div>
+</div>
+<div class="actions"><button id="resetGeralBtn" type="button">Zerar contador geral</button></div>
+<h3>Gerenciar pedidos por e-mail</h3>
+<div class="toolbar"><label class="field">E-mail<input id="emailContador" type="email"></label><button id="buscarEmailBtn" type="button">Consultar</button><button id="resetEmailBtn" type="button">Zerar contador deste e-mail</button></div>
+<div id="emailStatus" class="status">Informe um e-mail para consultar.</div>
+</section>
+<section class="panel">
+<h2>Gerar demonstração manual</h2>
+<div class="grid"><label class="field">Nome (opcional)<input id="nomeManual" type="text" maxlength="120"></label><label class="field">E-mail<input id="emailManual" type="email" required></label></div>
+<div class="actions"><button id="generateBtn" type="button">Gerar demonstração</button></div>
+<div id="generateStatus" class="status"></div>
+</section>
+<section class="panel">
+<h2>Salas de demonstração</h2>
+<div class="toolbar"><label class="field">Pesquisar por e-mail ou código<input id="searchInput" type="search"></label><button id="searchBtn" type="button">Pesquisar</button><button id="clearSearchBtn" type="button">Limpar pesquisa</button></div>
+<div id="listStatus" class="status"></div>
+<div class="list"><table><thead><tr><th>Código</th><th>E-mail</th><th>Origem</th><th>Criada em</th><th>Validade</th><th>Sessões</th><th>Limites</th><th>Status</th><th>Ações</th></tr></thead><tbody id="demoRows"></tbody></table></div>
+</section>
+</div>
+<script>
+(()=>{
+const API='https://audesc-events-api.onrender.com'; let token='',cfg=null,demos=[];
+const $=id=>document.getElementById(id); const announce=t=>{const a=$('announce');a.textContent='';setTimeout(()=>a.textContent=t,30)};
+function fillSelect(id,start,end,step=1,suffix=''){const s=$(id);for(let i=start;i<=end;i+=step){const o=document.createElement('option');o.value=i;o.textContent=i+(suffix?' '+suffix:'');s.appendChild(o)}}
+fillSelect('validadeMeses',1,12,1,'mês(es)');fillSelect('limiteOuvintes',1,20,1,'ouvinte(s)');fillSelect('duracaoSessao',20,120,10,'minutos');fillSelect('limiteSessoes',1,10,1,'sessão(ões)');fillSelect('limiteGeral',1,1000);fillSelect('limiteEmail',1,10);
+async function api(path,opts={}){opts.headers=Object.assign({'x-admin-token':token,'Content-Type':'application/json'},opts.headers||{});const r=await fetch(API+path,opts);let j={};try{j=await r.json()}catch(e){}if(!r.ok)throw new Error(j.error||('Erro HTTP '+r.status));return j}
+function setStatus(id,t,kind=''){const e=$(id);e.textContent=t;e.className='status'+(kind?' '+kind:'');announce(t)}
+function applyCfg(c){cfg=c;$('habilitada').checked=!!c.habilitada;$('validadeMeses').value=c.validade_meses;$('limiteOuvintes').value=c.limite_ouvintes;$('duracaoSessao').value=c.duracao_sessao_minutos;$('limiteSessoes').value=c.limite_sessoes;$('limiteGeral').value=c.limite_geral_pedidos;$('limiteEmail').value=c.limite_pedidos_email;$('umaAtivaEmail').checked=c.apenas_uma_ativa_email!==false;updateSummary()}
+function statusDemo(d){if(d.bloqueada)return'Bloqueada';if(!d.ativa)return'Inativa';if(new Date(d.expira_em)<=new Date())return'Expirada';if(Number(d.sessoes_utilizadas)>=Number(d.limite_sessoes))return'Sessões esgotadas';return'Ativa'}
+function fmt(v){return v?new Date(v).toLocaleString('pt-BR'):'-'}
+function updateSummary(){if(!cfg)return;$('pedidosUtilizados').textContent=cfg.pedidos_utilizados||0;$('pedidosRestantes').textContent=Math.max(0,Number(cfg.limite_geral_pedidos||0)-Number(cfg.pedidos_utilizados||0));$('salasAtivas').textContent=demos.filter(d=>statusDemo(d)==='Ativa').length;$('salasExpiradas').textContent=demos.filter(d=>statusDemo(d)==='Expirada').length}
+function render(){const tb=$('demoRows');tb.innerHTML='';for(const d of demos){const tr=document.createElement('tr');tr.innerHTML=`<td class="code"></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>`;const c=tr.children;c[0].textContent=d.sala_codigo;c[1].textContent=d.email;c[2].textContent=d.origem==='manual'?'Manual':'Solicitação';c[3].textContent=fmt(d.criada_em);c[4].textContent=fmt(d.expira_em);c[5].textContent=`${d.sessoes_utilizadas}/${d.limite_sessoes}`;c[6].textContent=`${d.limite_ouvintes} ouv.; ${d.duracao_sessao_minutos} min`;c[7].textContent=statusDemo(d);const box=document.createElement('div');box.className='actions';const open=document.createElement('button');open.textContent='Abrir';open.onclick=()=>{const txt=`Código: ${d.sala_codigo}\nSenha do transmissor: ${d.senha_transmissor}\nValidade: ${fmt(d.expira_em)}\nSessões restantes: ${Math.max(0,d.limite_sessoes-d.sessoes_utilizadas)}\nLimite de ouvintes: ${d.limite_ouvintes}\nDuração: ${d.duracao_sessao_minutos} minutos`;alert(txt)};box.appendChild(open);const renew=document.createElement('button');renew.textContent='Renovar +1 mês';renew.onclick=()=>patchDemo(d.id,{renovar_meses:1});box.appendChild(renew);const block=document.createElement('button');block.textContent=d.bloqueada?'Desbloquear':'Bloquear';block.onclick=()=>patchDemo(d.id,{bloqueada:!d.bloqueada});box.appendChild(block);const del=document.createElement('button');del.textContent='Excluir';del.onclick=async()=>{if(!confirm('Excluir esta demonstração?'))return;await api('/admin/demonstracoes/'+d.id,{method:'DELETE'});await loadList();setStatus('listStatus','Demonstração excluída.','success')};box.appendChild(del);c[8].appendChild(box);tb.appendChild(tr)}updateSummary();$('listStatus').textContent=demos.length?`${demos.length} demonstração(ões) encontrada(s).`:'Nenhuma demonstração encontrada.'}
+async function patchDemo(id,payload){await api('/admin/demonstracoes/'+id,{method:'PATCH',body:JSON.stringify(payload)});await loadList();setStatus('listStatus','Demonstração atualizada.','success')}
+async function loadList(){const q=$('searchInput').value.trim();const j=await api('/admin/demonstracoes'+(q?'?q='+encodeURIComponent(q):''));demos=j.demonstracoes||[];render()}
+async function loadAll(){token=$('adminToken').value.trim();if(!token)return setStatus('loginStatus','Informe a senha administrativa.','warning');try{setStatus('loginStatus','Carregando...');const [a]=await Promise.all([api('/admin/demonstracoes/configuracao')]);applyCfg(a.config);$('content').hidden=false;await loadList();setStatus('loginStatus','Configurações carregadas.','success')}catch(e){$('content').hidden=true;setStatus('loginStatus',e.message,'danger')}}
+$('loadBtn').onclick=loadAll;$('adminToken').addEventListener('keydown',e=>{if(e.key==='Enter')loadAll()});
+$('saveCfgBtn').onclick=async()=>{try{const p={habilitada:$('habilitada').checked,validade_meses:+$('validadeMeses').value,limite_ouvintes:+$('limiteOuvintes').value,duracao_sessao_minutos:+$('duracaoSessao').value,limite_sessoes:+$('limiteSessoes').value,limite_geral_pedidos:+$('limiteGeral').value,limite_pedidos_email:+$('limiteEmail').value,apenas_uma_ativa_email:$('umaAtivaEmail').checked};const j=await api('/admin/demonstracoes/configuracao',{method:'PUT',body:JSON.stringify(p)});applyCfg(j.config);setStatus('cfgStatus','Configurações salvas.','success')}catch(e){setStatus('cfgStatus',e.message,'danger')}};
+$('resetGeralBtn').onclick=async()=>{if(!confirm('Zerar o contador geral de pedidos? Isso não altera salas já criadas.'))return;await api('/admin/demonstracoes/zerar-contador-geral',{method:'POST',body:'{}'});const j=await api('/admin/demonstracoes/configuracao');applyCfg(j.config);setStatus('cfgStatus','Contador geral zerado.','success')};
+$('buscarEmailBtn').onclick=async()=>{try{const email=$('emailContador').value.trim();const j=await api('/admin/demonstracoes/email-contador?email='+encodeURIComponent(email));const c=j.contador;setStatus('emailStatus',`${c.email}: ${c.pedidos_utilizados||0} pedido(s). Último pedido: ${fmt(c.ultimo_pedido_em)}.`)}catch(e){setStatus('emailStatus',e.message,'danger')}};
+$('resetEmailBtn').onclick=async()=>{try{const email=$('emailContador').value.trim();await api('/admin/demonstracoes/zerar-contador-email',{method:'POST',body:JSON.stringify({email})});setStatus('emailStatus','Contador deste e-mail zerado.','success')}catch(e){setStatus('emailStatus',e.message,'danger')}};
+$('generateBtn').onclick=async()=>{try{setStatus('generateStatus','Gerando demonstração...');const j=await api('/admin/demonstracoes',{method:'POST',body:JSON.stringify({nome:$('nomeManual').value.trim(),email:$('emailManual').value.trim()})});const d=j.demonstracao;setStatus('generateStatus',`Demonstração criada. Código ${d.sala_codigo}. Senha do transmissor ${d.senha_transmissor}.`,'success');$('nomeManual').value='';$('emailManual').value='';const c=await api('/admin/demonstracoes/configuracao');applyCfg(c.config);await loadList()}catch(e){setStatus('generateStatus',e.message,'danger')}};
+$('searchBtn').onclick=loadList;$('clearSearchBtn').onclick=()=>{$('searchInput').value='';loadList()};
+})();
+</script>
+</body></html>
