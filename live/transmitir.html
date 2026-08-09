@@ -967,10 +967,11 @@
     addMessage('Sistema', 'Entrada recusada por limite de ouvintes: ' + alvo + '. Limite atual: ' + maxOuvintesPermitidos + '.','alerta');
   }
 
-  async function consultarJanelaTransmissao(){
+  async function consultarJanelaTransmissao(modo='monitoramento'){
     if(!roomCode) return null;
     try{
-      const r = await fetch(EVENTS_API_URL + '/public/salas/' + encodeURIComponent(roomCode) + '/janela-transmissao');
+      const sufixoModo = modo === 'entrada-transmissor' ? '?modo=entrada-transmissor' : '';
+      const r = await fetch(EVENTS_API_URL + '/public/salas/' + encodeURIComponent(roomCode) + '/janela-transmissao' + sufixoModo);
       const j = await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(j.error || 'Não foi possível consultar a janela de transmissão.');
       lastTransmissionWindow = j;
@@ -998,7 +999,7 @@
   }
 
   async function validarJanelaTransmissaoAntesDeEntrar(){
-    const j = await consultarJanelaTransmissao();
+    const j = await consultarJanelaTransmissao('entrada-transmissor');
     if(!j) return;
     atualizarStatusJanelaTransmissao(j);
     if(j.configurado && !j.permitido_entrar){
