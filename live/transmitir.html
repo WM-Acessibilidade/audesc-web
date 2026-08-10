@@ -1311,6 +1311,20 @@
   setupAudioSourceControls();
   carregarConfiguracaoAvaliacaoInstantanea();
 
+  // Fase 6.15.3 — abertura direta a partir da página de demonstração.
+  const incomingDemoRoom = C.obterSalaDaUrl ? C.obterSalaDaUrl() : '';
+  if (incomingDemoRoom) {
+    C.writeValue('existingRoomCode', incomingDemoRoom);
+    try {
+      const acessoDemo = JSON.parse(sessionStorage.getItem('audesc_demo_access') || 'null');
+      if (acessoDemo && C.normalizarSala(acessoDemo.roomCode) === C.normalizarSala(incomingDemoRoom)) {
+        if (acessoDemo.password) C.writeValue('eventPassword', acessoDemo.password);
+        if (acessoDemo.eventName) C.writeValue('eventName', acessoDemo.eventName);
+        sessionStorage.removeItem('audesc_demo_access');
+      }
+    } catch (e) {}
+  }
+
   const lastRoomForForm = loadLastTransmitterRoom();
   if (lastRoomForForm && lastRoomForForm.roomCode) {
     C.writeValue('existingRoomCode', lastRoomForForm.roomCode);

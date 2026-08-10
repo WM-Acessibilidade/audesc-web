@@ -108,7 +108,16 @@
 
     </section>
 
+
+    <section class="card" id="demoSection" hidden style="margin-top:18px;">
+      <h2>Experimente gratuitamente</h2>
+      <p>Conheça as funcionalidades do Audesc por meio de uma sala de demonstração.</p>
+      <div class="actions"><a href="demonstracao.html" class="button secondary">Solicitar demonstração</a></div>
+    </section>
   </main>
 
+<script>
+fetch('https://audesc-events-api.onrender.com/public/demonstracoes/configuracao',{cache:'no-store'}).then(r=>r.json()).then(j=>{if(j&&j.habilitada===true)document.getElementById('demoSection').hidden=false}).catch(()=>{});
+</script>
 </body>
 </html>
