@@ -93,7 +93,7 @@
     <details class="collapse" id="sentMessagesDetails">
       <summary id="sentMessagesSummary">Mensagens recebidas (0)</summary>
       <div class="collapse-body">
-        <div id="adEvaluationSummary" class="status" aria-live="polite" hidden></div>
+        <div id="adEvaluationSummary" class="status" hidden></div>
         <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
       </div>
     </details>
@@ -173,7 +173,7 @@
             Monitorar meu áudio
           </span>
         </label>
-        <audio id="audioMonitor" controls hidden></audio>
+        <audio id="audioMonitor" hidden aria-hidden="true" playsinline></audio>
         <div id="audioSourceStatus" class="status" aria-live="polite">Fonte de áudio atual: apenas microfone.</div>
 
         <hr aria-hidden="true">
@@ -339,6 +339,7 @@
   let computerStream = null;
   let mixedStream = null;
   let mixedOutputTrack = null;
+  let monitorStream = null;
   let micGainNode = null;
   let computerGainNode = null;
   let audioDestination = null;
@@ -569,6 +570,7 @@
   }
 
   function cleanupAudioSources(stopComputer = false) {
+    stopMonitorStream();
     try { if (localTrack && localTrack.stop) localTrack.stop(); } catch (e) {}
     localTrack = null;
     currentPublishedSource = '';
@@ -674,19 +676,35 @@
     }
   }
 
+  function stopMonitorStream() {
+    const monitor = document.getElementById('audioMonitor');
+    if (monitor) {
+      try { monitor.pause(); } catch (e) {}
+      monitor.srcObject = null;
+    }
+    if (monitorStream) {
+      stopStream(monitorStream);
+      monitorStream = null;
+    }
+  }
+
   function setMonitorStream(stream) {
     const monitor = document.getElementById('audioMonitor');
     const checkbox = document.getElementById('monitorAudioEnabled');
     if (!monitor) return;
-    if (checkbox && checkbox.checked && stream) {
-      monitor.srcObject = stream;
-      monitor.hidden = false;
-      monitor.play().catch(() => {});
-    } else {
-      monitor.pause();
-      monitor.srcObject = null;
-      monitor.hidden = true;
-    }
+
+    stopMonitorStream();
+    if (!(checkbox && checkbox.checked && stream)) return;
+
+    const sourceTrack = stream.getAudioTracks && stream.getAudioTracks()[0];
+    if (!sourceTrack) return;
+
+    // A monitoração usa uma trilha clonada exclusivamente para a escuta local.
+    // A trilha publicada no LiveKit permanece independente.
+    const monitorTrack = sourceTrack.clone();
+    monitorStream = new MediaStream([monitorTrack]);
+    monitor.srcObject = monitorStream;
+    monitor.play().catch(() => {});
   }
 
   async function createConfiguredAudioTrack(options = {}) {
