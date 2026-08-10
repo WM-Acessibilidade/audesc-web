@@ -1,4 +1,4 @@
 Pacote completo corrigido.
 Esta versão troca LK.connect(...) por new LK.Room() + room.connect(...).
 
-Só para forçar deploy.
+Só para forçar deploy 2.
