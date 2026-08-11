@@ -53,9 +53,7 @@
       <div id="receiverTimeStatus" class="status">Janela de transmissão: aguardando verificação.</div>
     </section>
 
-    <section class="panel" aria-label="Áudio da transmissão">
-      <audio id="remoteAudio" autoplay playsinline></audio>
-    </section>
+    <audio id="remoteAudio" autoplay playsinline hidden></audio>
 
     <details class="collapse" id="receiverInstantMessagesDetails">
         <summary>Comunicação instantânea</summary>
@@ -123,7 +121,6 @@
             Anunciar mensagens recebidas
           </span>
         </label>
-        <p class="hint">Por padrão, o alerta sonoro fica ativado para ouvintes, para avisar quando chegar mensagem do audiodescritor(a).</p>
         <div id="diagnosticBox" class="status">Diagnóstico: recursos de transmissão ainda não carregados.</div>
       </div>
     </details>
