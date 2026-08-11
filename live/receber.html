@@ -197,7 +197,13 @@
       const abrir=document.getElementById('openEvaluationBtn');
       const dispensar=document.getElementById('dismissEvaluationBtn');
       if(j.disponivel){
-        if(avaliacaoFoiDispensada(j.expira_em)){panel.hidden=true;return;}
+        if(avaliacaoFoiDispensada(j.expira_em)){
+          panel.hidden=true;
+          document.getElementById('evaluationForm').hidden=true;
+          document.getElementById('evaluationAnnouncement').textContent='';
+          panel.dataset.expiraEm='';
+          return;
+        }
         panel.hidden=false;
         abrir.hidden=false;
         dispensar.hidden=false;
@@ -205,11 +211,15 @@
         document.getElementById('evaluationAnnouncement').textContent='A transmissão foi encerrada. A avaliação está disponível.';
         panel.dataset.expiraEm=String(j.expira_em||'');
         if(j.avaliacao){evaluationGeneral.value=j.avaliacao.avaliacao_geral;evaluationAD.value=j.avaliacao.qualidade_audiodescricao;evaluationAudio.value=j.avaliacao.qualidade_audio;evaluationAutonomy.value=j.avaliacao.autonomia;evaluationRecommendation.value=j.avaliacao.recomendacao??'';evaluationComment.value=j.avaliacao.comentario||'';}
-      }else if(j.encerrada){
-        panel.hidden=false;
+      }else{
+        // Sem avaliação válida para responder: não reapresentar painel antigo/expirado.
+        panel.hidden=true;
         abrir.hidden=true;
         dispensar.hidden=true;
-        document.getElementById('evaluationAnnouncement').textContent=j.expirou?'O período de avaliação foi encerrado.':'Esta participação não está habilitada para avaliação.';
+        document.getElementById('evaluationForm').hidden=true;
+        document.getElementById('evaluationDeadline').textContent='';
+        document.getElementById('evaluationAnnouncement').textContent='';
+        panel.dataset.expiraEm='';
       }
     }catch(e){}
   }
