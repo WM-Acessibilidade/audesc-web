@@ -7,8 +7,10 @@
   <link rel="stylesheet" href="live.css">
 </head>
 <body>
-<a class="button-link secondary" href="../index.html" style="margin:16px 16px 0 16px;">Voltar</a>
-<a class="button-link secondary" href="../guia-rapido-transmissor.html" target="_blank" rel="noopener noreferrer" style="margin:16px 16px 0 0;">Guia Rápido do Transmissor</a>
+<div style="margin:16px 16px 0 16px;">
+  <div><a class="button-link secondary" href="../index.html">Voltar</a></div>
+  <div style="margin-top:12px;"><a class="button-link secondary" href="../guia-rapido-transmissor.html" target="_blank" rel="noopener noreferrer">Guia Rápido do Transmissor</a></div>
+</div>
 <header class="topbar">
   <h1>Audesc Ao Vivo</h1>
   <p class="subtitle">Transmissão de audiodescrição</p>
@@ -104,14 +106,14 @@
       <div class="collapse-body">
         <label class="field">
           <span>
-            <input id="soundAlertEnabled" type="checkbox">
+            <input id="soundAlertEnabled" type="checkbox" checked>
             Ativar alerta sonoro para mensagens recebidas
           </span>
         </label>
         <button id="testSoundAlertBtn" class="ghost" type="button">Testar alerta sonoro</button>
         <label class="field">
           <span>
-            <input id="announceReceivedMessages" type="checkbox">
+            <input id="announceReceivedMessages" type="checkbox" checked>
             Anunciar mensagens recebidas automaticamente
           </span>
         </label>
