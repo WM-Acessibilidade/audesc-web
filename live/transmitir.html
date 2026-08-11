@@ -111,7 +111,7 @@
         <label class="field">
           <span>
             <input id="announceReceivedMessages" type="checkbox">
-            Anunciar mensagens recebidas
+            Anunciar mensagens recebidas automaticamente
           </span>
         </label>
 
@@ -188,7 +188,7 @@
 
         <hr aria-hidden="true">
         <h3>Diagnóstico da transmissão</h3>
-        <div id="diagnosticBox" class="status">Diagnóstico: recursos de transmissão ainda não carregados.</div>
+        <div id="diagnosticBox" class="status">recursos de transmissão ainda não carregados.</div>
       </div>
     </details>
 
@@ -480,7 +480,7 @@
       roomState.textContent = room && activeSession && localTrack ? 'Ativa.' : 'Inativa.';
     }
 
-    if (extraMessage) C.setStatus('diagnosticBox', 'Diagnóstico: ' + extraMessage);
+    if (extraMessage) C.setStatus('diagnosticBox', '' + extraMessage);
   }
 
   async function testAudioSources() {
@@ -612,7 +612,7 @@
         C.setStatus('computerAudioStatus', 'Áudio do computador removido da transmissão.', 'warning');
         announceAudio('Áudio do computador removido da transmissão.', 'warning');
         if (room && activeSession) publishConfiguredAudio().catch(error => {
-          C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao atualizar fonte de áudio.'), 'warning');
+          C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha ao atualizar fonte de áudio.'), 'warning');
         });
       });
     });
@@ -808,10 +808,10 @@
         if (room && activeSession) {
           if ((mode === 'computer' || mode === 'mixed') && !computerStream) {
             C.setStatus('computerAudioStatus', 'Selecione o áudio do computador antes de aplicar esta fonte.', 'warning');
-            C.setStatus('diagnosticBox', 'Diagnóstico: aguardando seleção manual do áudio do computador.', 'warning');
+            C.setStatus('diagnosticBox', 'aguardando seleção manual do áudio do computador.', 'warning');
             return;
           }
-          try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao alterar fonte de áudio.'), 'warning'); }
+          try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha ao alterar fonte de áudio.'), 'warning'); }
         }
       });
     });
@@ -822,7 +822,7 @@
     const micSelect = document.getElementById('microphoneSelect');
     if (micSelect) micSelect.addEventListener('change', async () => {
       if (room && activeSession) {
-        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao trocar microfone.'), 'warning'); }
+        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha ao trocar microfone.'), 'warning'); }
       }
     });
 
@@ -830,7 +830,7 @@
     if (captureBtn) captureBtn.addEventListener('click', async () => {
       const stream = await captureComputerAudio();
       if (stream && room && activeSession) {
-        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao adicionar áudio do computador.'), 'warning'); }
+        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha ao adicionar áudio do computador.'), 'warning'); }
       }
     });
 
@@ -838,7 +838,7 @@
     if (captureSystemBtn) captureSystemBtn.addEventListener('click', async () => {
       const stream = await captureSystemAudioInput();
       if (stream && room && activeSession) {
-        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao adicionar dispositivo de áudio do sistema.'), 'warning'); }
+        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha ao adicionar dispositivo de áudio do sistema.'), 'warning'); }
       }
     });
 
@@ -849,7 +849,7 @@
       stopBtn.hidden = true;
       C.setStatus('computerAudioStatus', 'Áudio do computador removido da transmissão.', 'warning');
       if (room && activeSession) {
-        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao remover áudio do computador.'), 'warning'); }
+        try { await publishConfiguredAudio(); } catch (error) { C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha ao remover áudio do computador.'), 'warning'); }
       }
     });
 
@@ -1119,7 +1119,7 @@
       if (msg.type === 'admin-takeover') {
         if (activeSession) {
           C.setStatus('transmitterStatus', 'Status: o administrador assumiu esta sala. Sua transmissão foi interrompida.', 'warning');
-          C.setStatus('diagnosticBox', 'Diagnóstico: transmissão interrompida por assunção administrativa.', 'warning');
+          C.setStatus('diagnosticBox', 'transmissão interrompida por assunção administrativa.', 'warning');
           try { cleanupAudioSources(true); } catch(e) {}
           activeSession = false;
           try { if (room) room.disconnect(); } catch(e) {}
@@ -1130,7 +1130,7 @@
         return;
       }
       if (msg.type === 'feedback') addMessage(from, 'Feedback: ' + msg.text,'mensagem');
-      if (msg.type === 'help-request') addMessage(from, 'Pedido de ajuda recebido.','alerta');
+      if (msg.type === 'help-request') addMessage(from, 'Preciso de auxílio presencial.','alerta');
       if (msg.type === 'receiver-hello') { addMessage(from, 'Entrou na sala.','sistema'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }, [from]); }
     });
     await room.connect(C.livekitUrl, tokenData.token);
@@ -1152,7 +1152,7 @@
           try { room.disconnect(); } catch (e) {}
           room = null;
           C.setStatus('transmitterStatus', 'Status: entrada cancelada pelo administrador.', 'warning');
-          C.setStatus('diagnosticBox', 'Diagnóstico: o administrador cancelou a assunção da transmissão.', 'warning');
+          C.setStatus('diagnosticBox', 'o administrador cancelou a assunção da transmissão.', 'warning');
           return;
         }
         C.setStatus('transmitterStatus', 'Status: assumindo a transmissão como administrador.', 'warning');
@@ -1161,7 +1161,7 @@
         try { room.disconnect(); } catch (e) {}
         room = null;
         C.setStatus('transmitterStatus', 'Status: já existe um audiodescritor(a) ativo nesta sala. Para assumir a transmissão, é necessário que o audiodescritor(a) atual encerre a própria transmissão.', 'warning');
-        C.setStatus('diagnosticBox', 'Diagnóstico: entrada bloqueada para evitar dois transmissores na mesma sala.', 'warning');
+        C.setStatus('diagnosticBox', 'entrada bloqueada para evitar dois transmissores na mesma sala.', 'warning');
         return;
       }
     }
@@ -1200,7 +1200,7 @@
       await setupRoomConnection(false);
     } catch (error) {
       C.setStatus('transmitterStatus', 'Status: erro ao iniciar. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
-      C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
+      C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
     }
   });
   document.getElementById('resumeLastRoomBtn').addEventListener('click', async () => {
@@ -1221,7 +1221,7 @@
       await setupRoomConnection(true);
     } catch (error) {
       C.setStatus('transmitterStatus', 'Status: erro ao retomar a última sala. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
-      C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
+      C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
     }
   });
 
@@ -1362,7 +1362,7 @@
     C.writeValue('eventPassword', eventPassword);
     if (saved.step === 'room' && roomCode && transmitterName) {
       setupRoomConnection(true).catch(error => {
-        C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao restaurar a sala.'), 'warning');
+        C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha ao restaurar a sala.'), 'warning');
       });
     }
   }

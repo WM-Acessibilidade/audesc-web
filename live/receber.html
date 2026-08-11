@@ -118,10 +118,10 @@
         <label class="field">
           <span>
             <input id="announceReceivedMessages" type="checkbox" checked>
-            Anunciar mensagens recebidas
+            Anunciar mensagens recebidas automaticamente
           </span>
         </label>
-        <div id="diagnosticBox" class="status">Diagnóstico: recursos de transmissão ainda não carregados.</div>
+        <div id="diagnosticBox" class="status">recursos de transmissão ainda não carregados.</div>
       </div>
     </details>
 
@@ -367,11 +367,11 @@
     }, 40);
   }
 
-  function addMessage(from, text, anunciar = true) {
+  function addMessage(from, text, anunciar = true, tocarAlerta = true) {
     messages.unshift({ from, text });
     messages = messages.slice(0, 30);
     if ((from || '') !== 'Você') {
-      playMessageBeep();
+      if (tocarAlerta) playMessageBeep();
       if (anunciar) anunciarMensagemRecebida(from, text);
     }
     const box = document.getElementById('messagesBox');
@@ -664,7 +664,7 @@
       await connectRoom(false);
     } catch (error) {
       C.setStatus('receiverStatus', 'Status: erro ao entrar. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
-      C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
+      C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
     }
   });
   document.getElementById('feedbackNormalBtn').addEventListener('click', () => { trySendListenerMessage({ type:'feedback', text:'Áudio normal.' }, 'Mensagem enviada: áudio normal.'); });
@@ -702,7 +702,7 @@
 
   document.getElementById('openADEvaluationBtn').addEventListener('click',()=>{if(!avaliacaoInstantaneaHabilitada)return;document.getElementById('adEvaluationPanel').hidden=false;document.getElementById('adEvaluationScore').focus();});
   document.getElementById('adEvaluationScore').addEventListener('change',()=>{document.getElementById('adEvaluationCommentLabel').textContent=document.getElementById('adEvaluationScore').value==='5'?'Fique à vontade para fazer um elogio.':'Fique à vontade para dizer por que não deu todas as estrelas.';});
-  document.getElementById('adEvaluationForm').addEventListener('submit',async(e)=>{e.preventDefault();if(!avaliacaoInstantaneaHabilitada||!currentADEvaluationRequest)return;const payload={pedido_id:currentADEvaluationRequest.id,ouvinte_id:listenerId,nome_ouvinte:receiverName,nota:Number(document.getElementById('adEvaluationScore').value),comentario:document.getElementById('adEvaluationComment').value};try{const resp=await fetch(EVENTS_API_URL+'/public/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const j=await resp.json();if(!resp.ok)throw new Error(j.error);C.setStatus('adEvaluationStatus','Avaliação enviada ao audiodescritor.','success');document.getElementById('openADEvaluationBtn').disabled=true;document.getElementById('adEvaluationPanel').hidden=true;document.getElementById('adEvaluationForm').querySelector('button[type=submit]').disabled=true;lastSubmittedADEvaluationRequestId=currentADEvaluationRequest.id;currentADEvaluationRequest=null;}catch(err){C.setStatus('adEvaluationStatus',err.message||'Não foi possível enviar.','warning');}});
+  document.getElementById('adEvaluationForm').addEventListener('submit',async(e)=>{e.preventDefault();if(!avaliacaoInstantaneaHabilitada||!currentADEvaluationRequest)return;const payload={pedido_id:currentADEvaluationRequest.id,ouvinte_id:listenerId,nome_ouvinte:receiverName,nota:Number(document.getElementById('adEvaluationScore').value),comentario:document.getElementById('adEvaluationComment').value};try{const resp=await fetch(EVENTS_API_URL+'/public/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const j=await resp.json();if(!resp.ok)throw new Error(j.error);C.setStatus('adEvaluationStatus','Avaliação enviada ao audiodescritor.','success');addMessage('Sistema','Avaliação da audiodescrição enviada ao audiodescritor.',false,false);document.getElementById('openADEvaluationBtn').disabled=true;document.getElementById('adEvaluationPanel').hidden=true;document.getElementById('adEvaluationForm').querySelector('button[type=submit]').disabled=true;lastSubmittedADEvaluationRequestId=currentADEvaluationRequest.id;currentADEvaluationRequest=null;}catch(err){C.setStatus('adEvaluationStatus',err.message||'Não foi possível enviar.','warning');}});
   document.getElementById('openEvaluationBtn').addEventListener('click',()=>{document.getElementById('evaluationForm').hidden=false;document.getElementById('evaluationGeneral').focus();});
   document.getElementById('dismissEvaluationBtn').addEventListener('click',()=>{const panel=document.getElementById('evaluationPanel');const expiraEm=panel?.dataset.expiraEm||'';registrarDispensaAvaliacao(expiraEm);if(panel)panel.hidden=true;document.getElementById('evaluationForm').hidden=true;document.getElementById('evaluationAnnouncement').textContent='Avaliação dispensada.';});
   document.getElementById('evaluationForm').addEventListener('submit',async(e)=>{e.preventDefault();const payload={ouvinte_id:listenerId,avaliacao_geral:Number(evaluationGeneral.value),qualidade_audiodescricao:Number(evaluationAD.value),qualidade_audio:Number(evaluationAudio.value),autonomia:Number(evaluationAutonomy.value),recomendacao:evaluationRecommendation.value,comentario:evaluationComment.value};try{const r=await fetch(EVENTS_API_URL+'/public/salas/'+encodeURIComponent(roomCode)+'/avaliacao',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const j=await r.json();if(!r.ok)throw new Error(j.error);C.setStatus('evaluationStatus','Avaliação enviada. Obrigado por ajudar a melhorar o Audesc.','success');}catch(err){C.setStatus('evaluationStatus',err.message||'Não foi possível enviar.','warning');}});
@@ -725,7 +725,7 @@
     updateBadges();
     if (saved.step === 'room' && roomCode && receiverName) {
       connectRoom(true).catch(error => {
-        C.setStatus('diagnosticBox', 'Diagnóstico: ' + (error && error.message ? error.message : 'Falha ao restaurar a sala.'), 'warning');
+        C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha ao restaurar a sala.'), 'warning');
       });
     }
   }
