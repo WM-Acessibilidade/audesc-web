@@ -25,11 +25,11 @@
       <div class="grid two">
         <label class="field">
           <span>Código da sala</span>
-          <input id="roomCode" type="text" placeholder="Ex.: audesc-abc12">
+          <input id="roomCode" type="text" required aria-required="true">
         </label>
         <label class="field">
-          <span>Nome do ouvinte</span>
-          <input id="receiverName" type="text" placeholder="Ex.: Leonardo">
+          <span>Nome do ouvinte (opcional)</span>
+          <input id="receiverName" type="text">
         </label>
       </div>
       <div class="actions">
@@ -661,7 +661,12 @@
 
   document.getElementById('joinBtn').addEventListener('click', async () => {
     try {
-      roomCode = C.normalizarSala(C.readValue('roomCode')) || 'audesc';
+      roomCode = C.normalizarSala(C.readValue('roomCode'));
+      if (!roomCode) {
+        C.setStatus('receiverStatus', 'Status: informe o código da sala.', 'warning');
+        document.getElementById('roomCode').focus();
+        return;
+      }
       receiverName = C.readValue('receiverName') || gerarNomeOuvintePadrao();
       C.writeValue('receiverName', receiverName);
       await connectRoom(false);

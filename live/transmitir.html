@@ -24,20 +24,20 @@
       <h2>Entrar como audiodescritor(a)</h2>
       <div class="grid two">
         <label class="field">
-          <span>Nome do evento</span>
-          <input id="eventName" type="text" placeholder="Ex.: Peça com audiodescrição">
+          <span>Nome do evento (opcional)</span>
+          <input id="eventName" type="text">
         </label>
         <label class="field">
-          <span>Nome do audiodescritor(a)</span>
-          <input id="transmitterName" type="text" placeholder="Ex.: Audiodescritor">
+          <span>Nome do audiodescritor(a) (opcional)</span>
+          <input id="transmitterName" type="text">
         </label>
         <label class="field">
-          <span>Código da sala existente</span>
-          <input id="existingRoomCode" type="text" placeholder="Opcional. Preencha para retornar a uma sala já criada">
+          <span>Código da sala</span>
+          <input id="existingRoomCode" type="text" required aria-required="true">
         </label>
         <label class="field">
           <span>Senha do evento</span>
-          <input id="eventPassword" type="password" placeholder="Informe a senha autorizada do evento">
+          <input id="eventPassword" type="password" required aria-required="true">
         </label>
       </div>
       <div class="actions">
@@ -1199,7 +1199,17 @@
       transmitterName = C.readValue('transmitterName') || 'transmissor';
       eventPassword = C.readValue('eventPassword');
       const existingRoom = C.normalizarSala(C.readValue('existingRoomCode'));
-      roomCode = existingRoom || C.gerarSalaAutomatica();
+      if (!existingRoom) {
+        C.setStatus('transmitterStatus', 'Status: informe o código da sala.', 'warning');
+        document.getElementById('existingRoomCode').focus();
+        return;
+      }
+      if (!eventPassword) {
+        C.setStatus('transmitterStatus', 'Status: informe a senha do evento.', 'warning');
+        document.getElementById('eventPassword').focus();
+        return;
+      }
+      roomCode = existingRoom;
       await setupRoomConnection(false);
     } catch (error) {
       C.setStatus('transmitterStatus', 'Status: erro ao iniciar. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
