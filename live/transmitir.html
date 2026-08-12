@@ -97,6 +97,10 @@
       <summary id="sentMessagesSummary">Mensagens recebidas (0)</summary>
       <div class="collapse-body">
         <div id="adEvaluationSummary" class="status" hidden></div>
+        <button id="toggleADEvaluationSummaryBtn" class="ghost" type="button" hidden
+          style="margin-top:6px; padding:4px 8px; font-size:.9rem; width:auto;">
+          Ocultar avaliação
+        </button>
         <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
       </div>
     </details>
@@ -986,8 +990,15 @@
   }
 
   function renderADEvaluationSummary(j){
-    const el=document.getElementById('adEvaluationSummary'); if(!el)return; el.hidden=false;
-    const d=j.distribuicao||{}; el.innerHTML='<strong>Avaliação da audiodescrição:</strong> '+Number(j.media||0).toFixed(1)+' de 5 — '+Number(j.quantidade||0)+' resposta(s).<br>5 estrelas: '+(d[5]||0)+'; 4: '+(d[4]||0)+'; 3: '+(d[3]||0)+'; 2: '+(d[2]||0)+'; 1: '+(d[1]||0)+'.';
+    const el=document.getElementById('adEvaluationSummary'); if(!el)return;
+    const btn=document.getElementById('toggleADEvaluationSummaryBtn');
+    const d=j.distribuicao||{};
+    el.innerHTML='<strong>Avaliação da audiodescrição:</strong> '+Number(j.media||0).toFixed(1)+' de 5 — '+Number(j.quantidade||0)+' resposta(s).<br>5 estrelas: '+(d[5]||0)+'; 4: '+(d[4]||0)+'; 3: '+(d[3]||0)+'; 2: '+(d[2]||0)+'; 1: '+(d[1]||0)+'.';
+    if(btn) btn.hidden=false;
+    if(!el.dataset.userHidden){
+      el.hidden=false;
+      if(btn) btn.textContent='Ocultar avaliação';
+    }
   }
   async function pollADEvaluations(){
     if(!currentADEvaluationRequest||!roomCode)return;
@@ -1418,6 +1429,27 @@
     const eventNameInput = document.getElementById('eventName');
     if (eventNameInput) eventNameInput.focus();
   });
+
+  const toggleADEvaluationSummaryBtn=document.getElementById('toggleADEvaluationSummaryBtn');
+  if(toggleADEvaluationSummaryBtn){
+    toggleADEvaluationSummaryBtn.addEventListener('click',()=>{
+      const summary=document.getElementById('adEvaluationSummary');
+      if(!summary) return;
+      const vaiOcultar=!summary.hidden;
+      summary.hidden=vaiOcultar;
+      if(vaiOcultar){
+        summary.dataset.userHidden='1';
+        toggleADEvaluationSummaryBtn.textContent='Exibir avaliação';
+        toggleADEvaluationSummaryBtn.setAttribute('aria-expanded','false');
+      }else{
+        delete summary.dataset.userHidden;
+        toggleADEvaluationSummaryBtn.textContent='Ocultar avaliação';
+        toggleADEvaluationSummaryBtn.setAttribute('aria-expanded','true');
+      }
+    });
+    toggleADEvaluationSummaryBtn.setAttribute('aria-controls','adEvaluationSummary');
+    toggleADEvaluationSummaryBtn.setAttribute('aria-expanded','true');
+  }
 
   setupSoundAlertControls();
   setupAudioSourceControls();
