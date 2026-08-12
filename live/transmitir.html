@@ -333,6 +333,9 @@
   // Identidade técnica LiveKit -> nome visível informado pelo ouvinte.
   // A seleção e o envio direcionado sempre usam a identidade técnica única.
   const receiverDisplayNames = new Map();
+  // ouvinte_id persistente -> identidade técnica LiveKit.
+  // Usado para relacionar respostas de avaliação vindas da API ao participante correto.
+  const receiverListenerIds = new Map();
   let maxOuvintesPermitidos = null;
   let transmissionWindowTimer = null;
   let currentADEvaluationRequest = null, adEvaluationPollTimer = null, seenADEvaluationIds = new Set();
@@ -971,13 +974,24 @@
     }
     renderMessages();
   }
+  function rotuloAvaliacaoOuvinte(resposta) {
+    const listenerId = resposta && resposta.ouvinte_id ? String(resposta.ouvinte_id) : '';
+    if (listenerId) {
+      const identity = receiverListenerIds.get(listenerId);
+      if (identity) return rotuloOuvinte(identity);
+    }
+    // Compatibilidade com respostas antigas ou ouvintes que já saíram:
+    // se não houver mais identidade técnica disponível, mantém o nome salvo pela API.
+    return String((resposta && resposta.nome_ouvinte) || 'Ouvinte');
+  }
+
   function renderADEvaluationSummary(j){
     const el=document.getElementById('adEvaluationSummary'); if(!el)return; el.hidden=false;
     const d=j.distribuicao||{}; el.innerHTML='<strong>Avaliação da audiodescrição:</strong> '+Number(j.media||0).toFixed(1)+' de 5 — '+Number(j.quantidade||0)+' resposta(s).<br>5 estrelas: '+(d[5]||0)+'; 4: '+(d[4]||0)+'; 3: '+(d[3]||0)+'; 2: '+(d[2]||0)+'; 1: '+(d[1]||0)+'.';
   }
   async function pollADEvaluations(){
     if(!currentADEvaluationRequest||!roomCode)return;
-    try{const u=EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea/resumo?senha='+encodeURIComponent(eventPassword)+'&pedido_id='+encodeURIComponent(currentADEvaluationRequest.id);const r=await fetch(u,{cache:'no-store'});const j=await r.json();if(!r.ok)return;renderADEvaluationSummary(j);(j.respostas||[]).forEach(a=>{if(seenADEvaluationIds.has(a.id))return;seenADEvaluationIds.add(a.id);addMessage(a.nome_ouvinte||'Ouvinte',(a.nota)+' de 5 estrelas'+(a.comentario?' — '+a.comentario:''),'avaliacao');});}catch(e){}
+    try{const u=EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea/resumo?senha='+encodeURIComponent(eventPassword)+'&pedido_id='+encodeURIComponent(currentADEvaluationRequest.id);const r=await fetch(u,{cache:'no-store'});const j=await r.json();if(!r.ok)return;renderADEvaluationSummary(j);(j.respostas||[]).forEach(a=>{if(seenADEvaluationIds.has(a.id))return;seenADEvaluationIds.add(a.id);addMessage(rotuloAvaliacaoOuvinte(a),(a.nota)+' de 5 estrelas'+(a.comentario?' — '+a.comentario:''),'avaliacao');});}catch(e){}
   }
   function updateReceiverList() {
     if (!room) return;
@@ -1079,7 +1093,7 @@
     try { await broadcastPayload({type:'transmission-window-ended', mensagem:'A transmissão foi encerrada porque a janela autorizada terminou.'}); } catch(e) {}
     cleanupAudioSources(true);
     if(room) room.disconnect();
-    room = null; receiverList=[]; receiverDisplayNames.clear(); messages=[]; selectedReceiver=null; activeSession = false;
+    room = null; receiverList=[]; receiverDisplayNames.clear(); receiverListenerIds.clear(); messages=[]; selectedReceiver=null; activeSession = false;
     renderParticipants(); renderMessages();
     C.clearState('transmitter');
     C.switchStep('step-form');
@@ -1129,7 +1143,13 @@
       verificarLimiteOuvintes(participant && participant.identity);
     });
     room.on('participantDisconnected', (participant) => {
-      if (participant && participant.identity) receiverDisplayNames.delete(participant.identity);
+      if (participant && participant.identity) {
+        const identity = participant.identity;
+        receiverDisplayNames.delete(identity);
+        Array.from(receiverListenerIds.entries()).forEach(([listenerId, mappedIdentity]) => {
+          if (mappedIdentity === identity) receiverListenerIds.delete(listenerId);
+        });
+      }
       updateReceiverList();
     });
     room.on('reconnected', () => { C.setStatus('transmitterStatus', 'Status: reconectado à sala com sucesso.', 'success'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }); });
@@ -1141,6 +1161,7 @@
       // para seleção e mensagens direcionadas.
       if (msg.type === 'receiver-hello' && fromIdentity) {
         receiverDisplayNames.set(fromIdentity, String(msg.name || 'Ouvinte').trim() || 'Ouvinte');
+        if (msg.ouvinte_id) receiverListenerIds.set(String(msg.ouvinte_id), fromIdentity);
         updateReceiverList();
       }
       const from = fromIdentity ? rotuloOuvinte(fromIdentity) : 'Sistema';

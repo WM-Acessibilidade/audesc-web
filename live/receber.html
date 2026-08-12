@@ -650,7 +650,7 @@
       if (typeof room.startAudio === 'function') {
         try { await room.startAudio(); } catch (e) {}
       }
-      sendMessage({ type:'receiver-hello', name: receiverName });
+      sendMessage({ type:'receiver-hello', name: receiverName, ouvinte_id: listenerId });
     });
     room.on('disconnected', () => { pararMonitoramentoJanelaTransmissao(); clearInterval(participationTimer); registrarSaida(); consultarAvaliacao(); C.setStatus('receiverStatus2', 'Status: conexão encerrada.', 'warning'); });
     await room.connect(C.livekitUrl, tokenData.token);
@@ -666,7 +666,7 @@
     updateBadges();
     C.setStatus('receiverStatus', reconnect ? 'Status: sala restaurada e reconectada.' : 'Status: entrada realizada com sucesso.', 'success');
     C.setStatus('receiverStatus2', 'Status: conectado. Aguardando ou recebendo o áudio do audiodescritor.', 'success');
-    sendMessage({ type:'receiver-hello', name: receiverName });
+    sendMessage({ type:'receiver-hello', name: receiverName, ouvinte_id: listenerId });
     persist();
   }
 
