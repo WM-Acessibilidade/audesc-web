@@ -648,6 +648,10 @@
               eventName = msg.eventName || eventName;
               updateBadges(); persist();
             }
+            if (msg.type === 'receiver-identification-request') {
+              sendMessage({ type:'receiver-hello', name: receiverName, ouvinte_id: listenerId, refresh:true });
+              return;
+            }
             if (msg.type === 'messages-blocked-state') {
               messagesBlocked = !!msg.blocked;
               addMessage('Audiodescritor(a)', msg.text || (messagesBlocked ? 'Audiodescritor(a) está indisponível para mensagens nesse momento.' : 'Audiodescritor(a) disponível para mensagens.'));

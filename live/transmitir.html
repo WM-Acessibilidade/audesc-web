@@ -1152,7 +1152,11 @@
       }
       updateReceiverList();
     });
-    room.on('reconnected', () => { C.setStatus('transmitterStatus', 'Status: reconectado à sala com sucesso.', 'success'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }); });
+    room.on('reconnected', () => {
+      C.setStatus('transmitterStatus', 'Status: reconectado à sala com sucesso.', 'success');
+      broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked });
+      broadcastPayload({ type:'receiver-identification-request' });
+    });
     room.on('disconnected', () => { activeSession = false; pararMonitoramentoJanelaTransmissao(); updateReceiverList(); updateAudioDiagnostics('Sala desconectada.'); });
     room.on('dataReceived', (payload, participant) => {
       const msg = C.decodePayload(payload); if (!msg) return;
@@ -1203,7 +1207,10 @@
       }
       if (msg.type === 'feedback') addMessage(from, 'Feedback: ' + msg.text,'mensagem');
       if (msg.type === 'help-request') addMessage(from, 'Preciso de auxílio presencial.','alerta');
-      if (msg.type === 'receiver-hello') { addMessage(from, 'Entrou na sala.','sistema'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }, [fromIdentity]); }
+      if (msg.type === 'receiver-hello') {
+        if (!msg.refresh) addMessage(from, 'Entrou na sala.','sistema');
+        broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }, [fromIdentity]);
+      }
     });
     await room.connect(C.livekitUrl, tokenData.token);
 
@@ -1215,6 +1222,11 @@
     });
     await waitForTransmitterCheck(1200);
     checkingTransmitterPresence = false;
+
+    // Ao abrir/recarregar a página do transmissor, os ouvintes já conectados não
+    // disparam participantConnected novamente. Solicita que todos reenviem o nome
+    // visível e o ouvinte_id para reconstruir os mapas de identificação.
+    await broadcastPayload({ type:'receiver-identification-request' });
 
     if (anotherTransmitterDetected) {
       if (isAdminAccess) {
