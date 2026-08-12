@@ -166,6 +166,7 @@
   }
   let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false, messagesBlocked = false;
   let transmissionWindowTimer = null;
+  let connectionInProgress = false;
   let participationTimer = null, evaluationTimer = null, currentADEvaluationRequest = null, adEvaluationTimer = null, lastSubmittedADEvaluationRequestId = null;
   const listenerIdKey='audesc_listener_id';
   let listenerId=localStorage.getItem(listenerIdKey); if(!listenerId){listenerId=(crypto.randomUUID?crypto.randomUUID():('l_'+Date.now()+'_'+Math.random().toString(36).slice(2)));localStorage.setItem(listenerIdKey,listenerId);}
@@ -589,85 +590,104 @@
   }
 
   async function connectRoom(reconnect=false) {
-    if (!reconnect) { resetMessages(); messagesBlocked = false; }
-    LK = await C.carregarLiveKit();
-    await consultarLimiteAntesDeEntrar();
-    await validarJanelaTransmissaoAntesDeEntrar();
-    const gpsEntrada = await validarControlePresencaAntesDeEntrar();
-    const tokenData = await pedirTokenReceiverComGps(gpsEntrada);
-    if (tokenData.room) roomCode = tokenData.room;
-    if (tokenData.evento && (!eventName || eventName === 'Evento ao vivo')) eventName = tokenData.evento;
-    if (room) { room.disconnect(); room = null; }
-    room = C.criarRoom(LK);
-    room.on('trackSubscribed', async (track) => {
-      if (track.kind === 'audio') {
-        const attached = track.attach();
-        if (attached.srcObject) audioEl.srcObject = attached.srcObject;
-        else if (attached.src) audioEl.src = attached.src;
-        audioEl.muted = false;
-        audioEl.volume = 1;
-        try {
+    if (connectionInProgress) {
+      C.setStatus('receiverStatus', 'Status: a entrada na sala já está sendo processada. Aguarde alguns segundos.', 'warning');
+      return;
+    }
+
+    connectionInProgress = true;
+    const joinButton = document.getElementById('joinBtn');
+    if (joinButton) joinButton.disabled = true;
+
+    try {
+          if (!reconnect) { resetMessages(); messagesBlocked = false; }
+          LK = await C.carregarLiveKit();
+          await consultarLimiteAntesDeEntrar();
+          await validarJanelaTransmissaoAntesDeEntrar();
+          const gpsEntrada = await validarControlePresencaAntesDeEntrar();
+          const tokenData = await pedirTokenReceiverComGps(gpsEntrada);
+          if (tokenData.room) roomCode = tokenData.room;
+          if (tokenData.evento && (!eventName || eventName === 'Evento ao vivo')) eventName = tokenData.evento;
+          if (room) { room.disconnect(); room = null; }
+          room = C.criarRoom(LK);
+          room.on('trackSubscribed', async (track) => {
+            if (track.kind === 'audio') {
+              const attached = track.attach();
+              if (attached.srcObject) audioEl.srcObject = attached.srcObject;
+              else if (attached.src) audioEl.src = attached.src;
+              audioEl.muted = false;
+              audioEl.volume = 1;
+              try {
+                if (typeof room.startAudio === 'function') {
+                  try { await room.startAudio(); } catch (e) {}
+                }
+                await audioEl.play();
+                document.getElementById('resumeAudioBtn').classList.remove('visible');
+                C.setStatus('receiverStatus2', 'Status: conectado e ouvindo automaticamente.', 'success');
+              } catch (e) {
+                document.getElementById('resumeAudioBtn').classList.add('visible');
+                C.setStatus('receiverStatus2', 'Status: áudio chegou, mas o navegador bloqueou a reprodução automática. Toque em Retomar áudio.', 'warning');
+              }
+            }
+          });
+          room.on('dataReceived', (payload, participant) => {
+            const msg = C.decodePayload(payload); if (!msg) return;
+            if (msg.type === 'listener-limit-exceeded') {
+              C.setStatus('receiverStatus2', 'Status: a sala atingiu o número máximo de ouvintes permitido para este evento.', 'warning');
+              C.setStatus('receiverStatus', 'Status: entrada não permitida. Limite de ouvintes atingido.', 'warning');
+              addMessage('Sistema', msg.mensagem || 'A sala atingiu o número máximo de ouvintes permitido para este evento.');
+              try { pararMonitoramentoJanelaTransmissao();
+          if (room) room.disconnect(); } catch(e) {}
+              room = null;
+              activeSession = false;
+              C.switchStep('step-form');
+              return;
+            }
+            if (msg.type === 'transmitter-info') {
+              transmitterName = msg.transmitterName || transmitterName;
+              eventName = msg.eventName || eventName;
+              updateBadges(); persist();
+            }
+            if (msg.type === 'messages-blocked-state') {
+              messagesBlocked = !!msg.blocked;
+              addMessage('Audiodescritor(a)', msg.text || (messagesBlocked ? 'Audiodescritor(a) está indisponível para mensagens nesse momento.' : 'Audiodescritor(a) disponível para mensagens.'));
+            }
+            if (msg.type === 'request-feedback') addMessage('Audiodescritor(a)', msg.text || 'Como está o áudio?','mensagem');
+            if (msg.type === 'ad-evaluation-request' && msg.pedidoId !== lastSubmittedADEvaluationRequestId && (!currentADEvaluationRequest || currentADEvaluationRequest.id !== msg.pedidoId)) mostrarPedidoAvaliacaoAD(msg.pedidoId,msg.expiresAt,msg.text);
+            if (msg.type === 'help-response') addMessage('Audiodescritor(a)', msg.text || 'Resposta sobre o pedido de ajuda.');
+          });
+          room.on('reconnected', async () => {
+            C.setStatus('receiverStatus2', 'Status: reconectado à sala com sucesso.', 'success');
+            if (typeof room.startAudio === 'function') {
+              try { await room.startAudio(); } catch (e) {}
+            }
+            sendMessage({ type:'receiver-hello', name: receiverName, ouvinte_id: listenerId });
+          });
+          room.on('disconnected', () => { pararMonitoramentoJanelaTransmissao(); clearInterval(participationTimer); registrarSaida(); consultarAvaliacao(); C.setStatus('receiverStatus2', 'Status: conexão encerrada.', 'warning'); });
+          await room.connect(C.livekitUrl, tokenData.token);
           if (typeof room.startAudio === 'function') {
             try { await room.startAudio(); } catch (e) {}
           }
-          await audioEl.play();
-          document.getElementById('resumeAudioBtn').classList.remove('visible');
-          C.setStatus('receiverStatus2', 'Status: conectado e ouvindo automaticamente.', 'success');
-        } catch (e) {
-          document.getElementById('resumeAudioBtn').classList.add('visible');
-          C.setStatus('receiverStatus2', 'Status: áudio chegou, mas o navegador bloqueou a reprodução automática. Toque em Retomar áudio.', 'warning');
-        }
-      }
-    });
-    room.on('dataReceived', (payload, participant) => {
-      const msg = C.decodePayload(payload); if (!msg) return;
-      if (msg.type === 'listener-limit-exceeded') {
-        C.setStatus('receiverStatus2', 'Status: a sala atingiu o número máximo de ouvintes permitido para este evento.', 'warning');
-        C.setStatus('receiverStatus', 'Status: entrada não permitida. Limite de ouvintes atingido.', 'warning');
-        addMessage('Sistema', msg.mensagem || 'A sala atingiu o número máximo de ouvintes permitido para este evento.');
-        try { pararMonitoramentoJanelaTransmissao();
-    if (room) room.disconnect(); } catch(e) {}
-        room = null;
-        activeSession = false;
-        C.switchStep('step-form');
-        return;
-      }
-      if (msg.type === 'transmitter-info') {
-        transmitterName = msg.transmitterName || transmitterName;
-        eventName = msg.eventName || eventName;
-        updateBadges(); persist();
-      }
-      if (msg.type === 'messages-blocked-state') {
-        messagesBlocked = !!msg.blocked;
-        addMessage('Audiodescritor(a)', msg.text || (messagesBlocked ? 'Audiodescritor(a) está indisponível para mensagens nesse momento.' : 'Audiodescritor(a) disponível para mensagens.'));
-      }
-      if (msg.type === 'request-feedback') addMessage('Audiodescritor(a)', msg.text || 'Como está o áudio?','mensagem');
-      if (msg.type === 'ad-evaluation-request' && msg.pedidoId !== lastSubmittedADEvaluationRequestId && (!currentADEvaluationRequest || currentADEvaluationRequest.id !== msg.pedidoId)) mostrarPedidoAvaliacaoAD(msg.pedidoId,msg.expiresAt,msg.text);
-      if (msg.type === 'help-response') addMessage('Audiodescritor(a)', msg.text || 'Resposta sobre o pedido de ajuda.');
-    });
-    room.on('reconnected', async () => {
-      C.setStatus('receiverStatus2', 'Status: reconectado à sala com sucesso.', 'success');
-      if (typeof room.startAudio === 'function') {
-        try { await room.startAudio(); } catch (e) {}
-      }
-      sendMessage({ type:'receiver-hello', name: receiverName, ouvinte_id: listenerId });
-    });
-    room.on('disconnected', () => { pararMonitoramentoJanelaTransmissao(); clearInterval(participationTimer); registrarSaida(); consultarAvaliacao(); C.setStatus('receiverStatus2', 'Status: conexão encerrada.', 'warning'); });
-    await room.connect(C.livekitUrl, tokenData.token);
-    if (typeof room.startAudio === 'function') {
-      try { await room.startAudio(); } catch (e) {}
+          activeSession = true;
+          await registrarParticipacao();
+          await carregarConfiguracaoAvaliacaoInstantanea();
+          clearInterval(evaluationTimer); evaluationTimer=setInterval(()=>{consultarAvaliacao();consultarPedidoAvaliacaoAD();},5000); await consultarPedidoAvaliacaoAD();
+          await iniciarMonitoramentoJanelaTransmissao();
+          C.switchStep('step-room');
+          updateBadges();
+          C.setStatus('receiverStatus', reconnect ? 'Status: sala restaurada e reconectada.' : 'Status: entrada realizada com sucesso.', 'success');
+          C.setStatus('receiverStatus2', 'Status: conectado. Aguardando ou recebendo o áudio do audiodescritor.', 'success');
+          sendMessage({ type:'receiver-hello', name: receiverName, ouvinte_id: listenerId });
+          persist();
+    } catch (error) {
+      try { if (room) room.disconnect(); } catch (e) {}
+      room = null;
+      activeSession = false;
+      throw error;
+    } finally {
+      connectionInProgress = false;
+      if (joinButton) joinButton.disabled = false;
     }
-    activeSession = true;
-    await registrarParticipacao();
-    await carregarConfiguracaoAvaliacaoInstantanea();
-    clearInterval(evaluationTimer); evaluationTimer=setInterval(()=>{consultarAvaliacao();consultarPedidoAvaliacaoAD();},5000); await consultarPedidoAvaliacaoAD();
-    await iniciarMonitoramentoJanelaTransmissao();
-    C.switchStep('step-room');
-    updateBadges();
-    C.setStatus('receiverStatus', reconnect ? 'Status: sala restaurada e reconectada.' : 'Status: entrada realizada com sucesso.', 'success');
-    C.setStatus('receiverStatus2', 'Status: conectado. Aguardando ou recebendo o áudio do audiodescritor.', 'success');
-    sendMessage({ type:'receiver-hello', name: receiverName, ouvinte_id: listenerId });
-    persist();
   }
 
   document.getElementById('joinBtn').addEventListener('click', async () => {
@@ -743,7 +763,9 @@
     C.writeValue('receiverName', receiverName);
     updateBadges();
     if (saved.step === 'room' && roomCode && receiverName) {
+      C.setStatus('receiverStatus', 'Status: restaurando a conexão anterior. Aguarde alguns segundos.', 'warning');
       connectRoom(true).catch(error => {
+        C.setStatus('receiverStatus', 'Status: não foi possível restaurar a conexão anterior. Você pode tentar entrar novamente.', 'warning');
         C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha ao restaurar a sala.'), 'warning');
       });
     }
