@@ -169,6 +169,17 @@
   let participationTimer = null, evaluationTimer = null, currentADEvaluationRequest = null, adEvaluationTimer = null, lastSubmittedADEvaluationRequestId = null;
   const listenerIdKey='audesc_listener_id';
   let listenerId=localStorage.getItem(listenerIdKey); if(!listenerId){listenerId=(crypto.randomUUID?crypto.randomUUID():('l_'+Date.now()+'_'+Math.random().toString(36).slice(2)));localStorage.setItem(listenerIdKey,listenerId);}
+  // O nome informado pelo ouvinte é apenas o nome visível.
+  // A identidade técnica do LiveKit precisa ser única para que duas pessoas com o mesmo nome
+  // possam permanecer conectadas simultaneamente. sessionStorage mantém a mesma identidade
+  // técnica durante recargas/reconexões desta aba, sem compartilhá-la com outras abas.
+  const listenerConnectionIdentityKey='audesc_listener_connection_identity';
+  let listenerConnectionIdentity=sessionStorage.getItem(listenerConnectionIdentityKey);
+  if(!listenerConnectionIdentity){
+    const uniquePart=(crypto.randomUUID?crypto.randomUUID():Date.now()+'_'+Math.random().toString(36).slice(2));
+    listenerConnectionIdentity='ouvinte_'+uniquePart;
+    sessionStorage.setItem(listenerConnectionIdentityKey,listenerConnectionIdentity);
+  }
   const audioEl = document.getElementById('remoteAudio');
 
 
@@ -497,7 +508,7 @@
   }
 
   async function pedirTokenReceiverComGps(gps){
-    let url = C.tokenEndpoint + '?room=' + encodeURIComponent(roomCode) + '&identity=' + encodeURIComponent(receiverName) + '&role=receiver';
+    let url = C.tokenEndpoint + '?room=' + encodeURIComponent(roomCode) + '&identity=' + encodeURIComponent(listenerConnectionIdentity) + '&role=receiver';
     if(gps){
       url += '&lat=' + encodeURIComponent(gps.latitude);
       url += '&lon=' + encodeURIComponent(gps.longitude);

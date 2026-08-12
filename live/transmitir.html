@@ -330,6 +330,9 @@
   }
   let LK = null, room = null, localTrack = null, roomCode = '', eventName = '', transmitterName = '', eventPassword = '', messagesBlocked = false, anotherTransmitterDetected = false, checkingTransmitterPresence = false;
   let receiverList = [], messages = [], selectedReceiver = null, activeSession = false; anotherTransmitterDetected = false; checkingTransmitterPresence = false; messagesBlocked = false;
+  // Identidade técnica LiveKit -> nome visível informado pelo ouvinte.
+  // A seleção e o envio direcionado sempre usam a identidade técnica única.
+  const receiverDisplayNames = new Map();
   let maxOuvintesPermitidos = null;
   let transmissionWindowTimer = null;
   let currentADEvaluationRequest = null, adEvaluationPollTimer = null, seenADEvaluationIds = new Set();
@@ -889,20 +892,50 @@
     return C.loadState('last-transmitter-room');
   }
 
+  function nomeVisivelOuvinte(identity) {
+    const nome = String(receiverDisplayNames.get(identity) || '').trim();
+    return nome || 'Ouvinte';
+  }
+
+  function mapaRotulosOuvintes() {
+    const grupos = new Map();
+    receiverList.forEach(identity => {
+      const nome = nomeVisivelOuvinte(identity);
+      if (!grupos.has(nome)) grupos.set(nome, []);
+      grupos.get(nome).push(identity);
+    });
+    const labels = new Map();
+    grupos.forEach((identidades, nome) => {
+      identidades.sort();
+      identidades.forEach((identity, index) => {
+        labels.set(identity, identidades.length > 1 ? nome + ' (' + (index + 1) + ')' : nome);
+      });
+    });
+    return labels;
+  }
+
+  function rotuloOuvinte(identity) {
+    return mapaRotulosOuvintes().get(identity) || nomeVisivelOuvinte(identity);
+  }
+
   function renderParticipants() {
     const box = document.getElementById('participantsBox');
     const summary = document.getElementById('participantsSummary');
     if (summary) summary.textContent = 'Ouvintes na sala (' + receiverList.length + ')';
     if (!receiverList.length) { box.textContent = 'Nenhum ouvinte conectado no momento.'; selectedReceiver = []; return; }
     if (!Array.isArray(selectedReceiver)) selectedReceiver = [];
-    selectedReceiver = selectedReceiver.filter(name => receiverList.includes(name));
-    box.innerHTML = receiverList.map(name => `<div class="participant-item"><button type="button" class="ghost participant-select" data-name="${name}" style="width:100%;justify-content:space-between;"><span>${name}</span><span>${selectedReceiver.includes(name)?'Marcado':'Desmarcado'}</span></button></div>`).join('');
+    selectedReceiver = selectedReceiver.filter(identity => receiverList.includes(identity));
+    const labels = mapaRotulosOuvintes();
+    box.innerHTML = receiverList.map(identity => {
+      const label = labels.get(identity) || 'Ouvinte';
+      return `<div class="participant-item"><button type="button" class="ghost participant-select" data-identity="${escapeHtml(identity)}" style="width:100%;justify-content:space-between;"><span>${escapeHtml(label)}</span><span>${selectedReceiver.includes(identity)?'Marcado':'Desmarcado'}</span></button></div>`;
+    }).join('');
     box.querySelectorAll('.participant-select').forEach(btn => btn.addEventListener('click', () => {
-      const name = btn.dataset.name;
-      if (selectedReceiver.includes(name)) {
-        selectedReceiver = selectedReceiver.filter(item => item !== name);
+      const identity = btn.dataset.identity;
+      if (selectedReceiver.includes(identity)) {
+        selectedReceiver = selectedReceiver.filter(item => item !== identity);
       } else {
-        selectedReceiver = [...selectedReceiver, name];
+        selectedReceiver = [...selectedReceiver, identity];
       }
       renderParticipants();
     }));
@@ -951,7 +984,12 @@
     const list = [];
     room.remoteParticipants.forEach(p => list.push(p.identity));
     receiverList = list.sort();
-    if (selectedReceiver && !receiverList.includes(selectedReceiver)) selectedReceiver = null;
+    if (!Array.isArray(selectedReceiver)) selectedReceiver = [];
+    selectedReceiver = selectedReceiver.filter(identity => receiverList.includes(identity));
+    // Remove nomes de participantes que já não estão na sala.
+    Array.from(receiverDisplayNames.keys()).forEach(identity => {
+      if (!receiverList.includes(identity)) receiverDisplayNames.delete(identity);
+    });
     renderParticipants();
   }
   function waitForTransmitterCheck(ms) {
@@ -985,7 +1023,7 @@
       limite:maxOuvintesPermitidos,
       mensagem:'A sala atingiu o número máximo de ouvintes permitido para este evento.'
     }, [alvo]);
-    addMessage('Sistema', 'Entrada recusada por limite de ouvintes: ' + alvo + '. Limite atual: ' + maxOuvintesPermitidos + '.','alerta');
+    addMessage('Sistema', 'Entrada recusada por limite de ouvintes: ' + rotuloOuvinte(alvo) + '. Limite atual: ' + maxOuvintesPermitidos + '.','alerta');
   }
 
   async function consultarJanelaTransmissao(modo='monitoramento'){
@@ -1041,7 +1079,7 @@
     try { await broadcastPayload({type:'transmission-window-ended', mensagem:'A transmissão foi encerrada porque a janela autorizada terminou.'}); } catch(e) {}
     cleanupAudioSources(true);
     if(room) room.disconnect();
-    room = null; receiverList=[]; messages=[]; selectedReceiver=null; activeSession = false;
+    room = null; receiverList=[]; receiverDisplayNames.clear(); messages=[]; selectedReceiver=null; activeSession = false;
     renderParticipants(); renderMessages();
     C.clearState('transmitter');
     C.switchStep('step-form');
@@ -1090,18 +1128,28 @@
       broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked });
       verificarLimiteOuvintes(participant && participant.identity);
     });
-    room.on('participantDisconnected', () => { updateReceiverList(); });
+    room.on('participantDisconnected', (participant) => {
+      if (participant && participant.identity) receiverDisplayNames.delete(participant.identity);
+      updateReceiverList();
+    });
     room.on('reconnected', () => { C.setStatus('transmitterStatus', 'Status: reconectado à sala com sucesso.', 'success'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }); });
     room.on('disconnected', () => { activeSession = false; pararMonitoramentoJanelaTransmissao(); updateReceiverList(); updateAudioDiagnostics('Sala desconectada.'); });
     room.on('dataReceived', (payload, participant) => {
       const msg = C.decodePayload(payload); if (!msg) return;
-      const from = participant ? participant.identity : 'Sistema';
+      const fromIdentity = participant ? participant.identity : '';
+      // receiver-hello informa o nome humano; a identidade técnica continua sendo usada
+      // para seleção e mensagens direcionadas.
+      if (msg.type === 'receiver-hello' && fromIdentity) {
+        receiverDisplayNames.set(fromIdentity, String(msg.name || 'Ouvinte').trim() || 'Ouvinte');
+        updateReceiverList();
+      }
+      const from = fromIdentity ? rotuloOuvinte(fromIdentity) : 'Sistema';
       if (messagesBlocked && (msg.type === 'feedback' || msg.type === 'help-request')) {
         broadcastPayload({
           type: 'messages-blocked-state',
           blocked: true,
           text: 'Audiodescritor(a) está indisponível para mensagens nesse momento.'
-        }, [from]);
+        }, [fromIdentity]);
         return;
       }
       if (msg.type === 'transmitter-presence-check') {
@@ -1109,7 +1157,7 @@
           broadcastPayload({
             type: 'transmitter-present',
             transmitterName
-          }, [from]);
+          }, [fromIdentity]);
         }
         return;
       }
@@ -1134,7 +1182,7 @@
       }
       if (msg.type === 'feedback') addMessage(from, 'Feedback: ' + msg.text,'mensagem');
       if (msg.type === 'help-request') addMessage(from, 'Preciso de auxílio presencial.','alerta');
-      if (msg.type === 'receiver-hello') { addMessage(from, 'Entrou na sala.','sistema'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }, [from]); }
+      if (msg.type === 'receiver-hello') { addMessage(from, 'Entrou na sala.','sistema'); broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked }, [fromIdentity]); }
     });
     await room.connect(C.livekitUrl, tokenData.token);
 
