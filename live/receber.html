@@ -93,7 +93,7 @@
 
     <section id="evaluationPanel" class="panel" hidden aria-labelledby="evaluationTitle">
       <div id="evaluationAnnouncement" role="status" aria-live="polite"></div>
-      <h2 id="evaluationTitle">Avalie esta transmissão</h2>
+      <h2 id="evaluationTitle">Avalie sua experiência neste evento</h2>
       <p id="evaluationDeadline" class="hint"></p>
       <div class="actions"><button id="openEvaluationBtn" type="button">Avaliar transmissão</button><button id="dismissEvaluationBtn" class="secondary" type="button">Dispensar</button></div>
       <form id="evaluationForm" hidden>
@@ -102,7 +102,7 @@
         <label class="field"><span>Qualidade do áudio</span><select id="evaluationAudio" required><option value="">Selecione</option><option value="5">Excelente</option><option value="4">Boa</option><option value="3">Regular</option><option value="2">Ruim</option><option value="1">Muito ruim</option></select></label>
         <label class="field"><span>Você conseguiu acompanhar com autonomia?</span><select id="evaluationAutonomy" required><option value="">Selecione</option><option value="5">Sim, completamente</option><option value="4">Sim, com pequenas dificuldades</option><option value="3">Parcialmente</option><option value="1">Não</option></select></label>
         <label class="field"><span>Você recomendaria este evento acessível? (0 a 10)</span><select id="evaluationRecommendation"><option value="">Prefiro não responder</option><option value="0">0 — Não recomendaria</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10 — Recomendaria totalmente</option></select></label>
-        <label class="field"><span>Gostaria de comentar alguma coisa? (opcional)</span><textarea id="evaluationComment" maxlength="1000" rows="5"></textarea></label>
+        <label class="field"><span>Comentários e sugestões (opcional)</span><span class="hint">Seu comentário é muito importante para nós. Conte como foi sua experiência ou deixe suas sugestões para que possamos aprimorar continuamente os serviços do Audesc.</span><textarea id="evaluationComment" maxlength="1000" rows="5"></textarea></label>
         <div class="actions"><button type="submit">Enviar avaliação</button></div>
         <div id="evaluationStatus" class="status" role="status" aria-live="polite"></div>
       </form>
@@ -167,7 +167,7 @@
   let LK = null, room = null, roomCode = '', receiverName = '', transmitterName = 'Aguardando audiodescritor(a)', eventName = 'Evento ao vivo', messages = [], activeSession = false, messagesBlocked = false;
   let transmissionWindowTimer = null;
   let connectionInProgress = false;
-  let participationTimer = null, evaluationTimer = null, currentADEvaluationRequest = null, adEvaluationTimer = null, lastSubmittedADEvaluationRequestId = null;
+  let participationTimer = null, evaluationTimer = null, finalEvaluationFormOpen = false, currentADEvaluationRequest = null, adEvaluationTimer = null, lastSubmittedADEvaluationRequestId = null;
   const listenerIdKey='audesc_listener_id';
   let listenerId=localStorage.getItem(listenerIdKey); if(!listenerId){listenerId=(crypto.randomUUID?crypto.randomUUID():('l_'+Date.now()+'_'+Math.random().toString(36).slice(2)));localStorage.setItem(listenerIdKey,listenerId);}
   // O nome informado pelo ouvinte é apenas o nome visível.
@@ -202,6 +202,7 @@
   }
 
   function encerrarCicloAvaliacaoFinal(mensagem){
+    finalEvaluationFormOpen=false;
     clearInterval(evaluationTimer); evaluationTimer=null;
     const panel=document.getElementById('evaluationPanel');
     if(panel) panel.hidden=true;
@@ -225,7 +226,7 @@
     }
   }
   async function consultarAvaliacao(){
-    if(!roomCode)return;
+    if(!roomCode || activeSession || finalEvaluationFormOpen)return;
     try{
       const r=await fetch(EVENTS_API_URL+'/public/salas/'+encodeURIComponent(roomCode)+'/avaliacao/status?ouvinte_id='+encodeURIComponent(listenerId),{cache:'no-store'});
       const j=await r.json();
@@ -236,7 +237,7 @@
         if(avaliacaoFoiDispensada(j.expira_em)){encerrarCicloAvaliacaoFinal('Status: avaliação dispensada. Retornando para a entrada da sala.');return;}
         panel.hidden=false; abrir.hidden=false; dispensar.hidden=false;
         document.getElementById('evaluationDeadline').textContent='Esta avaliação poderá ser enviada até '+new Date(j.expira_em).toLocaleString('pt-BR')+'. Após o envio, a resposta será definitiva.';
-        document.getElementById('evaluationAnnouncement').textContent='A transmissão foi encerrada. A avaliação final está disponível.';
+        document.getElementById('evaluationAnnouncement').textContent='A transmissão foi encerrada. Por gentileza, avalie sua experiência neste evento e nos ajude a aprimorar os serviços do Audesc.';
         panel.dataset.expiraEm=String(j.expira_em||'');
       }else if(j.encerrada && (j.expirou || j.respondida)){
         encerrarCicloAvaliacaoFinal(j.respondida?'Status: avaliação já enviada. Retornando para a entrada da sala.':'Status: o tempo de disponibilidade da avaliação foi encerrado. Retornando para a entrada da sala.');
@@ -657,6 +658,12 @@
               C.switchStep('step-form');
               return;
             }
+            if (msg.type === 'transmission-ended') {
+              activeSession=false;
+              C.setStatus('receiverStatus2','Status: transmissão encerrada. Preparando a avaliação final.','warning');
+              window.setTimeout(()=>consultarAvaliacao(),350);
+              return;
+            }
             if (msg.type === 'transmitter-info') {
               transmitterName = msg.transmitterName || transmitterName;
               eventName = msg.eventName || eventName;
@@ -681,12 +688,19 @@
             }
             sendMessage({ type:'receiver-hello', name: receiverName, ouvinte_id: listenerId });
           });
-          room.on('disconnected', () => { pararMonitoramentoJanelaTransmissao(); clearInterval(participationTimer); registrarSaida(); consultarAvaliacao(); C.setStatus('receiverStatus2', 'Status: conexão encerrada.', 'warning'); });
+          room.on('disconnected', () => { pararMonitoramentoJanelaTransmissao(); clearInterval(participationTimer); registrarSaida(); C.setStatus('receiverStatus2', 'Status: conexão encerrada.', 'warning'); });
           await room.connect(C.livekitUrl, tokenData.token);
           if (typeof room.startAudio === 'function') {
             try { await room.startAudio(); } catch (e) {}
           }
           activeSession = true;
+          finalEvaluationFormOpen=false;
+          const anuncioFinal=document.getElementById('evaluationAnnouncement');
+          if(anuncioFinal) anuncioFinal.setAttribute('aria-live','polite');
+          document.getElementById('evaluationPanel').hidden=true;
+          document.getElementById('evaluationForm').hidden=true;
+          document.getElementById('openEvaluationBtn').hidden=false;
+          document.getElementById('dismissEvaluationBtn').hidden=false;
           await registrarParticipacao();
           await carregarConfiguracaoAvaliacaoInstantanea();
           clearInterval(evaluationTimer); evaluationTimer=setInterval(()=>{consultarAvaliacao();consultarPedidoAvaliacaoAD();},5000); await consultarPedidoAvaliacaoAD();
@@ -760,7 +774,15 @@
   document.getElementById('openADEvaluationBtn').addEventListener('click',()=>{if(!avaliacaoInstantaneaHabilitada)return;document.getElementById('adEvaluationPanel').hidden=false;document.getElementById('adEvaluationScore').focus();});
   document.getElementById('adEvaluationScore').addEventListener('change',()=>{document.getElementById('adEvaluationCommentLabel').textContent=document.getElementById('adEvaluationScore').value==='5'?'Fique à vontade para fazer um elogio.':'Fique à vontade para dizer por que não deu todas as estrelas.';});
   document.getElementById('adEvaluationForm').addEventListener('submit',async(e)=>{e.preventDefault();if(!avaliacaoInstantaneaHabilitada||!currentADEvaluationRequest)return;const payload={pedido_id:currentADEvaluationRequest.id,ouvinte_id:listenerId,nome_ouvinte:receiverName,nota:Number(document.getElementById('adEvaluationScore').value),comentario:document.getElementById('adEvaluationComment').value};try{const resp=await fetch(EVENTS_API_URL+'/public/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const j=await resp.json();if(!resp.ok)throw new Error(j.error);C.setStatus('adEvaluationStatus','Avaliação enviada ao audiodescritor.','success');const notaEnviada=payload.nota;const comentarioEnviado=(payload.comentario||'').trim();const textoAvaliacaoEnviada='Avaliação enviada: '+notaEnviada+' de 5 estrelas'+(comentarioEnviado?' - '+comentarioEnviado:'.');addMessage('Sistema',textoAvaliacaoEnviada,false,false);document.getElementById('openADEvaluationBtn').disabled=true;document.getElementById('adEvaluationPanel').hidden=true;document.getElementById('adEvaluationForm').querySelector('button[type=submit]').disabled=true;lastSubmittedADEvaluationRequestId=currentADEvaluationRequest.id;currentADEvaluationRequest=null;}catch(err){C.setStatus('adEvaluationStatus',err.message||'Não foi possível enviar.','warning');}});
-  document.getElementById('openEvaluationBtn').addEventListener('click',()=>{document.getElementById('evaluationForm').hidden=false;document.getElementById('evaluationGeneral').focus();});
+  document.getElementById('openEvaluationBtn').addEventListener('click',()=>{
+    finalEvaluationFormOpen=true;
+    const anuncio=document.getElementById('evaluationAnnouncement');
+    if(anuncio){anuncio.textContent='';anuncio.setAttribute('aria-live','off');}
+    document.getElementById('openEvaluationBtn').hidden=true;
+    document.getElementById('dismissEvaluationBtn').hidden=true;
+    document.getElementById('evaluationForm').hidden=false;
+    document.getElementById('evaluationGeneral').focus();
+  });
   document.getElementById('dismissEvaluationBtn').addEventListener('click',()=>{const panel=document.getElementById('evaluationPanel');const expiraEm=panel?.dataset.expiraEm||'';registrarDispensaAvaliacao(expiraEm);encerrarCicloAvaliacaoFinal('Status: avaliação dispensada. Retornando para a entrada da sala.');});
   document.getElementById('evaluationForm').addEventListener('submit',async(e)=>{e.preventDefault();const enviar=e.currentTarget.querySelector('button[type=submit]');if(enviar)enviar.disabled=true;const payload={ouvinte_id:listenerId,avaliacao_geral:Number(evaluationGeneral.value),qualidade_audiodescricao:Number(evaluationAD.value),qualidade_audio:Number(evaluationAudio.value),autonomia:Number(evaluationAutonomy.value),recomendacao:evaluationRecommendation.value,comentario:evaluationComment.value};try{const r=await fetch(EVENTS_API_URL+'/public/salas/'+encodeURIComponent(roomCode)+'/avaliacao',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const j=await r.json();if(!r.ok)throw new Error(j.error);C.setStatus('evaluationStatus','Avaliação enviada. Obrigado por ajudar a melhorar o Audesc.','success');window.setTimeout(()=>encerrarCicloAvaliacaoFinal('Status: avaliação enviada com sucesso. Retornando para a entrada da sala.'),1200);}catch(err){if(enviar)enviar.disabled=false;C.setStatus('evaluationStatus',err.message||'Não foi possível enviar.','warning');}});
   window.addEventListener('beforeunload',registrarSaida);
