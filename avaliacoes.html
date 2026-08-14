@@ -1,40 +1,42 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Avaliações das transmissões — Audesc</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Avaliações das transmissões — Audesc</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.item-avaliacao{border:1px solid #bbb;border-radius:8px;padding:12px;margin:12px 0}
+.item-avaliacao h3{margin-top:0}
+.item-avaliacao label{display:block;margin:.5rem 0}
+</style>
 </head>
 <body>
 <main class="container">
+  <p><a href="admin.html">Voltar para o painel principal</a></p>
   <h1>Avaliações das transmissões</h1>
-  <p><a href="admin.html">Voltar ao painel</a></p>
 
   <section>
-    <h2>Configurações</h2>
+    <h2>Configurações gerais da avaliação da transmissão</h2>
     <label for="token">Senha administrativa</label>
     <input id="token" type="password" autocomplete="current-password">
     <button id="carregarConfig" type="button">Carregar configurações</button>
 
     <div id="camposConfiguracao">
-      <label><input id="ativa" type="checkbox" checked> Ativar avaliações</label>
+      <label><input id="ativa" type="checkbox" checked> Ativar avaliação final da transmissão</label>
       <label for="prazo">Tempo de disponibilidade da avaliação após o encerramento</label>
-      <select id="prazo">
-        <option value="30">30 minutos</option>
-        <option value="60" selected>60 minutos</option>
-        <option value="120">120 minutos</option>
-      </select>
-
+      <select id="prazo"><option value="30">30 minutos</option><option value="60" selected>60 minutos</option><option value="120">120 minutos</option></select>
       <label for="minimo">Participação mínima, em minutos</label>
       <input id="minimo" type="number" min="0" max="60" value="1">
+      <p>Durante esse período, o ouvinte que ainda não respondeu poderá enviar a avaliação final. Depois do primeiro envio, a resposta é definitiva.</p>
 
-      <p>Durante esse período, o ouvinte que ainda não respondeu poderá enviar a avaliação final da transmissão. Depois do primeiro envio, a resposta é definitiva e não poderá ser alterada.</p>
-      <label><input id="comentario" type="checkbox" checked> Exibir campo de comentário</label>
+      <h2>Itens da avaliação final</h2>
+      <p>Para cada item, escolha se será exibido ao ouvinte e, quando exibido, se a resposta será obrigatória ou opcional.</p>
+      <div id="itens"></div>
 
-      <h3>Avaliação instantânea da audiodescrição</h3>
+      <h2>Avaliação instantânea da audiodescrição</h2>
       <label><input id="instantanea" type="checkbox" checked> Ativar avaliação instantânea</label>
-      <p>O pedido fica disponível por 15 minutos e um novo pedido só pode ser enviado após 15 minutos.</p>
+      <p>O transmissor deve aguardar 15 minutos entre um pedido e outro. Para o ouvinte, cada pedido permanece disponível até ser respondido, até um novo pedido substituí-lo ou até o encerramento da transmissão.</p>
       <label><input id="comentarioInstantaneo" type="checkbox" checked> Permitir comentário opcional na avaliação instantânea</label>
     </div>
 
@@ -49,168 +51,39 @@
   </section>
 </main>
 <script>
-(() => {
-  'use strict';
-
-  const API = 'https://audesc-events-api.onrender.com';
-  const el = {
-    token: document.getElementById('token'),
-    carregarConfig: document.getElementById('carregarConfig'),
-    ativa: document.getElementById('ativa'),
-    prazo: document.getElementById('prazo'),
-    minimo: document.getElementById('minimo'),
-    comentario: document.getElementById('comentario'),
-    instantanea: document.getElementById('instantanea'),
-    comentarioInstantaneo: document.getElementById('comentarioInstantaneo'),
-    salvar: document.getElementById('salvar'),
-    mensagemStatus: document.getElementById('mensagemStatus'),
-    carregar: document.getElementById('carregar'),
-    resultados: document.getElementById('resultados')
-  };
-
-  function informar(texto) {
-    el.mensagemStatus.textContent = '';
-    window.setTimeout(() => { el.mensagemStatus.textContent = texto; }, 20);
-  }
-
-  function tokenAdministrativo() {
-    return el.token.value.trim();
-  }
-
-  function headers() {
-    return {
-      'Content-Type': 'application/json',
-      'x-admin-token': tokenAdministrativo()
-    };
-  }
-
-  async function lerResposta(resposta) {
-    const texto = await resposta.text();
-    let dados = {};
-    if (texto) {
-      try { dados = JSON.parse(texto); }
-      catch { dados = { error: texto }; }
-    }
-    if (!resposta.ok) {
-      throw new Error(dados.error || `Erro ${resposta.status} ao acessar o servidor.`);
-    }
-    return dados;
-  }
-
-  function validarSenha() {
-    if (tokenAdministrativo()) return true;
-    informar('Digite a senha administrativa.');
-    el.token.focus();
-    return false;
-  }
-
-  function aplicarConfiguracao(config) {
-    el.ativa.checked = config.ativa !== false;
-    el.prazo.value = String(config.prazo_minutos ?? 60);
-    el.minimo.value = String(config.participacao_minima_minutos ?? 1);
-    el.comentario.checked = config.comentario_ativo !== false;
-    el.instantanea.checked = config.avaliacao_instantanea_ativa !== false;
-    el.comentarioInstantaneo.checked = config.comentario_instantaneo_ativo !== false;
-  }
-
-  async function carregarConfiguracao({ anunciar = true } = {}) {
-    if (!validarSenha()) return null;
-    const resposta = await fetch(`${API}/admin/avaliacoes/configuracao`, {
-      method: 'GET',
-      headers: headers(),
-      cache: 'no-store'
-    });
-    const dados = await lerResposta(resposta);
-    aplicarConfiguracao(dados.config || {});
-    if (anunciar) informar('Configurações carregadas.');
-    return dados.config || {};
-  }
-
-  async function salvarConfiguracao() {
-    if (!validarSenha()) return;
-    el.salvar.disabled = true;
-    informar('Salvando configurações...');
-    try {
-      const payload = {
-        ativa: el.ativa.checked,
-        prazo_minutos: Number(el.prazo.value),
-        participacao_minima_minutos: Number(el.minimo.value),
-        permitir_edicao: false,
-        comentario_ativo: el.comentario.checked,
-        avaliacao_instantanea_ativa: el.instantanea.checked,
-        comentario_instantaneo_ativo: el.comentarioInstantaneo.checked
-      };
-      const resposta = await fetch(`${API}/admin/avaliacoes/configuracao`, {
-        method: 'PUT',
-        headers: headers(),
-        body: JSON.stringify(payload)
-      });
-      const dados = await lerResposta(resposta);
-      aplicarConfiguracao(dados.config || payload);
-
-      // Confirma que o servidor realmente persistiu a configuração.
-      const confirmada = await carregarConfiguracao({ anunciar: false });
-      if (!confirmada) throw new Error('Não foi possível confirmar a configuração salva.');
-      informar('Configurações salvas e confirmadas no servidor.');
-    } catch (erro) {
-      informar(`Não foi possível salvar: ${erro.message}`);
-    } finally {
-      el.salvar.disabled = false;
-    }
-  }
-
-  function escapar(texto) {
-    return String(texto ?? '')
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;')
-      .replaceAll("'", '&#39;');
-  }
-
-  async function carregarAvaliacoes() {
-    if (!validarSenha()) return;
-    el.carregar.disabled = true;
-    el.resultados.textContent = 'Carregando avaliações...';
-    try {
-      await carregarConfiguracao({ anunciar: false });
-      const resposta = await fetch(`${API}/admin/avaliacoes`, {
-        headers: headers(),
-        cache: 'no-store'
-      });
-      const dados = await lerResposta(resposta);
-      const avaliacoes = Array.isArray(dados.avaliacoes) ? dados.avaliacoes : [];
-      el.resultados.innerHTML = `<p>${avaliacoes.length} avaliação(ões).</p>` + avaliacoes.map(a => `
-        <article>
-          <strong>Sala ${escapar(a.sala_codigo)}</strong>
-          <p>Geral: ${escapar(a.avaliacao_geral)}/5; audiodescrição: ${escapar(a.qualidade_audiodescricao)}/5; áudio: ${escapar(a.qualidade_audio)}/5; autonomia: ${escapar(a.autonomia)}/5; recomendação: ${a.recomendacao ?? 'não respondida'}</p>
-          <p>${escapar(a.comentario)}</p>
-        </article>`).join('');
-      informar('Avaliações carregadas.');
-    } catch (erro) {
-      el.resultados.textContent = `Não foi possível carregar: ${erro.message}`;
-      informar(`Não foi possível carregar as avaliações: ${erro.message}`);
-    } finally {
-      el.carregar.disabled = false;
-    }
-  }
-
-  el.carregarConfig.addEventListener('click', async () => {
-    el.carregarConfig.disabled = true;
-    informar('Carregando configurações...');
-    try { await carregarConfiguracao(); }
-    catch (erro) { informar(`Não foi possível carregar: ${erro.message}`); }
-    finally { el.carregarConfig.disabled = false; }
-  });
-  el.salvar.addEventListener('click', salvarConfiguracao);
-  el.carregar.addEventListener('click', carregarAvaliacoes);
-  el.token.addEventListener('keydown', (evento) => {
-    if (evento.key === 'Enter') {
-      evento.preventDefault();
-      el.carregarConfig.click();
-    }
-  });
+(()=>{
+'use strict';
+const API='https://audesc-events-api.onrender.com';
+const DEFINICOES=[
+ ['avaliacao_geral','Avaliação geral',true,true],
+ ['qualidade_audiodescricao','Qualidade da audiodescrição',true,true],
+ ['qualidade_audio','Qualidade do áudio',true,true],
+ ['autonomia','Acompanhamento com autonomia',true,true],
+ ['recomendacao','Recomendação do evento acessível, de 0 a 10',true,false],
+ ['comentario','Comentários e sugestões',true,false]
+];
+const el={token:document.getElementById('token'),carregarConfig:document.getElementById('carregarConfig'),ativa:document.getElementById('ativa'),prazo:document.getElementById('prazo'),minimo:document.getElementById('minimo'),instantanea:document.getElementById('instantanea'),comentarioInstantaneo:document.getElementById('comentarioInstantaneo'),salvar:document.getElementById('salvar'),mensagemStatus:document.getElementById('mensagemStatus'),carregar:document.getElementById('carregar'),resultados:document.getElementById('resultados'),itens:document.getElementById('itens')};
+function renderItens(){
+ el.itens.innerHTML=DEFINICOES.map(([id,nome,exibir,obrigatorio])=>`<section class="item-avaliacao" data-item="${id}"><h3>${nome}</h3><label><input class="item-exibir" type="checkbox" ${exibir?'checked':''}> Exibir este item</label><label>Resposta <select class="item-obrigatorio"><option value="obrigatorio" ${obrigatorio?'selected':''}>Obrigatória</option><option value="opcional" ${!obrigatorio?'selected':''}>Opcional</option></select></label></section>`).join('');
+ el.itens.querySelectorAll('.item-avaliacao').forEach(bloco=>{const c=bloco.querySelector('.item-exibir'),s=bloco.querySelector('.item-obrigatorio');const atualiza=()=>{s.disabled=!c.checked;if(!c.checked)s.value='opcional'};c.addEventListener('change',atualiza);atualiza()});
+}
+renderItens();
+function informar(t){el.mensagemStatus.textContent='';setTimeout(()=>el.mensagemStatus.textContent=t,20)}
+function token(){return el.token.value.trim()}
+function headers(){return {'Content-Type':'application/json','x-admin-token':token()}}
+async function ler(r){const t=await r.text();let j={};if(t)try{j=JSON.parse(t)}catch{j={error:t}}if(!r.ok)throw new Error(j.error||`Erro ${r.status}.`);return j}
+function validar(){if(token())return true;informar('Digite a senha administrativa.');el.token.focus();return false}
+function coletarItens(){const out={};el.itens.querySelectorAll('.item-avaliacao').forEach(b=>{const id=b.dataset.item,exibir=b.querySelector('.item-exibir').checked;out[id]={exibir,obrigatorio:exibir&&b.querySelector('.item-obrigatorio').value==='obrigatorio'}});return out}
+function aplicar(cfg){
+ el.ativa.checked=cfg.ativa!==false;el.prazo.value=String(cfg.prazo_minutos??60);el.minimo.value=String(cfg.participacao_minima_minutos??1);
+ el.instantanea.checked=cfg.avaliacao_instantanea_ativa!==false;el.comentarioInstantaneo.checked=cfg.comentario_instantaneo_ativo!==false;
+ const itens=cfg.itens_avaliacao||{};el.itens.querySelectorAll('.item-avaliacao').forEach(b=>{const d=DEFINICOES.find(x=>x[0]===b.dataset.item),r=itens[b.dataset.item]||{exibir:d[2],obrigatorio:d[3]};const c=b.querySelector('.item-exibir'),s=b.querySelector('.item-obrigatorio');c.checked=r.exibir!==false;s.value=r.obrigatorio===true?'obrigatorio':'opcional';s.disabled=!c.checked});
+}
+async function carregarConfig(anunciar=true){if(!validar())return null;const j=await ler(await fetch(`${API}/admin/avaliacoes/configuracao`,{headers:headers(),cache:'no-store'}));aplicar(j.config||{});if(anunciar)informar('Configurações carregadas.');return j.config}
+async function salvar(){if(!validar())return;el.salvar.disabled=true;informar('Salvando configurações...');try{const p={ativa:el.ativa.checked,prazo_minutos:Number(el.prazo.value),participacao_minima_minutos:Number(el.minimo.value),permitir_edicao:false,itens_avaliacao:coletarItens(),avaliacao_instantanea_ativa:el.instantanea.checked,comentario_instantaneo_ativo:el.comentarioInstantaneo.checked};const j=await ler(await fetch(`${API}/admin/avaliacoes/configuracao`,{method:'PUT',headers:headers(),body:JSON.stringify(p)}));aplicar(j.config||p);await carregarConfig(false);informar('Configurações salvas e confirmadas no servidor.')}catch(e){informar('Não foi possível salvar: '+e.message)}finally{el.salvar.disabled=false}}
+function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;")}
+async function resultados(){if(!validar())return;el.carregar.disabled=true;el.resultados.textContent='Carregando avaliações...';try{const j=await ler(await fetch(`${API}/admin/avaliacoes`,{headers:headers(),cache:'no-store'}));const a=Array.isArray(j.avaliacoes)?j.avaliacoes:[];el.resultados.innerHTML=`<p>${a.length} avaliação(ões).</p>`+a.map(x=>`<article><strong>Sala ${esc(x.sala_codigo)}</strong><p>Geral: ${x.avaliacao_geral??'—'}/5; audiodescrição: ${x.qualidade_audiodescricao??'—'}/5; áudio: ${x.qualidade_audio??'—'}/5; autonomia: ${x.autonomia??'—'}/5; recomendação: ${x.recomendacao??'—'}</p><p>${esc(x.comentario||'')}</p></article>`).join('');informar('Avaliações carregadas.')}catch(e){el.resultados.textContent='Não foi possível carregar: '+e.message;informar('Não foi possível carregar as avaliações: '+e.message)}finally{el.carregar.disabled=false}}
+el.carregarConfig.addEventListener('click',()=>carregarConfig(true));el.salvar.addEventListener('click',salvar);el.carregar.addEventListener('click',resultados);
 })();
 </script>
-</body>
-</html>
+</body></html>

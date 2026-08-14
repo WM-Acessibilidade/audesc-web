@@ -84,7 +84,7 @@
       <h2 id="adEvaluationTitle">Avaliar o audiodescritor</h2>
       <p id="adEvaluationDeadline" class="hint"></p>
       <form id="adEvaluationForm">
-        <label class="field"><span>Nota para a audiodescrição</span><select id="adEvaluationScore" required><option value="">Selecione uma nota</option><option value="1">1 estrela — Muito ruim</option><option value="2">2 estrelas — Ruim</option><option value="3">3 estrelas — Regular</option><option value="4">4 estrelas — Boa</option><option value="5">5 estrelas — Excelente</option></select></label>
+        <label class="field" id="evaluationFieldGeneral"><span>Nota para a audiodescrição</span><select id="adEvaluationScore" required><option value="">Selecione uma nota</option><option value="1">1 estrela — Muito ruim</option><option value="2">2 estrelas — Ruim</option><option value="3">3 estrelas — Regular</option><option value="4">4 estrelas — Boa</option><option value="5">5 estrelas — Excelente</option></select></label>
         <label class="field"><span id="adEvaluationCommentLabel">Comentário opcional</span><textarea id="adEvaluationComment" maxlength="500" rows="4"></textarea></label>
         <div class="actions"><button type="submit">Enviar avaliação</button></div>
         <div id="adEvaluationStatus" class="status" role="status" aria-live="polite"></div>
@@ -97,11 +97,11 @@
       <p id="evaluationDeadline" class="hint"></p>
       <div class="actions"><button id="openEvaluationBtn" type="button">Avaliar transmissão</button><button id="dismissEvaluationBtn" class="secondary" type="button">Dispensar</button></div>
       <form id="evaluationForm" hidden>
-        <label class="field"><span>Avaliação geral</span><select id="evaluationGeneral" required><option value="">Selecione</option><option value="1">1 estrela — Muito ruim</option><option value="2">2 estrelas — Ruim</option><option value="3">3 estrelas — Regular</option><option value="4">4 estrelas — Boa</option><option value="5">5 estrelas — Excelente</option></select></label>
-        <label class="field"><span>Qualidade da audiodescrição</span><select id="evaluationAD" required><option value="">Selecione</option><option value="5">Excelente</option><option value="4">Boa</option><option value="3">Regular</option><option value="2">Ruim</option><option value="1">Muito ruim</option></select></label>
-        <label class="field"><span>Qualidade do áudio</span><select id="evaluationAudio" required><option value="">Selecione</option><option value="5">Excelente</option><option value="4">Boa</option><option value="3">Regular</option><option value="2">Ruim</option><option value="1">Muito ruim</option></select></label>
-        <label class="field"><span>Você conseguiu acompanhar com autonomia?</span><select id="evaluationAutonomy" required><option value="">Selecione</option><option value="5">Sim, completamente</option><option value="4">Sim, com pequenas dificuldades</option><option value="3">Parcialmente</option><option value="1">Não</option></select></label>
-        <label class="field"><span>Você recomendaria este evento acessível? (0 a 10)</span><select id="evaluationRecommendation"><option value="">Prefiro não responder</option><option value="0">0 — Não recomendaria</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10 — Recomendaria totalmente</option></select></label>
+        <label class="field" id="evaluationFieldAD"><span>Avaliação geral</span><select id="evaluationGeneral" required><option value="">Selecione</option><option value="1">1 estrela — Muito ruim</option><option value="2">2 estrelas — Ruim</option><option value="3">3 estrelas — Regular</option><option value="4">4 estrelas — Boa</option><option value="5">5 estrelas — Excelente</option></select></label>
+        <label class="field" id="evaluationFieldAudio"><span>Qualidade da audiodescrição</span><select id="evaluationAD" required><option value="">Selecione</option><option value="5">Excelente</option><option value="4">Boa</option><option value="3">Regular</option><option value="2">Ruim</option><option value="1">Muito ruim</option></select></label>
+        <label class="field" id="evaluationFieldAutonomy"><span>Qualidade do áudio</span><select id="evaluationAudio" required><option value="">Selecione</option><option value="5">Excelente</option><option value="4">Boa</option><option value="3">Regular</option><option value="2">Ruim</option><option value="1">Muito ruim</option></select></label>
+        <label class="field" id="evaluationFieldRecommendation"><span>Você conseguiu acompanhar com autonomia?</span><select id="evaluationAutonomy" required><option value="">Selecione</option><option value="5">Sim, completamente</option><option value="4">Sim, com pequenas dificuldades</option><option value="3">Parcialmente</option><option value="1">Não</option></select></label>
+        <label class="field" id="evaluationFieldComment"><span>Você recomendaria este evento acessível? (0 a 10)</span><select id="evaluationRecommendation"><option value="">Prefiro não responder</option><option value="0">0 — Não recomendaria</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10 — Recomendaria totalmente</option></select></label>
         <label class="field"><span>Comentários e sugestões (opcional)</span><span class="hint">Seu comentário é muito importante para nós. Conte como foi sua experiência ou deixe suas sugestões para que possamos aprimorar continuamente os serviços do Audesc.</span><textarea id="evaluationComment" maxlength="1000" rows="5"></textarea></label>
         <div class="actions"><button type="submit">Enviar avaliação</button></div>
         <div id="evaluationStatus" class="status" role="status" aria-live="polite"></div>
@@ -152,12 +152,39 @@
     currentADEvaluationRequest=null;
     clearTimeout(adEvaluationTimer);
   }
+  const ITENS_AVALIACAO_PADRAO={
+    avaliacao_geral:{exibir:true,obrigatorio:true},
+    qualidade_audiodescricao:{exibir:true,obrigatorio:true},
+    qualidade_audio:{exibir:true,obrigatorio:true},
+    autonomia:{exibir:true,obrigatorio:true},
+    recomendacao:{exibir:true,obrigatorio:false},
+    comentario:{exibir:true,obrigatorio:false}
+  };
+  let itensAvaliacaoFinal=JSON.parse(JSON.stringify(ITENS_AVALIACAO_PADRAO));
+  function aplicarItensAvaliacaoFinal(itens){
+    itensAvaliacaoFinal=Object.assign({},ITENS_AVALIACAO_PADRAO,itens||{});
+    const defs=[
+      ['avaliacao_geral','evaluationFieldGeneral','evaluationGeneral'],
+      ['qualidade_audiodescricao','evaluationFieldAD','evaluationAD'],
+      ['qualidade_audio','evaluationFieldAudio','evaluationAudio'],
+      ['autonomia','evaluationFieldAutonomy','evaluationAutonomy'],
+      ['recomendacao','evaluationFieldRecommendation','evaluationRecommendation'],
+      ['comentario','evaluationFieldComment','evaluationComment']
+    ];
+    defs.forEach(([chave,wrapId,inputId])=>{
+      const regra=itensAvaliacaoFinal[chave]||{}, wrap=document.getElementById(wrapId), input=document.getElementById(inputId);
+      if(wrap) wrap.hidden=regra.exibir===false;
+      if(input) input.required=regra.exibir!==false && regra.obrigatorio===true;
+    });
+  }
+
   async function carregarConfiguracaoAvaliacaoInstantanea(){
     try{
       const resp=await fetch(EVENTS_API_URL+'/public/avaliacoes/configuracao',{cache:'no-store'});
       const cfg=await resp.json();
       if(!resp.ok) throw new Error(cfg.error||'Falha ao consultar configuração.');
       avaliacaoInstantaneaHabilitada=cfg.avaliacao_instantanea_ativa!==false;
+      aplicarItensAvaliacaoFinal(cfg.itens_avaliacao);
     }catch(e){
       avaliacaoInstantaneaHabilitada=false;
     }
@@ -328,11 +355,12 @@
     if(painel) painel.hidden=true;
     const btn=document.getElementById('openADEvaluationBtn'); btn.hidden=false; btn.disabled=false;
     document.getElementById('adEvaluationAnnouncement').textContent=mensagem||'O audiodescritor solicitou uma avaliação da audiodescrição.';
-    document.getElementById('adEvaluationDeadline').textContent='Disponível até '+new Date(expiraEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'.';
+    document.getElementById('adEvaluationDeadline').textContent=expiraEm?'Disponível até '+new Date(expiraEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'.':'Disponível até que o audiodescritor faça um novo pedido ou a transmissão seja encerrada.';
     const textoPedido = mensagem||'Por gentileza, avalie a minha audiodescrição.';
     addMessage('Audiodescritor(a)',textoPedido,false);
     anunciarMensagemRecebida('Audiodescritor(a)',textoPedido);
-    clearTimeout(adEvaluationTimer); adEvaluationTimer=setTimeout(()=>{btn.disabled=true;document.getElementById('adEvaluationPanel').hidden=true;currentADEvaluationRequest=null;},Math.max(0,new Date(expiraEm).getTime()-Date.now()));
+    clearTimeout(adEvaluationTimer); adEvaluationTimer=null;
+    if(expiraEm) adEvaluationTimer=setTimeout(()=>{btn.disabled=true;document.getElementById('adEvaluationPanel').hidden=true;currentADEvaluationRequest=null;},Math.max(0,new Date(expiraEm).getTime()-Date.now()));
   }
   async function consultarPedidoAvaliacaoAD(){
     if(!roomCode||!avaliacaoInstantaneaHabilitada) return ocultarAvaliacaoInstantanea();
@@ -842,7 +870,13 @@
     document.getElementById('evaluationGeneral').focus();
   });
   document.getElementById('dismissEvaluationBtn').addEventListener('click',()=>{const panel=document.getElementById('evaluationPanel');const expiraEm=panel?.dataset.expiraEm||'';registrarDispensaAvaliacao(expiraEm);encerrarCicloAvaliacaoFinal('Status: avaliação dispensada. De volta à entrada da sala.');});
-  document.getElementById('evaluationForm').addEventListener('submit',async(e)=>{e.preventDefault();const enviar=e.currentTarget.querySelector('button[type=submit]');if(enviar)enviar.disabled=true;const payload={ouvinte_id:listenerId,avaliacao_geral:Number(evaluationGeneral.value),qualidade_audiodescricao:Number(evaluationAD.value),qualidade_audio:Number(evaluationAudio.value),autonomia:Number(evaluationAutonomy.value),recomendacao:evaluationRecommendation.value,comentario:evaluationComment.value};try{const r=await fetch(EVENTS_API_URL+'/public/salas/'+encodeURIComponent(roomCode)+'/avaliacao',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const j=await r.json();if(!r.ok)throw new Error(j.error);C.setStatus('evaluationStatus','Avaliação enviada. Obrigado por ajudar a melhorar o Audesc.','success');window.setTimeout(()=>encerrarCicloAvaliacaoFinal('Status: avaliação enviada com sucesso. De volta à entrada da sala.'),1200);}catch(err){if(enviar)enviar.disabled=false;C.setStatus('evaluationStatus',err.message||'Não foi possível enviar.','warning');}});
+  document.getElementById('evaluationForm').addEventListener('submit',async(e)=>{e.preventDefault();const enviar=e.currentTarget.querySelector('button[type=submit]');if(enviar)enviar.disabled=true;const payload={ouvinte_id:listenerId};
+    if(itensAvaliacaoFinal.avaliacao_geral?.exibir!==false) payload.avaliacao_geral=evaluationGeneral.value;
+    if(itensAvaliacaoFinal.qualidade_audiodescricao?.exibir!==false) payload.qualidade_audiodescricao=evaluationAD.value;
+    if(itensAvaliacaoFinal.qualidade_audio?.exibir!==false) payload.qualidade_audio=evaluationAudio.value;
+    if(itensAvaliacaoFinal.autonomia?.exibir!==false) payload.autonomia=evaluationAutonomy.value;
+    if(itensAvaliacaoFinal.recomendacao?.exibir!==false) payload.recomendacao=evaluationRecommendation.value;
+    if(itensAvaliacaoFinal.comentario?.exibir!==false) payload.comentario=evaluationComment.value;try{const r=await fetch(EVENTS_API_URL+'/public/salas/'+encodeURIComponent(roomCode)+'/avaliacao',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const j=await r.json();if(!r.ok)throw new Error(j.error);C.setStatus('evaluationStatus','Avaliação enviada. Obrigado por ajudar a melhorar o Audesc.','success');window.setTimeout(()=>encerrarCicloAvaliacaoFinal('Status: avaliação enviada com sucesso. De volta à entrada da sala.'),1200);}catch(err){if(enviar)enviar.disabled=false;C.setStatus('evaluationStatus',err.message||'Não foi possível enviar.','warning');}});
   window.addEventListener('beforeunload',registrarSaida);
   setupSoundAlertControls();
 

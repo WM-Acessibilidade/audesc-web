@@ -1344,7 +1344,7 @@
   });
   document.getElementById('requestADEvaluationBtn').addEventListener('click', async () => {
     if(!avaliacaoInstantaneaHabilitada) return;
-    if(!await confirmarAcao('Enviar um pedido de avaliação para todos os ouvintes atualmente conectados? O pedido ficará disponível por 15 minutos.', 'Pedir avaliação da audiodescrição')) return;
+    if(!await confirmarAcao('Enviar um novo pedido de avaliação para todos os ouvintes atualmente conectados? O pedido ficará disponível até que seja respondido, substituído por um novo pedido ou a transmissão seja encerrada.', 'Pedir avaliação da audiodescrição')) return;
     try{
       const r=await fetch(EVENTS_API_URL+'/salas/'+encodeURIComponent(roomCode)+'/avaliacao-instantanea/pedidos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({senha:eventPassword,solicitado_por:transmitterName})});
       const j=await r.json();
@@ -1356,7 +1356,7 @@
       await broadcastPayload({type:'ad-evaluation-request',pedidoId:j.pedido_id,expiresAt:j.expira_em,text:'Por gentileza, avalie a minha audiodescrição.'});
       addMessage('Sistema','Pedido de avaliação enviado a '+j.elegiveis+' ouvinte(s).','sistema');
       clearInterval(adEvaluationPollTimer); adEvaluationPollTimer=setInterval(pollADEvaluations,4000); pollADEvaluations();
-      iniciarContagemNovoPedido(j.expira_em);
+      iniciarContagemNovoPedido(j.proximo_pedido_em);
     }catch(e){C.setStatus('adEvaluationRequestStatus',e.message||'Falha ao pedir avaliação.','warning');}
   });
   document.getElementById('msgAdjustingBtn').addEventListener('click', async () => {
