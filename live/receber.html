@@ -218,7 +218,7 @@
       const r=await fetch(EVENTS_API_URL+'/public/salas/'+encodeURIComponent(roomCode)+'/encerramento-automatico',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ouvinte_id:listenerId})});
       const j=await r.json().catch(()=>({}));
       if(!r.ok) throw new Error(j.error||'Não foi possível preparar a avaliação final.');
-      await consultarAvaliacao();
+      await aguardarAvaliacaoFinal();
       if(j.avaliacao_ativa===false || !j.elegivel) encerrarCicloAvaliacaoFinal('Status: transmissão encerrada. Retornando para a entrada da sala.');
     }catch(e){
       C.setStatus('receiverStatus2','Status: transmissão encerrada. Não foi possível preparar a avaliação final: '+(e.message||e),'warning');
@@ -226,10 +226,11 @@
     }
   }
   async function consultarAvaliacao(){
-    if(!roomCode || activeSession || finalEvaluationFormOpen)return;
+    if(!roomCode || activeSession || finalEvaluationFormOpen)return {disponivel:false,ignorada:true};
     try{
       const r=await fetch(EVENTS_API_URL+'/public/salas/'+encodeURIComponent(roomCode)+'/avaliacao/status?ouvinte_id='+encodeURIComponent(listenerId),{cache:'no-store'});
-      const j=await r.json();
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok) throw new Error(j.error || 'Não foi possível consultar a avaliação final.');
       const panel=document.getElementById('evaluationPanel');
       const abrir=document.getElementById('openEvaluationBtn');
       const dispensar=document.getElementById('dismissEvaluationBtn');
@@ -248,7 +249,24 @@
         document.getElementById('evaluationAnnouncement').textContent='';
         panel.dataset.expiraEm='';
       }
-    }catch(e){}
+      return j;
+    }catch(e){
+      C.setStatus('receiverStatus2','Status: não foi possível carregar a avaliação final: '+(e.message||e),'warning');
+      return {disponivel:false,erro:true};
+    }
+  }
+
+  async function aguardarAvaliacaoFinal(){
+    for(let tentativa=0; tentativa<8; tentativa++){
+      const resultado=await consultarAvaliacao();
+      if(resultado && (resultado.disponivel || resultado.respondida || resultado.expirou)) return resultado;
+      await new Promise(resolve=>setTimeout(resolve,750));
+    }
+    const resultado=await consultarAvaliacao();
+    if(!resultado || (!resultado.disponivel && !resultado.respondida && !resultado.expirou)){
+      C.setStatus('receiverStatus2','Status: transmissão encerrada, mas a avaliação final ainda não foi disponibilizada. Tente atualizar a página em alguns segundos.','warning');
+    }
+    return resultado;
   }
 
   function resetarFormularioAvaliacaoInstantanea(pedidoId){
@@ -660,8 +678,9 @@
             }
             if (msg.type === 'transmission-ended') {
               activeSession=false;
+              finalEvaluationFormOpen=false;
               C.setStatus('receiverStatus2','Status: transmissão encerrada. Preparando a avaliação final.','warning');
-              window.setTimeout(()=>consultarAvaliacao(),350);
+              window.setTimeout(()=>aguardarAvaliacaoFinal(),250);
               return;
             }
             if (msg.type === 'transmitter-info') {
