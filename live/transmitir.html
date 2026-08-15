@@ -288,12 +288,15 @@
         if(btn){btn.hidden=true;btn.disabled=true;}
         return;
       }
-      if(j.pedido_atual&&j.pedido_atual.id){
+      if(j.pedido_atual&&j.pedido_atual.id&&j.pedido_atual.ativo!==false){
+        limparEstadoVisualAvaliacaoInstantanea();
         currentADEvaluationRequest={id:j.pedido_atual.id,expiraEm:j.pedido_atual.expira_em};
         seenADEvaluationIds=new Set();
         clearInterval(adEvaluationPollTimer);
         adEvaluationPollTimer=setInterval(pollADEvaluations,4000);
         pollADEvaluations();
+      }else{
+        limparEstadoVisualAvaliacaoInstantanea();
       }
       if(j.pode_solicitar===false&&j.proximo_pedido_em){
         iniciarContagemNovoPedido(j.proximo_pedido_em);
@@ -989,6 +992,30 @@
     return String((resposta && resposta.nome_ouvinte) || 'Ouvinte');
   }
 
+  function limparEstadoVisualAvaliacaoInstantanea(){
+    clearInterval(adEvaluationPollTimer);
+    adEvaluationPollTimer=null;
+    currentADEvaluationRequest=null;
+    seenADEvaluationIds=new Set();
+
+    // Remove somente mensagens que vieram de respostas da avaliação instantânea.
+    messages=messages.filter(item => item.type!=='avaliacao');
+    renderMessages();
+
+    const resumo=document.getElementById('adEvaluationSummary');
+    if(resumo){
+      resumo.hidden=true;
+      resumo.innerHTML='';
+      delete resumo.dataset.userHidden;
+    }
+    const alternar=document.getElementById('toggleADEvaluationSummaryBtn');
+    if(alternar){
+      alternar.hidden=true;
+      alternar.textContent='Ocultar avaliação';
+      alternar.setAttribute('aria-expanded','true');
+    }
+  }
+
   function renderADEvaluationSummary(j){
     const el=document.getElementById('adEvaluationSummary'); if(!el)return;
     const btn=document.getElementById('toggleADEvaluationSummaryBtn');
@@ -1136,6 +1163,7 @@
     } catch (e) {}
   }
   async function setupRoomConnection(reconnect=false) {
+    if(!reconnect) limparEstadoVisualAvaliacaoInstantanea();
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       C.setStatus('transmitterStatus', 'Status: este navegador não oferece acesso a dispositivos de áudio.', 'warning');
       return;
@@ -1406,10 +1434,7 @@
     clearInterval(adEvaluationCooldownTimer);
     adEvaluationCooldownTimer = null;
     adEvaluationCooldownEndsAt = 0;
-    clearInterval(adEvaluationPollTimer);
-    adEvaluationPollTimer = null;
-    currentADEvaluationRequest = null;
-    seenADEvaluationIds = new Set();
+    limparEstadoVisualAvaliacaoInstantanea();
     try { cleanupAudioSources(true); } catch (e) {}
     try { if (room) room.disconnect(); } catch (e) {}
     room = null;
