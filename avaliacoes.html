@@ -47,7 +47,14 @@
   <section>
     <h2>Resultados recentes</h2>
     <button id="carregar" type="button">Carregar avaliações</button>
-    <div id="resultados"></div>
+    <div id="filtrosResultados" hidden>
+      <label for="filtroTipo">Tipo de avaliação</label>
+      <select id="filtroTipo"><option value="todas">Todas as avaliações</option><option value="final">Avaliação da transmissão</option><option value="instantanea">Avaliação instantânea</option></select>
+      <label for="buscaResultados">Buscar por código da sala ou data</label>
+      <input id="buscaResultados" type="search" autocomplete="off" aria-describedby="ajudaBusca">
+      <p id="ajudaBusca">A busca começa a filtrar a lista a partir do terceiro caractere digitado.</p>
+    </div>
+    <div id="resultados" aria-live="polite"></div>
   </section>
 </main>
 <script>
@@ -62,7 +69,7 @@ const DEFINICOES=[
  ['recomendacao','Recomendação do evento acessível, de 0 a 10',true,false],
  ['comentario','Comentários e sugestões',true,false]
 ];
-const el={token:document.getElementById('token'),carregarConfig:document.getElementById('carregarConfig'),ativa:document.getElementById('ativa'),prazo:document.getElementById('prazo'),minimo:document.getElementById('minimo'),instantanea:document.getElementById('instantanea'),comentarioInstantaneo:document.getElementById('comentarioInstantaneo'),salvar:document.getElementById('salvar'),mensagemStatus:document.getElementById('mensagemStatus'),carregar:document.getElementById('carregar'),resultados:document.getElementById('resultados'),itens:document.getElementById('itens')};
+const el={token:document.getElementById('token'),carregarConfig:document.getElementById('carregarConfig'),ativa:document.getElementById('ativa'),prazo:document.getElementById('prazo'),minimo:document.getElementById('minimo'),instantanea:document.getElementById('instantanea'),comentarioInstantaneo:document.getElementById('comentarioInstantaneo'),salvar:document.getElementById('salvar'),mensagemStatus:document.getElementById('mensagemStatus'),carregar:document.getElementById('carregar'),resultados:document.getElementById('resultados'),itens:document.getElementById('itens'),filtrosResultados:document.getElementById('filtrosResultados'),filtroTipo:document.getElementById('filtroTipo'),buscaResultados:document.getElementById('buscaResultados')};
 function renderItens(){
  el.itens.innerHTML=DEFINICOES.map(([id,nome,exibir,obrigatorio])=>`<section class="item-avaliacao" data-item="${id}"><h3>${nome}</h3><label><input class="item-exibir" type="checkbox" ${exibir?'checked':''}> Exibir este item</label><label>Resposta <select class="item-obrigatorio"><option value="obrigatorio" ${obrigatorio?'selected':''}>Obrigatória</option><option value="opcional" ${!obrigatorio?'selected':''}>Opcional</option></select></label></section>`).join('');
  el.itens.querySelectorAll('.item-avaliacao').forEach(bloco=>{const c=bloco.querySelector('.item-exibir'),s=bloco.querySelector('.item-obrigatorio');const atualiza=()=>{s.disabled=!c.checked;if(!c.checked)s.value='opcional'};c.addEventListener('change',atualiza);atualiza()});
@@ -82,7 +89,14 @@ function aplicar(cfg){
 async function carregarConfig(anunciar=true){if(!validar())return null;const j=await ler(await fetch(`${API}/admin/avaliacoes/configuracao`,{headers:headers(),cache:'no-store'}));aplicar(j.config||{});if(anunciar)informar('Configurações carregadas.');return j.config}
 async function salvar(){if(!validar())return;el.salvar.disabled=true;informar('Salvando configurações...');try{const p={ativa:el.ativa.checked,prazo_minutos:Number(el.prazo.value),participacao_minima_minutos:Number(el.minimo.value),permitir_edicao:false,itens_avaliacao:coletarItens(),avaliacao_instantanea_ativa:el.instantanea.checked,comentario_instantaneo_ativo:el.comentarioInstantaneo.checked};const j=await ler(await fetch(`${API}/admin/avaliacoes/configuracao`,{method:'PUT',headers:headers(),body:JSON.stringify(p)}));aplicar(j.config||p);await carregarConfig(false);informar('Configurações salvas e confirmadas no servidor.')}catch(e){informar('Não foi possível salvar: '+e.message)}finally{el.salvar.disabled=false}}
 function esc(v){return String(v??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#39;")}
-async function resultados(){if(!validar())return;el.carregar.disabled=true;el.resultados.textContent='Carregando avaliações...';try{const j=await ler(await fetch(`${API}/admin/avaliacoes`,{headers:headers(),cache:'no-store'}));const a=Array.isArray(j.avaliacoes)?j.avaliacoes:[];el.resultados.innerHTML=`<p>${a.length} avaliação(ões).</p>`+a.map(x=>`<article><strong>Sala ${esc(x.sala_codigo)}</strong><p>Geral: ${x.avaliacao_geral??'—'}/5; audiodescrição: ${x.qualidade_audiodescricao??'—'}/5; áudio: ${x.qualidade_audio??'—'}/5; autonomia: ${x.autonomia??'—'}/5; recomendação: ${x.recomendacao??'—'}</p><p>${esc(x.comentario||'')}</p></article>`).join('');informar('Avaliações carregadas.')}catch(e){el.resultados.textContent='Não foi possível carregar: '+e.message;informar('Não foi possível carregar as avaliações: '+e.message)}finally{el.carregar.disabled=false}}
+let ciclosAvaliacoes=[];
+function normalizarBusca(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()}
+function dataBR(iso){if(!iso)return 'Data não informada';const d=new Date(iso);return Number.isNaN(d.getTime())?'Data não informada':d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}
+function textoDataBusca(iso){if(!iso)return '';const d=new Date(iso);if(Number.isNaN(d.getTime()))return '';return [d.toLocaleDateString('pt-BR'),d.toLocaleString('pt-BR'),d.toISOString().slice(0,10)].join(' ')}
+function urlDetalhes(c){const q=new URLSearchParams({tipo:c.tipo});if(c.tipo==='instantanea')q.set('pedido_id',c.pedido_id);else{q.set('evento_id',c.evento_id);q.set('ciclo',c.data_hora)}return 'avaliacoes-detalhes.html?'+q.toString()}
+function renderResultados(){const tipo=el.filtroTipo.value,busca=normalizarBusca(el.buscaResultados.value),filtrarTexto=busca.length>=3;const lista=ciclosAvaliacoes.filter(c=>(tipo==='todas'||c.tipo===tipo)&&(!filtrarTexto||normalizarBusca(c.sala_codigo+' '+textoDataBusca(c.data_hora)).includes(busca)));if(!lista.length){el.resultados.innerHTML='<p>Nenhuma avaliação encontrada com os filtros atuais.</p>';return}el.resultados.innerHTML='<p>'+lista.length+' ciclo(s) de avaliação encontrado(s).</p>'+lista.map(c=>`<article><h3><a href="${esc(urlDetalhes(c))}">${esc(c.sala_codigo||'Sala sem código')}</a></h3><p>Tipo: ${esc(c.tipo_rotulo)}</p><p>Data e hora: ${esc(dataBR(c.data_hora))}</p><p>${Number(c.quantidade||0)} resposta(s).</p></article>`).join('')}
+async function resultados(){if(!validar())return;el.carregar.disabled=true;el.resultados.textContent='Carregando avaliações...';try{sessionStorage.setItem('audesc_admin_token_avaliacoes',token());const j=await ler(await fetch(`${API}/admin/avaliacoes`,{headers:headers(),cache:'no-store'}));ciclosAvaliacoes=Array.isArray(j.ciclos)?j.ciclos:[];el.filtrosResultados.hidden=false;renderResultados();informar('Avaliações carregadas.')}catch(e){el.resultados.textContent='Não foi possível carregar: '+e.message;informar('Não foi possível carregar as avaliações: '+e.message)}finally{el.carregar.disabled=false}}
+el.filtroTipo.addEventListener('change',renderResultados);el.buscaResultados.addEventListener('input',()=>{if(el.buscaResultados.value.length===0||el.buscaResultados.value.length>=3)renderResultados()});
 el.carregarConfig.addEventListener('click',()=>carregarConfig(true));el.salvar.addEventListener('click',salvar);el.carregar.addEventListener('click',resultados);
 })();
 </script>
