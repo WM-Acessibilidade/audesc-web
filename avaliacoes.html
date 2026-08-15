@@ -94,7 +94,26 @@ function normalizarBusca(v){return String(v||'').normalize('NFD').replace(/[\u03
 function dataBR(iso){if(!iso)return 'Data não informada';const d=new Date(iso);return Number.isNaN(d.getTime())?'Data não informada':d.toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})}
 function textoDataBusca(iso){if(!iso)return '';const d=new Date(iso);if(Number.isNaN(d.getTime()))return '';return [d.toLocaleDateString('pt-BR'),d.toLocaleString('pt-BR'),d.toISOString().slice(0,10)].join(' ')}
 function urlDetalhes(c){const q=new URLSearchParams({tipo:c.tipo});if(c.tipo==='instantanea')q.set('pedido_id',c.pedido_id);else{q.set('evento_id',c.evento_id);q.set('ciclo',c.data_hora)}return 'avaliacoes-detalhes.html?'+q.toString()}
-function renderResultados(){const tipo=el.filtroTipo.value,busca=normalizarBusca(el.buscaResultados.value),filtrarTexto=busca.length>=3;const lista=ciclosAvaliacoes.filter(c=>(tipo==='todas'||c.tipo===tipo)&&(!filtrarTexto||normalizarBusca(c.sala_codigo+' '+textoDataBusca(c.data_hora)).includes(busca)));if(!lista.length){el.resultados.innerHTML='<p>Nenhuma avaliação encontrada com os filtros atuais.</p>';return}el.resultados.innerHTML='<p>'+lista.length+' ciclo(s) de avaliação encontrado(s).</p>'+lista.map(c=>`<article><h3><a href="${esc(urlDetalhes(c))}">${esc(c.sala_codigo||'Sala sem código')}</a></h3><p>Tipo: ${esc(c.tipo_rotulo)}</p><p>Data e hora: ${esc(dataBR(c.data_hora))}</p><p>${Number(c.quantidade||0)} resposta(s).</p></article>`).join('')}
+function renderResultados(){const tipo=el.filtroTipo.value,busca=normalizarBusca(el.buscaResultados.value),filtrarTexto=busca.length>=3;const lista=ciclosAvaliacoes.filter(c=>(tipo==='todas'||c.tipo===tipo)&&(!filtrarTexto||normalizarBusca(c.sala_codigo+' '+textoDataBusca(c.data_hora)).includes(busca)));if(!lista.length){el.resultados.innerHTML='<p>Nenhuma avaliação encontrada com os filtros atuais.</p>';return}el.resultados.innerHTML='<p>'+lista.length+' ciclo(s) de avaliação encontrado(s).</p>'+lista.map(c=>`<article data-ciclo-id="${esc(c.id)}"><h3><a href="${esc(urlDetalhes(c))}">${esc(c.sala_codigo||'Sala sem código')}</a></h3><p>Tipo: ${esc(c.tipo_rotulo)}</p><p>Data e hora: ${esc(dataBR(c.data_hora))}</p><p>${Number(c.quantidade||0)} resposta(s).</p><button type="button" class="excluir-ciclo" data-id="${esc(c.id)}">Excluir</button></article>`).join('');el.resultados.querySelectorAll('.excluir-ciclo').forEach(btn=>btn.addEventListener('click',()=>excluirCiclo(btn.dataset.id)))}
+
+async function excluirCiclo(id){
+ const ciclo=ciclosAvaliacoes.find(c=>c.id===id); if(!ciclo)return;
+ const descricao=`${ciclo.tipo_rotulo}, sala ${ciclo.sala_codigo||'sem código'}, ${dataBR(ciclo.data_hora)}`;
+ if(!window.confirm(`Deseja excluir definitivamente este ciclo de avaliação?
+
+${descricao}
+
+As respostas deste ciclo serão removidas do histórico administrativo.`)) return;
+ try{
+  const payload={tipo:ciclo.tipo};
+  if(ciclo.tipo==='instantanea') payload.pedido_id=ciclo.pedido_id;
+  else {payload.evento_id=ciclo.evento_id;payload.ciclo=ciclo.data_hora;}
+  await ler(await fetch(`${API}/admin/avaliacoes/ciclo`,{method:'DELETE',headers:headers(),body:JSON.stringify(payload)}));
+  ciclosAvaliacoes=ciclosAvaliacoes.filter(c=>c.id!==id);
+  renderResultados();
+  informar('Ciclo de avaliação excluído.');
+ }catch(e){informar('Não foi possível excluir: '+e.message)}
+}
 async function resultados(){if(!validar())return;el.carregar.disabled=true;el.resultados.textContent='Carregando avaliações...';try{sessionStorage.setItem('audesc_admin_token_avaliacoes',token());const j=await ler(await fetch(`${API}/admin/avaliacoes`,{headers:headers(),cache:'no-store'}));ciclosAvaliacoes=Array.isArray(j.ciclos)?j.ciclos:[];el.filtrosResultados.hidden=false;renderResultados();informar('Avaliações carregadas.')}catch(e){el.resultados.textContent='Não foi possível carregar: '+e.message;informar('Não foi possível carregar as avaliações: '+e.message)}finally{el.carregar.disabled=false}}
 el.filtroTipo.addEventListener('change',renderResultados);el.buscaResultados.addEventListener('input',()=>{if(el.buscaResultados.value.length===0||el.buscaResultados.value.length>=3)renderResultados()});
 el.carregarConfig.addEventListener('click',()=>carregarConfig(true));el.salvar.addEventListener('click',salvar);el.carregar.addEventListener('click',resultados);
