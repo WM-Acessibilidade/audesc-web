@@ -98,7 +98,7 @@
       <div class="collapse-body">
         <div id="adEvaluationSummary" class="status" hidden></div>
         <button id="toggleADEvaluationSummaryBtn" class="ghost" type="button" hidden
-          style="margin-top:6px; padding:4px 8px; font-size:.9rem; width:auto;">
+          style="display:none; margin-top:6px; padding:4px 8px; font-size:.9rem; width:auto;">
           Ocultar avaliação
         </button>
         <div id="messagesBox" class="listbox">Nenhuma mensagem recebida ainda.</div>
@@ -1011,6 +1011,7 @@
     const alternar=document.getElementById('toggleADEvaluationSummaryBtn');
     if(alternar){
       alternar.hidden=true;
+      alternar.style.display='none';
       alternar.textContent='Ocultar avaliação';
       alternar.setAttribute('aria-expanded','true');
     }
@@ -1024,12 +1025,12 @@
       el.hidden=true;
       el.innerHTML='';
       delete el.dataset.userHidden;
-      if(btn){btn.hidden=true;btn.textContent='Ocultar avaliação';btn.setAttribute('aria-expanded','true');}
+      if(btn){btn.hidden=true;btn.style.display='none';btn.textContent='Ocultar avaliação';btn.setAttribute('aria-expanded','true');}
       return;
     }
     const d=j.distribuicao||{};
     el.innerHTML='<strong>Avaliação da audiodescrição:</strong> '+Number(j.media||0).toFixed(1)+' de 5 — '+quantidade+' resposta(s).<br>5 estrelas: '+(d[5]||0)+'; 4: '+(d[4]||0)+'; 3: '+(d[3]||0)+'; 2: '+(d[2]||0)+'; 1: '+(d[1]||0)+'.';
-    if(btn) btn.hidden=false;
+    if(btn){btn.hidden=false;btn.style.display='inline-flex';}
     if(!el.dataset.userHidden){
       el.hidden=false;
       if(btn){btn.textContent='Ocultar avaliação';btn.setAttribute('aria-expanded','true');}
@@ -1482,6 +1483,10 @@
     });
     toggleADEvaluationSummaryBtn.setAttribute('aria-controls','adEvaluationSummary');
     toggleADEvaluationSummaryBtn.setAttribute('aria-expanded','true');
+    if(document.getElementById('adEvaluationSummary')?.hidden){
+      toggleADEvaluationSummaryBtn.hidden=true;
+      toggleADEvaluationSummaryBtn.style.display='none';
+    }
   }
 
   setupSoundAlertControls();

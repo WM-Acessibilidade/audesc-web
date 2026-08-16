@@ -24,16 +24,17 @@
       <h2>Entrar como ouvinte</h2>
       <div class="grid two">
         <label class="field">
-          <span>Código da sala</span>
-          <input id="roomCode" type="text" required aria-required="true">
-        </label>
-        <label class="field">
           <span>Nome do ouvinte (opcional)</span>
           <input id="receiverName" type="text">
+        </label>
+        <label class="field">
+          <span>Código da sala</span>
+          <input id="roomCode" type="text" required aria-required="true">
         </label>
       </div>
       <div class="actions">
         <button id="joinBtn" type="button">Entrar</button>
+        <button id="resumeLastRoomBtn" class="secondary" type="button">Retomar última sala</button>
       </div>
       <div id="receiverStatus" class="status">Status: aguardando entrada na sala.</div>
       <div id="receiverGpsStatus" class="status">Controle de presença: aguardando verificação.</div>
@@ -498,7 +499,14 @@
     document.getElementById('roomBadge').textContent = 'Código da sala: ' + roomCode;
   }
   function persist() {
-    C.saveState('receiver', { roomCode, receiverName,  transmitterName, eventName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
+    C.saveState('receiver', { roomCode, receiverName, transmitterName, eventName, step: document.getElementById('step-room').classList.contains('active') ? 'room' : 'form' });
+  }
+  function saveLastReceiverRoom(){
+    if(!roomCode) return;
+    C.saveState('last-receiver-room', { roomCode, receiverName });
+  }
+  function loadLastReceiverRoom(){
+    return C.loadState('last-receiver-room');
   }
   function notifyMessagesBlocked() {
     addMessage('Audiodescritor(a)', 'Audiodescritor(a) está indisponível para mensagens nesse momento.');
@@ -796,6 +804,7 @@
           C.setStatus('receiverStatus2', 'Status: conectado. Aguardando ou recebendo o áudio do audiodescritor.', 'success');
           sendMessage({ type:'receiver-hello', name: receiverName, ouvinte_id: listenerId });
           persist();
+          saveLastReceiverRoom();
     } catch (error) {
       try { if (room) room.disconnect(); } catch (e) {}
       room = null;
@@ -821,6 +830,24 @@
     } catch (error) {
       C.setStatus('receiverStatus', 'Status: erro ao entrar. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
       C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
+    }
+  });
+  document.getElementById('resumeLastRoomBtn').addEventListener('click', async () => {
+    try {
+      const last = loadLastReceiverRoom();
+      if (!last || !last.roomCode) {
+        C.setStatus('receiverStatus', 'Status: nenhuma sala anterior foi encontrada neste navegador.', 'warning');
+        return;
+      }
+      roomCode = C.normalizarSala(last.roomCode);
+      receiverName = String(last.receiverName || '').trim() || gerarNomeOuvintePadrao();
+      C.writeValue('receiverName', receiverName);
+      C.writeValue('roomCode', roomCode);
+      C.setStatus('receiverStatus', 'Status: retomando a última sala. Aguarde alguns segundos.', 'warning');
+      await connectRoom(true);
+    } catch (error) {
+      C.setStatus('receiverStatus', 'Status: erro ao retomar a última sala. ' + (error && error.message ? error.message : 'Falha desconhecida.'), 'warning');
+      C.setStatus('diagnosticBox', '' + (error && error.message ? error.message : 'Falha ao retomar a sala.'), 'warning');
     }
   });
   document.getElementById('feedbackNormalBtn').addEventListener('click', () => { trySendListenerMessage({ type:'feedback', text:'Áudio normal.' }, 'Mensagem enviada: áudio normal.'); });
@@ -885,7 +912,12 @@
   carregarConfiguracaoAvaliacaoInstantanea();
 
   const saved = C.loadState('receiver');
+  const lastReceiverRoomForForm = loadLastReceiverRoom();
   if (incomingRoom) C.writeValue('roomCode', incomingRoom);
+  else if ((!saved || saved.step !== 'room') && lastReceiverRoomForForm && lastReceiverRoomForForm.roomCode) {
+    C.writeValue('receiverName', lastReceiverRoomForForm.receiverName || '');
+    C.writeValue('roomCode', lastReceiverRoomForForm.roomCode);
+  }
   if (saved) {
     roomCode = incomingRoom || saved.roomCode || '';
     receiverName = saved.receiverName || '';
