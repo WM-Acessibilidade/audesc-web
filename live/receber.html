@@ -297,7 +297,7 @@
         if(avaliacaoFoiDispensada(j.expira_em)){encerrarCicloAvaliacaoFinal('Status: avaliação dispensada. De volta à entrada da sala.');return;}
         panel.hidden=false; abrir.hidden=false; dispensar.hidden=false;
         definirModoAvaliacaoFinal(true);
-        document.getElementById('evaluationDeadline').textContent='Esta avaliação poderá ser enviada até '+new Date(j.expira_em).toLocaleString('pt-BR')+'. Após o envio, a resposta será definitiva.';
+        document.getElementById('evaluationDeadline').textContent='Esta avaliação poderá ser enviada até '+new Date(j.expira_em).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+'.';
         const anuncioFinal=document.getElementById('evaluationAnnouncement');
         if(anuncioFinal && !finalEvaluationAnnouncementTimer && !finalEvaluationFormOpen) iniciarAnuncioRepetidoAvaliacaoFinal();
         panel.dataset.expiraEm=String(j.expira_em||'');

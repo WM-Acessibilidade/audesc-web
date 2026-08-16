@@ -262,7 +262,7 @@
         clearInterval(adEvaluationCooldownTimer);
         adEvaluationCooldownTimer = null;
         btn.disabled = !avaliacaoInstantaneaHabilitada;
-        status.textContent = 'Você já pode solicitar uma nova avaliação.';
+        status.textContent = '';
         status.classList.add('success');
         status.classList.remove('warning');
         return;
@@ -304,7 +304,7 @@
         const btn=document.getElementById('requestADEvaluationBtn');
         const status=document.getElementById('adEvaluationRequestStatus');
         if(btn) btn.disabled=!avaliacaoInstantaneaHabilitada;
-        if(status){status.textContent='Você já pode solicitar uma nova avaliação.';status.classList.add('success');status.classList.remove('warning');}
+        if(status){status.textContent='';status.classList.remove('success');status.classList.remove('warning');}
       }
     }catch(e){
       const status=document.getElementById('adEvaluationRequestStatus');
@@ -1019,12 +1019,20 @@
   function renderADEvaluationSummary(j){
     const el=document.getElementById('adEvaluationSummary'); if(!el)return;
     const btn=document.getElementById('toggleADEvaluationSummaryBtn');
+    const quantidade=Number(j.quantidade||0);
+    if(quantidade<=0){
+      el.hidden=true;
+      el.innerHTML='';
+      delete el.dataset.userHidden;
+      if(btn){btn.hidden=true;btn.textContent='Ocultar avaliação';btn.setAttribute('aria-expanded','true');}
+      return;
+    }
     const d=j.distribuicao||{};
-    el.innerHTML='<strong>Avaliação da audiodescrição:</strong> '+Number(j.media||0).toFixed(1)+' de 5 — '+Number(j.quantidade||0)+' resposta(s).<br>5 estrelas: '+(d[5]||0)+'; 4: '+(d[4]||0)+'; 3: '+(d[3]||0)+'; 2: '+(d[2]||0)+'; 1: '+(d[1]||0)+'.';
+    el.innerHTML='<strong>Avaliação da audiodescrição:</strong> '+Number(j.media||0).toFixed(1)+' de 5 — '+quantidade+' resposta(s).<br>5 estrelas: '+(d[5]||0)+'; 4: '+(d[4]||0)+'; 3: '+(d[3]||0)+'; 2: '+(d[2]||0)+'; 1: '+(d[1]||0)+'.';
     if(btn) btn.hidden=false;
     if(!el.dataset.userHidden){
       el.hidden=false;
-      if(btn) btn.textContent='Ocultar avaliação';
+      if(btn){btn.textContent='Ocultar avaliação';btn.setAttribute('aria-expanded','true');}
     }
   }
   async function pollADEvaluations(){
