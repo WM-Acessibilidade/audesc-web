@@ -32,6 +32,19 @@ pre{white-space:pre-wrap}
 .badge-aprovado{background:#e8f6ec}
 .badge-rejeitado{background:#fff0f0}
 .badge-removido{background:#eee}
+.hidden{display:none!important}
+.agenda-box{border:1px solid #bbb;border-radius:10px;padding:12px;margin:14px 0;background:#fafafa}
+
+@media (max-width: 700px){
+  header,main{padding:12px}
+  .panel,.card{padding:14px;border-radius:10px;margin-top:12px}
+  .grid,.toolbar{grid-template-columns:1fr}
+  button{display:block;width:100%;margin:8px 0 0 0;text-align:center}
+  .badge{display:block;margin:6px 0}
+  input,textarea,select{font-size:16px}
+}
+.card{content-visibility:auto;contain-intrinsic-size:1px 1200px}
+.sugestoes-local-admin{border:1px solid #aaa;border-radius:8px;margin-top:6px;padding:6px;background:#fff}.sugestoes-local-admin button{display:block;width:100%;text-align:left;margin:4px 0;background:#fff;color:#111;border:1px solid #bbb;font-weight:400}.sugestoes-local-admin[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -39,14 +52,18 @@ pre{white-space:pre-wrap}
 <a href="index.html">Voltar</a>
 <h1>Painel administrativo Audesc</h1>
 <p>Use este painel para revisar, editar, aprovar e liberar eventos.</p>
+<p><a href="precificacao.html">Precificação e cupons</a></p>
+<p><a href="gerenciar-emails.html">Gerenciar e-mails</a></p>
+<p><a href="formulario-cadastro.html">Configurações do Audesc</a></p>
 </header>
-<main>
+<p><a href="avaliacoes.html">Avaliações das transmissões</a></p>
+<p><a href="demonstracoes.html">Demonstrações</a></p><main>
 <section class="panel" id="loginPanel">
 <h2>Acesso administrativo</h2>
 <label for="adminToken">Senha administrativa</label>
 <input id="adminToken" type="password">
 <button id="loginBtn" type="button">Entrar</button>
-<div id="loginStatus" class="status">Informe a senha administrativa.</div>
+<div id="loginStatus" class="status" role="status" aria-live="polite" aria-atomic="true">Informe a senha administrativa.</div>
 </section>
 
 <section class="panel" id="eventsPanel" style="display:none">
@@ -71,16 +88,42 @@ pre{white-space:pre-wrap}
     <button id="refreshBtn" type="button">Atualizar lista</button>
   </div>
 </div>
-<div id="status" class="status">Aguardando carregamento.</div>
+<div id="status" class="status" role="status" aria-live="polite" aria-atomic="true">Aguardando carregamento.</div>
 <div id="eventsList"></div>
 </section>
 </main>
 
+<script src="data/paises-unidades.js"></script>
+<script src="data/paises-disponiveis.js"></script>
+<script src="data/servicos.js"></script>
+<script src="data/categorias-eventos.js"></script>
+<script src="data/classificacoes-etarias.js"></script>
+<script src="data/modalidades-evento.js"></script>
+<script src="data/formulario-schema.js"></script>
+<script src="data/regras-servicos.js"></script>
+<script src="data/config-registry.js"></script>
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
 let ADMIN_TOKEN='';
 
 function status(id,msg,cls){const el=document.getElementById(id);el.textContent=msg;el.className='status'+(cls?' '+cls:'')}
+function setBotaoOcupado(botao,ocupado,rotulo){
+  if(!botao)return;
+  if(ocupado){
+    if(!botao.dataset.rotuloOriginal) botao.dataset.rotuloOriginal=botao.textContent;
+    botao.disabled=true;
+    botao.setAttribute('aria-busy','true');
+    if(rotulo) botao.textContent=rotulo;
+  }else{
+    botao.disabled=false;
+    botao.removeAttribute('aria-busy');
+    if(botao.dataset.rotuloOriginal){
+      botao.textContent=botao.dataset.rotuloOriginal;
+      delete botao.dataset.rotuloOriginal;
+    }
+  }
+}
+
 function val(v){return v==null?'':String(v)}
 async function api(path, options={}){
   const headers=Object.assign({'Content-Type':'application/json','x-admin-token':ADMIN_TOKEN}, options.headers||{});
@@ -90,26 +133,17 @@ async function api(path, options={}){
   return json;
 }
 
-const unidadesAdministrativas = {
-  Brasil: { rotulo: 'Unidade federativa', opcoes: [['AC','Acre'],['AL','Alagoas'],['AP','Amapá'],['AM','Amazonas'],['BA','Bahia'],['CE','Ceará'],['DF','Distrito Federal'],['ES','Espírito Santo'],['GO','Goiás'],['MA','Maranhão'],['MT','Mato Grosso'],['MS','Mato Grosso do Sul'],['MG','Minas Gerais'],['PA','Pará'],['PB','Paraíba'],['PR','Paraná'],['PE','Pernambuco'],['PI','Piauí'],['RJ','Rio de Janeiro'],['RN','Rio Grande do Norte'],['RS','Rio Grande do Sul'],['RO','Rondônia'],['RR','Roraima'],['SC','Santa Catarina'],['SP','São Paulo'],['SE','Sergipe'],['TO','Tocantins']] },
-  Angola: { rotulo: 'Província', opcoes: ['Bengo','Benguela','Bié','Cabinda','Cuando Cubango','Cuanza Norte','Cuanza Sul','Cunene','Huambo','Huíla','Luanda','Lunda Norte','Lunda Sul','Malanje','Moxico','Namibe','Uíge','Zaire'] },
-  'Cabo Verde': { rotulo: 'Ilha', opcoes: ['Boa Vista','Brava','Fogo','Maio','Sal','Santiago','Santo Antão','São Nicolau','São Vicente'] },
-  'Guiné-Bissau': { rotulo: 'Região', opcoes: ['Bafatá','Biombo','Bolama/Bijagós','Cacheu','Gabú','Oio','Quinara','Tombali','Setor Autônomo de Bissau'] },
-  'Guiné Equatorial': { rotulo: 'Província', opcoes: ['Annobón','Bioko Norte','Bioko Sul','Centro Sul','Djibloho','Kie-Ntem','Litoral','Wele-Nzas'] },
-  Moçambique: { rotulo: 'Província', opcoes: ['Cabo Delgado','Gaza','Inhambane','Manica','Maputo','Maputo Cidade','Nampula','Niassa','Sofala','Tete','Zambézia'] },
-  Portugal: { rotulo: 'Distrito ou região autônoma', opcoes: ['Aveiro','Beja','Braga','Bragança','Castelo Branco','Coimbra','Évora','Faro','Guarda','Leiria','Lisboa','Portalegre','Porto','Santarém','Setúbal','Viana do Castelo','Vila Real','Viseu','Açores','Madeira'] },
-  'São Tomé e Príncipe': { rotulo: 'Distrito ou região autônoma', opcoes: ['Água Grande','Cantagalo','Caué','Lembá','Lobata','Mé-Zóchi','Região Autônoma do Príncipe'] },
-  'Timor-Leste': { rotulo: 'Município ou região administrativa especial', opcoes: ['Aileu','Ainaro','Ataúro','Baucau','Bobonaro','Covalima','Díli','Ermera','Lautém','Liquiçá','Manatuto','Manufahi','Oecusse','Viqueque'] }
-};
+const unidadesAdministrativas = window.AUDESC_UNIDADES_ADMINISTRATIVAS || {};
+
 
 function paisesAdminOptions(valorAtual){
-  const paises = ['Brasil','Angola','Cabo Verde','Guiné-Bissau','Guiné Equatorial','Moçambique','Portugal','São Tomé e Príncipe','Timor-Leste','Outros'];
+  const paises = window.AUDESC_CONFIG?.localizacao.getNomesPaises(true) || ['Brasil','Outros'];
   return paises.map(p => `<option value="${attr(p)}" ${p === valorAtual ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('');
 }
-function rotuloLocal(pais){ return unidadesAdministrativas[pais]?.rotulo || 'Local'; }
+function rotuloLocal(pais){ return pais === 'Internacional' ? 'Origem da transmissão' : (unidadesAdministrativas[pais]?.rotulo || 'Local'); }
 
 function rotuloResumoLocal(pais){
-  return unidadesAdministrativas[pais]?.rotulo || 'Local';
+  return pais === 'Internacional' ? 'Origem da transmissão' : (unidadesAdministrativas[pais]?.rotulo || 'Local');
 }
 
 function nomeLocal(pais, valor){
@@ -123,31 +157,332 @@ function nomeLocal(pais, valor){
   return valor;
 }
 function locaisAdminOptions(pais, valorAtual){
-  const dados = unidadesAdministrativas[pais];
-  if(!dados) return '<option value="">Não se aplica</option>';
-  let out = '<option value="">Selecione</option>';
-  for(const item of dados.opcoes){
-    const valor = Array.isArray(item) ? item[0] : item;
-    const texto = Array.isArray(item) ? `${item[1]} (${item[0]})` : item;
-    out += `<option value="${attr(valor)}" ${valor === valorAtual ? 'selected' : ''}>${escapeHtml(texto)}</option>`;
-  }
-  return out;
+  return window.AUDESC_CONFIG?.localizacao.getHtmlOpcoesUnidades(pais, valorAtual, {incluirNacional:false}) || '<option value="">Não se aplica</option>';
 }
+
+function resumoLocalizacaoAdmin(ev){
+  const partes = [];
+  partes.push(`<div><strong>País:</strong> ${escapeHtml(ev.pais || '')}</div>`);
+  if(ev.pais === 'Internacional'){
+    if(ev.origem_transmissao){
+      partes.push(`<div><strong>Origem da transmissão:</strong> ${escapeHtml(ev.origem_transmissao)}</div>`);
+    }
+    return partes.join('');
+  }
+  const nome = nomeLocal(ev.pais, ev.uf);
+  if(nome){
+    partes.push(`<div><strong>${escapeHtml(rotuloResumoLocal(ev.pais))}:</strong> ${escapeHtml(nome)}</div>`);
+  }
+  return partes.join('');
+}
+
+
+function textoSelecionado(select){
+  if(!select || select.selectedIndex < 0) return '';
+  return select.options[select.selectedIndex].textContent.trim();
+}
+function codigoPaisISO(pais){return window.AUDESC_CONFIG?.localizacao.getCodigoPais(pais) || '';}
+function codigoUnidadeLocalAdmin(pais, uf, ufTexto){return window.AUDESC_CONFIG?.localizacao.getCodigoUnidade(pais, uf, ufTexto) || uf || '';}
+function contextoBuscaEnderecoAdmin(card){
+  const paisSelect=card.querySelector('[data-field="pais"]');
+  const ufSelect=card.querySelector('[data-field="uf"]');
+  const origemSelect=card.querySelector('[data-field="origem_transmissao"]');
+  const pais=paisSelect?.value || '';
+  const origem=origemSelect?.value || '';
+  const paisReferencia=pais === 'Internacional' ? origem : pais;
+  const uf=ufSelect?.disabled ? '' : (ufSelect?.value || '');
+  const ufTexto=ufSelect?.disabled ? '' : textoSelecionado(ufSelect);
+  const paisCodigo=codigoPaisISO(paisReferencia);
+  const unidadeCodigo=pais === 'Internacional' ? '' : codigoUnidadeLocalAdmin(paisReferencia,uf,ufTexto);
+  return {pais:paisReferencia || pais,uf,ufTexto,paisCodigo,unidadeCodigo};
+}
+
+let AdminSelecionado=null;
+function normalizarLocalComparacao(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
+function textoCompletoLocal(item){return String(item.texto_completo||[item.nome,item.endereco&&item.endereco!==item.nome?item.endereco:''].filter(Boolean).join(' — ')).trim();}
+function regiaoLocalDiverge(item,ctx){
+ const comparacao=window.AUDESC_CONFIG?.localizacao.regioesEquivalentes?.(ctx,item);
+ if(comparacao)return {pais:!comparacao.pais,unidade:!comparacao.unidade};
+ const normalizar=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().trim();
+ const paisIgual=normalizar(ctx.paisCodigo)===normalizar(item.pais_codigo)||normalizar(ctx.pais)===normalizar(item.pais_nome);
+ const unidadeIgual=normalizar(ctx.unidadeCodigo)===normalizar(item.unidade_codigo)||normalizar(ctx.ufTexto||ctx.uf)===normalizar(item.unidade_nome);
+ return {pais:!paisIgual,unidade:!unidadeIgual};
+}
+async function confirmarAtualizacaoRegiaoAdmin(item,ctx){
+ const d=regiaoLocalDiverge(item,ctx);if(!d.pais&&!d.unidade)return false;
+ const atual=[ctx.pais||'',ctx.ufTexto||ctx.uf||''].filter(Boolean).join(' / ');
+ const novo=[item.pais_nome||item.pais_codigo||'',item.unidade_nome||item.unidade_codigo||''].filter(Boolean).join(' / ');
+ return window.confirm(`O local selecionado pertence a outra região.\n\nRegião atualmente selecionada: ${atual||'não informada'}.\nRegião do local: ${novo||'não informada'}.\n\nDeseja atualizar o país e a unidade administrativa para o local escolhido?`);
+}
+function aplicarRegiaoAdmin(item,card){
+ const paisSel=card.querySelector('[data-field=\"pais\"]');if(item.pais_nome&&paisSel){const op=[...paisSel.options].find(o=>normalizarLocalComparacao(o.value)===normalizarLocalComparacao(item.pais_nome)||normalizarLocalComparacao(o.textContent)===normalizarLocalComparacao(item.pais_nome));if(op){paisSel.value=op.value;atualizarLocalAdmin(card);}}
+ const ufSel=card.querySelector('[data-field=\"uf\"]');if(ufSel&&!ufSel.disabled){const op=[...ufSel.options].find(o=>String(o.value).toUpperCase()===String(item.unidade_codigo||'').toUpperCase()||normalizarLocalComparacao(o.textContent)===normalizarLocalComparacao(item.unidade_nome));if(op)ufSel.value=op.value;}
+ ['local_nome','local_endereco','google_place_id','local_pais_codigo','local_unidade_codigo'].forEach(k=>{const el=card.querySelector(`[data-field=\"${k}\"]`);if(el)el.value=k==='local_nome'?(item.nome||''):k==='local_endereco'?(item.endereco||''):k==='google_place_id'?(item.place_id||item.id||''):k==='local_pais_codigo'?(item.pais_codigo||''):(item.unidade_codigo||'');});}
+function guardarLocalAdmin(item,card){AdminSelecionado={place_id:item.place_id||item.id||'',nome:item.nome||'',endereco:item.endereco||'',pais_codigo:item.pais_codigo||'',unidade_codigo:item.unidade_codigo||'',cidade:item.cidade||''};const valores={local_nome:item.nome||'',local_endereco:item.endereco||'',google_place_id:item.place_id||item.id||'',local_pais_codigo:item.pais_codigo||'',local_unidade_codigo:item.unidade_codigo||''};Object.entries(valores).forEach(([k,v])=>{const el=card.querySelector(`[data-field="${k}"]`);if(el)el.value=v;});}
+
+async function buscarSugestoesLocalAdmin(card,q){
+  const ctx=contextoBuscaEnderecoAdmin(card);
+  const params=new URLSearchParams({q,pais:ctx.pais||'',uf:ctx.uf||'',ufTexto:ctx.ufTexto||'',paisCodigo:ctx.paisCodigo||'',unidadeCodigo:ctx.unidadeCodigo||''});
+  const r=await fetch(API_URL+'/geocode/sugestoes?'+params.toString());
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(j.error||'Não foi possível buscar sugestões.');
+  return Array.isArray(j.resultados)?j.resultados:[];
+}
+function instalarBuscaAssistidaAdmin(card){
+  const input=card.querySelector('[data-field="local_evento"]');
+  const box=card.querySelector('.sugestoes-local-admin');
+  const st=card.querySelector('.localizacaoAdminStatus');
+  if(!input||!box)return;
+  let timer=null,abortador=null,indice=-1;
+  input.setAttribute('role','combobox');input.setAttribute('aria-autocomplete','list');input.setAttribute('aria-expanded','false');
+  const fechar=()=>{indice=-1;box.hidden=true;box.innerHTML='';input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant')};
+  const ativar=n=>{const ops=[...box.querySelectorAll('[role="option"]')];if(!ops.length)return;indice=(n+ops.length)%ops.length;ops.forEach((o,i)=>o.setAttribute('aria-selected',i===indice?'true':'false'));input.setAttribute('aria-activedescendant',ops[indice].id);ops[indice].scrollIntoView({block:'nearest'})};
+  input.addEventListener('input',()=>{
+    clearTimeout(timer);const q=input.value.trim();if(q.length<3){fechar();return;}
+    if(st){st.textContent='Buscando sugestões de locais...';st.className='status localizacaoAdminStatus';}
+    timer=setTimeout(async()=>{try{
+      if(abortador)abortador.abort();abortador=new AbortController();
+      const ctx=contextoBuscaEnderecoAdmin(card);
+      const params=new URLSearchParams({q,pais:ctx.pais||'',uf:ctx.uf||'',ufTexto:ctx.ufTexto||'',paisCodigo:ctx.paisCodigo||'',unidadeCodigo:ctx.unidadeCodigo||''});
+      const r=await fetch(API_URL+'/geocode/sugestoes?'+params.toString(),{signal:abortador.signal});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Não foi possível buscar sugestões.');
+      const itens=Array.isArray(j.resultados)?j.resultados:[];box.innerHTML='';indice=-1;
+      if(!itens.length){fechar();if(st){st.textContent='Nenhuma sugestão encontrada. Use o botão Buscar coordenadas pelo endereço.';st.className='status localizacaoAdminStatus';}return;}
+      itens.slice(0,5).forEach((item,i)=>{const b=document.createElement('button');b.type='button';b.id='sugestao-admin-'+card.dataset.id+'-'+i;b.setAttribute('role','option');b.setAttribute('aria-selected','false');b.textContent=item.nome+(item.endereco&&item.endereco!==item.nome?' — '+item.endereco:'');b.addEventListener('click',async()=>{const ctx=contextoBuscaEnderecoAdmin(card);input.value=textoCompletoLocal(item);card.querySelector('[data-field="latitude"]').value=Number(item.lat).toFixed(6);card.querySelector('[data-field="longitude"]').value=Number(item.lon).toFixed(6);guardarLocalAdmin(item,card);if(await confirmarAtualizacaoRegiaoAdmin(item,ctx))aplicarRegiaoAdmin(item,card);fechar();if(st){st.textContent='Local selecionado com nome, endereço e coordenadas. Confira o país e a unidade administrativa.';st.className='status localizacaoAdminStatus success';}});box.appendChild(b)});
+      box.hidden=false;input.setAttribute('aria-expanded','true');if(st){st.textContent=`${itens.slice(0,5).length} sugestões disponíveis. Use as setas e Enter para selecionar.`;st.className='status localizacaoAdminStatus';}
+    }catch(e){if(e.name!=='AbortError'){fechar();if(st){st.textContent='Erro: '+(e.message||'não foi possível buscar sugestões.');st.className='status localizacaoAdminStatus error';}}}},400);
+  });
+  input.addEventListener('keydown',e=>{const ops=[...box.querySelectorAll('[role="option"]')];if(e.key==='Escape'){fechar();return;}if(!ops.length)return;if(e.key==='ArrowDown'){e.preventDefault();ativar(indice+1)}else if(e.key==='ArrowUp'){e.preventDefault();ativar(indice-1)}else if(e.key==='Enter'&&indice>=0){e.preventDefault();ops[indice].click()}});
+}
+async function buscarCoordenadasAdmin(card){
+  const localInput=card.querySelector('[data-field="local_evento"]');
+  const latInput=card.querySelector('[data-field="latitude"]');
+  const lonInput=card.querySelector('[data-field="longitude"]');
+  const st=card.querySelector('.localizacaoAdminStatus');
+  const q=(localInput?.value || '').trim();
+  if(!q){ if(st){st.textContent='Informe o nome ou endereço do local.'; st.className='status localizacaoAdminStatus error';} return; }
+  const ctx=contextoBuscaEnderecoAdmin(card);
+  const params=new URLSearchParams({q,pais:ctx.pais||'',uf:ctx.uf||'',ufTexto:ctx.ufTexto||'',paisCodigo:ctx.paisCodigo||'',unidadeCodigo:ctx.unidadeCodigo||''});
+  if(st){st.textContent='Buscando coordenadas pelo endereço...'; st.className='status localizacaoAdminStatus';}
+  try{
+    const r=await fetch(API_URL+'/geocode?'+params.toString());
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error || 'Não foi possível buscar as coordenadas.');
+    const info=j.resultado || {};
+    if(!Number.isFinite(Number(info.lat)) || !Number.isFinite(Number(info.lon))) throw new Error('A busca não retornou coordenadas válidas.');
+    latInput.value=Number(info.lat).toFixed(6);
+    lonInput.value=Number(info.lon).toFixed(6);
+    if(st){st.textContent='Coordenadas encontradas. Confira se correspondem ao local correto antes de salvar.'; st.className='status localizacaoAdminStatus success';}
+  }catch(e){
+    if(st){st.textContent='Erro: '+(e.message || 'não foi possível buscar as coordenadas.'); st.className='status localizacaoAdminStatus error';}
+  }
+}
+
+function nomeServicoAdmin(s, lista){ return window.AUDESC_CONFIG?.servicos.getResumoEvento({tipo_servico:s,servicos_solicitados:lista}) || s || '—'; }
+function nomeVisibilidadeAdmin(v){
+  const valor = String(v || '').toLowerCase();
+  if(valor === 'publico' || valor === 'público') return 'Pública';
+  if(valor === 'privado' || valor === 'restrita') return 'Restrita';
+  return v || '';
+}
+function optTexto(value,current,texto){return `<option value="${attr(value)}" ${value===current?'selected':''}>${escapeHtml(texto)}</option>`}
+
+let FORMULARIO_CONFIG_ADMIN = null;
+async function carregarConfigFormularioAdmin(){
+  try{
+    const j = await api('/admin/formulario-config');
+    FORMULARIO_CONFIG_ADMIN = j.config || null;
+  }catch(e){ console.warn('Não foi possível carregar a configuração do formulário.', e); }
+}
+function regraFormularioAdmin(card){
+  if(!FORMULARIO_CONFIG_ADMIN) return null;
+  const ctx = contextoBuscaEnderecoAdmin(card);
+  const pais = ctx.paisCodigo || '';
+  const unidade = String(ctx.unidadeCodigo || '').toUpperCase();
+  return (FORMULARIO_CONFIG_ADMIN.regras || []).find(r => r.pais_codigo === pais && String(r.unidade_codigo || '').toUpperCase() === unidade) || null;
+}
+function regrasServicoAdmin(card){
+  const base = FORMULARIO_CONFIG_ADMIN?.padrao?.regrasPorServico || {};
+  const regra = regraFormularioAdmin(card)?.regrasPorServico || {};
+  return Object.assign({}, base, regra);
+}
+function servicosSelecionadosAdmin(card){
+  const valores=[...card.querySelectorAll('[data-service-code]:checked')].map(el=>el.value);
+  return window.AUDESC_CONFIG?.servicos.normalizarPorRegras(valores) || valores;
+}
+function regraCampoAdmin(card, campo){
+  return window.AUDESC_CONFIG?.servicos.resolverRegraCampoConfiguravel(
+    regrasServicoAdmin(card), servicosSelecionadosAdmin(card), campo
+  ) || null;
+}
+function aplicarRegraCampoAdmin(card, campo){
+  const regra = regraCampoAdmin(card, campo);
+  if(!regra) return;
+  const el = card.querySelector(`[data-field="${campo}"]`);
+  const boxes = {tipo_evento:'.tipo-evento-admin-box',duracao_horas:'.duracao-admin-box',max_ouvintes:'.ouvintes-admin-box'};
+  const box = boxes[campo] ? card.querySelector(boxes[campo]) : null;
+  const extraBox = campo === 'max_ouvintes' ? card.querySelector('.ouvintes-extra-admin-box') : null;
+  const extraEl = campo === 'max_ouvintes' ? card.querySelector('[data-field="max_ouvintes_extra"]') : null;
+  if(regra.comportamento === 'fixo'){
+    if(el) el.value = String(regra.valor ?? '');
+    if(box) box.classList.add('hidden');
+    if(extraBox) extraBox.classList.add('hidden');
+    if(el) el.disabled = true;
+    if(extraEl) extraEl.disabled = true;
+  }
+  if(regra.comportamento === 'oculto_sem_valor'){
+    if(el) el.value = '';
+    if(box) box.classList.add('hidden');
+    if(extraBox) extraBox.classList.add('hidden');
+    if(el) el.disabled = true;
+    if(extraEl) extraEl.disabled = true;
+  }
+}
+function aplicarRegrasServicoAdmin(card){
+  (window.AUDESC_CONFIG?.catalogo.getCamposParaRegrasPorServico()||[]).filter(campo=>['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].includes(campo)).forEach(campo => aplicarRegraCampoAdmin(card, campo));
+}
+
+
+function servicoDependeAgenda(valor){ return !!window.AUDESC_CONFIG?.servicos.requerAgendaSelecao(valor); }
+function formatarMoedaAdmin(valor, moeda){
+  const n=Number(valor || 0);
+  const currency=moeda || 'BRL';
+  try{return n.toLocaleString('pt-BR',{style:'currency',currency});}catch{return String(n.toFixed(2));}
+}
+function moedaEventoAdmin(ev){
+  const pais=(ev.pais === 'Internacional' ? ev.origem_transmissao : ev.pais) || '';
+  if(pais === 'Brasil') return 'BRL';
+  if(pais === 'Portugal') return 'EUR';
+  return 'USD';
+}
+function agendaOptions(valorAtual){
+  const atual=valorAtual || 'pendente';
+  const opcoes=[['pendente','Pendente: verificar disponibilidade'],['disponivel','Disponível: liberar pagamento'],['indisponivel','Indisponível: impossibilidade do serviço']];
+  return opcoes.map(([v,t])=>`<option value="${v}" ${v===atual?'selected':''}>${escapeHtml(t)}</option>`).join('');
+}
+async function carregarValorAgenda(card,id){
+  const st=card.querySelector('.agendaAdminStatus');
+  const sugerido=card.querySelector('[data-field="valor_sugerido_agenda"]');
+  const final=card.querySelector('[data-field="valor_final_agenda"]');
+  if(!st || !sugerido || !final) return;
+  st.textContent='Calculando valor sugerido pela precificação...';
+  st.className='status agendaAdminStatus';
+  try{
+    const data=await api('/admin/eventos/'+id+'/valor-agenda');
+    sugerido.value=Number(data.valor_sugerido_agenda || 0).toFixed(2);
+    if(!final.value) final.value=Number(data.valor_final_agenda || data.valor_sugerido_agenda || 0).toFixed(2);
+    const moeda=data.moeda || 'BRL';
+    st.textContent='Valor sugerido: '+formatarMoedaAdmin(data.valor_sugerido_agenda,moeda)+'. Edite o valor final, se necessário, antes de confirmar a agenda.';
+    st.className='status agendaAdminStatus success';
+  }catch(e){
+    st.textContent='Erro ao calcular valor sugerido: '+e.message;
+    st.className='status agendaAdminStatus error';
+  }
+}
+async function salvarAgendaAdmin(id,card){
+  const st=card.querySelector('.agendaAdminStatus');
+  const body={
+    status_agenda:card.querySelector('[data-field="status_agenda"]')?.value || 'pendente',
+    observacao_agenda:card.querySelector('[data-field="observacao_agenda"]')?.value || '',
+    valor_final_agenda:card.querySelector('[data-field="valor_final_agenda"]')?.value || ''
+  };
+  if(st){st.textContent='Salvando agenda e valor final...'; st.className='status agendaAdminStatus';}
+  try{
+    const data=await api('/admin/eventos/'+id+'/agenda',{method:'PATCH',body:JSON.stringify(body)});
+    if(st){
+      const moeda=moedaEventoAdmin(data.evento || {});
+      st.textContent='Agenda salva. Valor final para pagamento: '+formatarMoedaAdmin(data.valor_final_agenda,moeda)+'.';
+      st.className='status agendaAdminStatus success';
+    }
+    await loadEvents();
+  }catch(e){
+    if(st){st.textContent='Erro: '+e.message; st.className='status agendaAdminStatus error';}
+  }
+}
+
+function servicosAdminCheckboxes(evento){
+  const selecionados=new Set(window.AUDESC_CONFIG?.servicos.getSelecionadosEvento(evento) || []);
+  const lista=(window.AUDESC_CONFIG?.servicos.getLista() || []).filter(item=>item.ativo!==false && item.apareceCadastro!==false);
+  return lista.map(item=>`<label style="display:block;margin:.35rem 0"><input type="checkbox" data-service-code value="${attr(item.codigo)}" ${selecionados.has(item.codigo)?'checked':''}> ${escapeHtml(item.nome)}</label>`).join('');
+}
+
+function ouvintesAdminOptions(valorAtual){
+  const valores = ['10','20','30','40','60','80','100','120','150','200','300'];
+  return valores.map(v => `<option value="${v}" ${v === String(valorAtual || '') ? 'selected' : ''}>${v} ouvintes</option>`).join('');
+}
+
+function origemTransmissaoOptions(valorAtual){
+  const paises = [''].concat(window.AUDESC_CONFIG?.localizacao.getNomesPaises(false) || ['Brasil']);
+  return paises.map(p => `<option value="${attr(p)}" ${p === (valorAtual || '') ? 'selected' : ''}>${escapeHtml(p || 'Selecione')}</option>`).join('');
+}
+
+
 function atualizarLocalAdmin(card){
   const pais = card.querySelector('[data-field="pais"]');
   const local = card.querySelector('[data-field="uf"]');
   const label = card.querySelector('.local-admin-label');
+  const localBox = card.querySelector('.uf-admin-box');
+  const origemBox = card.querySelector('.origem-admin-box');
+  const origem = card.querySelector('[data-field="origem_transmissao"]');
   if(!pais || !local || !label) return;
+
   const atual = local.value;
   label.textContent = rotuloLocal(pais.value);
   local.innerHTML = locaisAdminOptions(pais.value, atual);
-  if(pais.value === 'Outros'){
+
+  if(pais.value === 'Internacional'){
     local.value = '';
     local.disabled = true;
-  } else {
-    local.disabled = false;
-    if([...local.options].some(o => o.value === atual)) local.value = atual;
+    if(localBox) localBox.classList.add('hidden');
+    if(origemBox) origemBox.classList.remove('hidden');
+    if(origem){ origem.disabled = false; origem.required = true; }
+  }else{
+    if(localBox) localBox.classList.remove('hidden');
+    if(origemBox) origemBox.classList.add('hidden');
+    if(origem){ origem.value=''; origem.disabled=true; origem.required=false; }
+
+    if(pais.value === 'Outros'){
+      local.value = '';
+      local.disabled = true;
+    } else {
+      local.disabled = false;
+      if([...local.options].some(o => o.value === atual)) local.value = atual;
+    }
   }
+
+  ajustarCamposAdmin(card);
+}
+
+function ajustarCamposAdmin(card, alterado){
+  if(alterado?.checked){
+    card.querySelectorAll('[data-service-code]:checked').forEach(outro=>{
+      if(outro!==alterado&&window.AUDESC_CONFIG?.servicos.saoIncompativeis(alterado.value,outro.value)) outro.checked=false;
+    });
+  }
+  let selecionados=servicosSelecionadosAdmin(card);
+  if(!selecionados.length){
+    const primeiro=card.querySelector('[data-service-code]');
+    if(primeiro){ primeiro.checked=true; selecionados=servicosSelecionadosAdmin(card); }
+  }
+  const regras=window.AUDESC_CONFIG?.servicos.getRegras(selecionados) || {};
+  const tipoEventoBox=card.querySelector('.tipo-evento-admin-box');
+  const duracaoBox=card.querySelector('.duracao-admin-box');
+  const ouvintesBox=card.querySelector('.ouvintes-admin-box');
+  const ouvintesExtraBox=card.querySelector('.ouvintes-extra-admin-box');
+  const tipoEvento=card.querySelector('[data-field="tipo_evento"]');
+  const duracao=card.querySelector('[data-field="duracao_horas"]');
+  const ouvintes=card.querySelector('[data-field="max_ouvintes"]');
+  const ouvintesExtra=card.querySelector('[data-field="max_ouvintes_extra"]');
+  const agendaBox=card.querySelector('.agenda-box');
+  if(tipoEventoBox) tipoEventoBox.classList.toggle('hidden',!regras.visibilidadeEditavel);
+  if(tipoEvento){ tipoEvento.disabled=!regras.visibilidadeEditavel; if(regras.visibilidadeFixa) tipoEvento.value=regras.visibilidadeFixa; }
+  if(duracaoBox) duracaoBox.classList.toggle('hidden',!regras.usaDuracao);
+  if(duracao) duracao.disabled=!regras.usaDuracao;
+  if(ouvintesBox) ouvintesBox.classList.toggle('hidden',!regras.usaOuvintes);
+  if(ouvintesExtraBox) ouvintesExtraBox.classList.toggle('hidden',!regras.usaOuvintes);
+  if(ouvintes) ouvintes.disabled=!regras.usaOuvintes;
+  if(ouvintesExtra) ouvintesExtra.disabled=!regras.usaOuvintes;
+  if(agendaBox) agendaBox.classList.toggle('hidden',!regras.requerAgenda);
+  aplicarRegrasServicoAdmin(card);
 }
 
 function renderEvent(ev){
@@ -161,25 +496,33 @@ function renderEvent(ev){
     <h3>${escapeHtml(ev.titulo_publicado||ev.titulo_original||'Sem título')}</h3>
     <p>
       <span class="badge ${badgeClass}">${ev.status_publicacao||'sem status'}</span>
-      <span class="badge">${ev.tipo_servico||''}</span>
-      <span class="badge">${ev.tipo_evento||''}</span>
+      <span class="badge">${nomeServicoAdmin(ev.tipo_servico, ev.servicos_solicitados)}</span>
+      <span class="badge">${nomeVisibilidadeAdmin(ev.tipo_evento)}</span>
     </p>
     <p class="small">ID: ${ev.id}<br>${ageInfo}${olderThan2Days && ev.status_publicacao==='pendente' ? '<br><strong>Atenção: pendente há mais de 2 dias.</strong>' : ''}</p>
     <div class="grid">
-      <div><strong>Serviço:</strong> ${ev.tipo_servico||''}</div>
-      <div><strong>Evento:</strong> ${ev.tipo_evento||''}</div>
+      <div><strong>Serviço:</strong> ${nomeServicoAdmin(ev.tipo_servico, ev.servicos_solicitados)}</div>
+      <div><strong>Visibilidade:</strong> ${nomeVisibilidadeAdmin(ev.tipo_evento)}</div><div><strong>Categoria:</strong> ${escapeHtml(window.AUDESC_CATEGORIAS_EVENTO?.nome(ev.categoria_evento)||'Não informada')}</div><div><strong>Classificação etária:</strong> ${escapeHtml(window.AUDESC_CLASSIFICACOES_ETARIAS?.nome(ev.classificacao_etaria)||'Não informada')}</div>
       <div><strong>Publicação:</strong> ${ev.status_publicacao||''}</div>
-      <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>
+      <div><strong>Pagamento:</strong> ${ev.status_pagamento||''}</div>${servicoDependeAgenda(ev.servicos_solicitados?.length ? ev.servicos_solicitados : ev.tipo_servico) ? `<div><strong>Agenda:</strong> ${ev.status_agenda || 'pendente'}</div><div><strong>Valor final de agenda:</strong> ${ev.valor_final_agenda != null ? formatarMoedaAdmin(ev.valor_final_agenda, moedaEventoAdmin(ev)) : 'a definir'}</div>` : ''}
       <div><strong>Operação:</strong> ${ev.status_operacao||''}</div>
-      <div><strong>E-mail:</strong> ${ev.email_usuario||''}</div><div><strong>País:</strong> ${ev.pais||''}</div><div><strong>${rotuloResumoLocal(ev.pais)}:</strong> ${nomeLocal(ev.pais, ev.uf) || ''}${ev.pais ? ' — ' + escapeHtml(ev.pais) : ''}</div>
+      <div><strong>E-mail:</strong> ${escapeHtml(ev.email_usuario||'')}</div>${resumoLocalizacaoAdmin(ev)}
+      <div><strong>Local do evento:</strong> ${escapeHtml(ev.local_evento || '')}</div>
+      <div><strong>Latitude:</strong> ${ev.latitude ?? ''}</div>
+      <div><strong>Longitude:</strong> ${ev.longitude ?? ''}</div>
       <div><strong>Data e horário:</strong> ${formatarData(ev.data_evento,ev.timezone)}</div>
       <div><strong>Horas de transmissão:</strong> ${ev.duracao_horas || ''}</div>
       <div><strong>Máximo de ouvintes:</strong> ${ev.max_ouvintes || ''}</div>
+      <div><strong>Margem extra de ouvintes:</strong> ${ev.max_ouvintes_extra || 0}</div>
+      <div><strong>Controle de presença por GPS:</strong> ${ev.exigir_gps_ouvintes ? 'ativado' : 'desativado'}</div>
+      <div><strong>Raio permitido:</strong> ${ev.gps_raio_metros || 200} m</div>
+      <div><strong>Precisão máxima aceita:</strong> ${ev.gps_precisao_max_metros || 500} m</div>
+      <div><strong>Margem de transmissão:</strong> ${ev.margem_transmissao_minutos ?? 15} minuto(s)</div>
     </div>
-    <label>Título publicado</label>
+    <label>Nome do evento</label>
     <input data-field="titulo_publicado" value="${attr(ev.titulo_publicado||ev.titulo_original||'')}">
-    <label>Descrição publicada</label>
-    <textarea data-field="descricao_publicada">${escapeHtml(ev.descricao_publicada||ev.descricao_original||'')}</textarea>
+    <label>Descrição do evento</label>
+    <textarea data-field="descricao_publicada">${escapeHtml(ev.descricao_publicada||ev.descricao_original||'')}</textarea><div class="categoria-evento-admin-box"><label for="categoria_evento_${ev.id}">Categoria do evento</label><select id="categoria_evento_${ev.id}" data-field="categoria_evento"><option value="">Selecione uma categoria</option>${(window.AUDESC_CATEGORIAS_EVENTO?.lista||[]).map(c=>`<option value="${c.codigo}" ${c.codigo===(ev.categoria_evento||'')?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select></div><div class="classificacao-etaria-admin-box"><label for="classificacao_etaria_${ev.id}">Classificação etária</label><select id="classificacao_etaria_${ev.id}" data-field="classificacao_etaria"><option value="">Selecione uma classificação etária</option>${(window.AUDESC_CLASSIFICACOES_ETARIAS?.lista||[]).map(c=>`<option value="${c.codigo}" ${String(c.codigo)===String(ev.classificacao_etaria||'')?'selected':''}>${escapeHtml(c.nome)}</option>`).join('')}</select></div><div class="modalidade-admin-box"><label>Modalidade do evento</label><select data-field="modalidade_evento"><option value="presencial" ${(!ev.modalidade_evento||ev.modalidade_evento==='presencial')?'selected':''}>Presencial</option><option value="distancia" ${ev.modalidade_evento==='distancia'?'selected':''}>Transmissão a distância</option><option value="hibrido" ${ev.modalidade_evento==='hibrido'?'selected':''}>Presencial e transmissão a distância</option></select></div><div class="abrangencia-admin-box"><label>Abrangência da divulgação</label><select data-field="abrangencia_divulgacao"><option value="">Selecione</option><option value="nacional" ${ev.abrangencia_divulgacao==='nacional'?'selected':''}>Nacional</option><option value="internacional" ${ev.abrangencia_divulgacao==='internacional'?'selected':''}>Internacional</option></select></div><fieldset class="paises-divulgacao-admin-box"><legend>Países de divulgação internacional</legend>${(window.AUDESC_MODALIDADES_EVENTO?.paisesDivulgacao()||[]).map(p=>`<label><input type="checkbox" data-field="pais_divulgacao" value="${escapeHtml(p)}" ${(ev.paises_divulgacao||[]).includes(p)?'checked':''}> ${escapeHtml(p)}</label>`).join('')}</fieldset>
     <div class="grid">
       <div><label>Status publicação</label><select data-field="status_publicacao">
         ${opt('pendente',ev.status_publicacao)}${opt('aprovado',ev.status_publicacao)}${opt('rejeitado',ev.status_publicacao)}${opt('removido',ev.status_publicacao)}
@@ -187,60 +530,145 @@ function renderEvent(ev){
       <div><label>Status pagamento</label><select data-field="status_pagamento">
         ${opt('pendente',ev.status_pagamento)}${opt('pago',ev.status_pagamento)}${opt('cancelado',ev.status_pagamento)}${opt('dispensado',ev.status_pagamento)}
       </select></div>
-      <div><label>Tipo serviço</label><select data-field="tipo_servico">
-        ${opt('audesc_transmissao',ev.tipo_servico)}${opt('divulgacao_gratuita',ev.tipo_servico)}
+      <fieldset class="servicos-admin-box"><legend>Serviços solicitados</legend>
+        ${servicosAdminCheckboxes(ev)}
+        <p class="small">Transmissão Audesc e Somente divulgação não podem ser selecionadas juntas.</p>
+      </fieldset>
+      <div class="tipo-evento-admin-box"><label>Visibilidade</label><select data-field="tipo_evento">
+        ${optTexto('publico',ev.tipo_evento,'Pública')}${optTexto('privado',ev.tipo_evento,'Restrita')}
       </select></div>
     </div>
+    ${`
+    <section class="agenda-box ${servicoDependeAgenda(ev.servicos_solicitados?.length ? ev.servicos_solicitados : ev.tipo_servico) ? '' : 'hidden'}" aria-label="Agenda e valor do profissional">
+      <h4>Agenda e valor do profissional</h4>
+      <p class="small">Confira o valor sugerido pela precificação, edite o valor final se necessário e só depois confirme a disponibilidade de agenda.</p>
+      <div class="grid">
+        <div><label>Status da agenda</label><select data-field="status_agenda">
+          ${agendaOptions(ev.status_agenda || 'pendente')}
+        </select></div>
+        <div><label>Valor sugerido pela precificação</label><input data-field="valor_sugerido_agenda" value="${attr(ev.valor_sugerido_agenda ?? '')}" inputmode="decimal" readonly></div>
+        <div><label>Valor final para pagamento</label><input data-field="valor_final_agenda" value="${attr(ev.valor_final_agenda ?? '')}" inputmode="decimal"></div>
+      </div>
+      <label>Observação sobre a agenda</label>
+      <textarea data-field="observacao_agenda">${escapeHtml(ev.observacao_agenda || '')}</textarea>
+      <p>
+        <button class="calcularValorAgendaBtn secondary" type="button">Calcular valor sugerido</button>
+        <button class="salvarAgendaBtn ok" type="button">Salvar agenda e valor final</button>
+      </p>
+      <div class="status agendaAdminStatus" role="status" aria-live="polite" aria-atomic="true">Valor de agenda ainda não conferido nesta tela.</div>
+    </section>`}
     <div class="grid">
       <div><label>País</label><select data-field="pais" class="pais-admin-select">
         ${paisesAdminOptions(ev.pais || 'Brasil')}
       </select></div>
-      <div><label class="local-admin-label">${rotuloLocal(ev.pais || 'Brasil')}</label><select data-field="uf" class="uf-admin-select" ${ev.pais === 'Outros' ? 'disabled' : ''}>
+      <div class="uf-admin-box ${ev.pais === 'Internacional' ? 'hidden' : ''}"><label class="local-admin-label">${rotuloLocal(ev.pais || 'Brasil')}</label><select data-field="uf" class="uf-admin-select" ${(ev.pais === 'Outros' || ev.pais === 'Internacional') ? 'disabled' : ''}>
         ${locaisAdminOptions(ev.pais || 'Brasil', ev.uf || '')}
+      </select></div>
+      <div class="origem-admin-box ${ev.pais === 'Internacional' ? '' : 'hidden'}"><label>Origem da transmissão</label><select data-field="origem_transmissao" ${ev.pais === 'Internacional' ? '' : 'disabled'}>
+        ${origemTransmissaoOptions(ev.origem_transmissao || '')}
       </select></div>
     </div>
 
-    
+    <div class="grid">
+      <input type="hidden" data-field="local_nome" value="${attr(ev.local_nome || '')}"><input type="hidden" data-field="local_endereco" value="${attr(ev.local_endereco || '')}"><input type="hidden" data-field="google_place_id" value="${attr(ev.google_place_id || '')}"><input type="hidden" data-field="local_pais_codigo" value="${attr(ev.local_pais_codigo || '')}"><input type="hidden" data-field="local_unidade_codigo" value="${attr(ev.local_unidade_codigo || '')}">
+      <div class="localEventoAdminBox"><label>Nome ou endereço do local do evento</label><input data-field="local_evento" value="${attr(ev.local_evento || '')}" autocomplete="off" aria-describedby="ajuda-local-${ev.id}"><p id="ajuda-local-${ev.id}" class="small">Digite ao menos três caracteres para receber sugestões do Google Maps.</p><div class="sugestoes-local-admin" role="listbox" aria-label="Sugestões de locais" hidden></div></div>
+      <div><label>Latitude</label><input data-field="latitude" value="${attr(ev.latitude ?? '')}" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
+      <div><label>Longitude</label><input data-field="longitude" value="${attr(ev.longitude ?? '')}" inputmode="decimal" placeholder="Preenchimento automático ou manual"></div>
+    </div>
+    <p><button class="geocodeAdminBtn secondary" type="button">Buscar coordenadas pelo endereço</button></p>
+    <div class="status localizacaoAdminStatus" role="status" aria-live="polite" aria-atomic="true">Informe ou confira o local do evento.</div>
+
+    <section class="gps-presenca-admin-box" aria-label="Controle de presença dos ouvintes por GPS">
+      <h4>Controle de presença dos ouvintes</h4>
+      <p class="small">Use esta opção apenas quando a transmissão deve ser reservada a ouvintes presentes no local do evento. A verificação ocorre na entrada da sala de recepção.</p>
+      <div class="grid">
+        <div><label>Exigir localização do ouvinte para entrar na recepção</label><select data-field="exigir_gps_ouvintes">
+          ${optTexto('false', String(!!ev.exigir_gps_ouvintes), 'Não')}${optTexto('true', String(!!ev.exigir_gps_ouvintes), 'Sim')}
+        </select></div>
+        <div><label>Raio permitido em metros</label><input data-field="gps_raio_metros" type="number" min="10" max="5000" step="10" value="${attr(ev.gps_raio_metros || 200)}"><p class="small">Padrão sugerido: 200 metros.</p></div>
+        <div><label>Precisão máxima aceita em metros</label><input data-field="gps_precisao_max_metros" type="number" min="10" max="5000" step="10" value="${attr(ev.gps_precisao_max_metros || 500)}"><p class="small">Se o GPS estiver impreciso demais, o ouvinte será orientado a tentar novamente.</p></div>
+      </div>
+      <p class="small">A latitude e longitude do local do evento são usadas como referência. Se as coordenadas estiverem vazias, o controle por GPS não deve ser ativado.</p>
+    </section>
+
     <div class="grid">
       <div><label>Data e horário do evento</label><input data-field="data_evento" type="datetime-local" value="${valorDataInput(ev.data_evento,ev.timezone)}"></div>
-      <div><label>Horas de transmissão</label><select data-field="duracao_horas">
+      <div class="duracao-admin-box"><label>Horas de transmissão</label><select data-field="duracao_horas">
         ${opt('1', String(ev.duracao_horas || ''))}${opt('2', String(ev.duracao_horas || ''))}${opt('3', String(ev.duracao_horas || ''))}${opt('4', String(ev.duracao_horas || ''))}${opt('5', String(ev.duracao_horas || ''))}${opt('6', String(ev.duracao_horas || ''))}${opt('7', String(ev.duracao_horas || ''))}${opt('8', String(ev.duracao_horas || ''))}
       </select></div>
-      <div><label>Número máximo de ouvintes</label><select data-field="max_ouvintes">
-        ${opt('10', String(ev.max_ouvintes || ''))}${opt('20', String(ev.max_ouvintes || ''))}${opt('30', String(ev.max_ouvintes || ''))}${opt('40', String(ev.max_ouvintes || ''))}${opt('60', String(ev.max_ouvintes || ''))}${opt('80', String(ev.max_ouvintes || ''))}${opt('100', String(ev.max_ouvintes || ''))}${opt('120', String(ev.max_ouvintes || ''))}${opt('150', String(ev.max_ouvintes || ''))}${opt('200', String(ev.max_ouvintes || ''))}
+      <div class="ouvintes-admin-box"><label>Número máximo de ouvintes</label><select data-field="max_ouvintes">
+        ${ouvintesAdminOptions(ev.max_ouvintes || '')}
       </select></div>
+      <div class="ouvintes-extra-admin-box"><label>Ouvintes extras permitidos pelo administrador</label><input data-field="max_ouvintes_extra" type="number" min="0" max="500" step="1" value="${attr(ev.max_ouvintes_extra || 0)}"><p class="small">Margem de tolerância além do número máximo escolhido no cadastro.</p></div>
+      <div class="margem-transmissao-admin-box"><label>Margem de transmissão em minutos</label><input data-field="margem_transmissao_minutos" type="number" min="0" max="180" step="1" value="${attr(ev.margem_transmissao_minutos ?? 15)}"><p class="small">Usada antes do início e após o término contratado. Padrão: 15 minutos.</p></div>
     </div>
 
     <div class="grid">
       <div><label>Site oficial</label><input data-field="site_oficial" value="${attr(ev.site_oficial)}"></div>
       <div><label>Ingressos</label><input data-field="link_ingressos" value="${attr(ev.link_ingressos)}"></div>
+      <div><label>Inscrição</label><input data-field="link_inscricao" value="${attr(ev.link_inscricao)}"></div>
       <div><label>Programação</label><input data-field="link_programacao" value="${attr(ev.link_programacao)}"></div>
       <div><label>Acessibilidade</label><input data-field="link_acessibilidade" value="${attr(ev.link_acessibilidade)}"></div>
     </div>
-    <p><strong>Sala:</strong> ${ev.sala_codigo||'ainda não gerada'}<br><strong>Senha:</strong> ${ev.senha_transmissor||'ainda não gerada'}</p>
+    <div class="grid">
+      <div><label>Código da sala</label><input data-field="sala_codigo" value="${attr(ev.sala_codigo || '')}" placeholder="Será gerado automaticamente se ficar vazio"></div>
+      <div><label>Senha do transmissor</label><input data-field="senha_transmissor" value="${attr(ev.senha_transmissor || '')}" placeholder="Será gerada automaticamente se ficar vazia"></div>
+    </div>
+    <div class="status liberacaoResumo">
+      <strong>Status da liberação</strong><br>
+      Evento liberado: ${(ev.status_operacao === 'liberado') ? 'sim' : 'não'}<br>
+      Ordem gerada: ${(ev.sala_codigo && ev.senha_transmissor) ? 'sim' : 'não'}${ev.sala_codigo ? '<br>Sala: '+escapeHtml(ev.sala_codigo) : ''}<br>
+      E-mail de instruções: ${ev.email_liberacao_status || 'não registrado'}${ev.email_liberacao_enviado_em ? '<br>Enviado em: '+escapeHtml(new Date(ev.email_liberacao_enviado_em).toLocaleString('pt-BR')) : ''}${ev.email_liberacao_erro ? '<br>Erro do e-mail: '+escapeHtml(ev.email_liberacao_erro) : ''}<br>
+      Google Sheets: ${ev.planilha_liberacao_status || 'não registrado'}${ev.planilha_liberacao_erro ? '<br>Erro da planilha: '+escapeHtml(ev.planilha_liberacao_erro) : ''}
+    </div>
     <button class="saveBtn" type="button">Salvar edições</button>
     <button class="approveBtn ok" type="button">Aprovar publicação</button>
     <button class="rejectBtn danger" type="button">Rejeitar</button>
     <button class="removeBtn danger" type="button">Remover da publicação</button>
     <button class="approveLiberateBtn ok" type="button">Aprovar + liberar</button>
     <button class="liberateBtn secondary" type="button">Liberar / gerar acesso</button>
+    <button class="regerarOrdemBtn secondary" type="button">Gerar ou sincronizar ordem de transmissão</button>
+    <button class="sincronizarPlanilhaBtn secondary" type="button">Sincronizar ordem com a planilha Google</button>
+    <button class="reenviarEmailBtn secondary" type="button">Reenviar e-mail de instruções</button>
+    <button class="diagnosticoPlanilhaBtn secondary" type="button">Testar conexão com Google Sheets</button>
     <button class="deleteBtn danger" type="button">Excluir evento</button>
-    <div class="status eventStatus">Pronto.</div>
+    <div class="status eventStatus" role="status" aria-live="polite" aria-atomic="true">Pronto.</div>
   `;
-  const paisAdminSelect=card.querySelector('.pais-admin-select');
-  const ufAdminSelect=card.querySelector('.uf-admin-select');
-  if(paisAdminSelect) paisAdminSelect.addEventListener('change',()=>{
-    // Ao trocar de país, a unidade anterior não deve ser reaproveitada.
-    if(ufAdminSelect) ufAdminSelect.value='';
+  const paisSelectAdmin = card.querySelector('.pais-admin-select');
+  if(paisSelectAdmin) paisSelectAdmin.addEventListener('change',()=>{
+    const unidade = card.querySelector('.uf-admin-select');
+    if(unidade) unidade.value='';
     atualizarLocalAdmin(card);
+    const st = card.querySelector('.eventStatus');
+    if(st) st.textContent='País alterado. Confira a unidade administrativa, o local e o horário antes de salvar.';
   });
-  if(ufAdminSelect) ufAdminSelect.addEventListener('change',()=>{});
-  card.querySelector('.saveBtn').onclick=()=>saveEvent(ev.id,card);
+  card.querySelectorAll('[data-service-code]').forEach(checkbox=>checkbox.addEventListener('change',()=>ajustarCamposAdmin(card, checkbox)));
+  const geocodeBtn = card.querySelector('.geocodeAdminBtn');
+  if(geocodeBtn) geocodeBtn.addEventListener('click',()=>buscarCoordenadasAdmin(card));
+  instalarBuscaAssistidaAdmin(card);
+  const calcularValorAgendaBtn = card.querySelector('.calcularValorAgendaBtn');
+  if(calcularValorAgendaBtn) calcularValorAgendaBtn.addEventListener('click',()=>carregarValorAgenda(card, ev.id));
+  const salvarAgendaBtn = card.querySelector('.salvarAgendaBtn');
+  if(salvarAgendaBtn) salvarAgendaBtn.addEventListener('click',()=>salvarAgendaAdmin(ev.id, card));
+  if(servicoDependeAgenda(ev.servicos_solicitados?.length ? ev.servicos_solicitados : ev.tipo_servico) && (ev.valor_sugerido_agenda == null || ev.valor_final_agenda == null)){
+    setTimeout(()=>carregarValorAgenda(card, ev.id), 0);
+  }
+  atualizarLocalAdmin(card);
+  ajustarCamposAdmin(card);
+  card.querySelector('.saveBtn').onclick=(e)=>saveEvent(ev.id,card,e.currentTarget);
   card.querySelector('.approveBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'aprovado'},card);
   card.querySelector('.rejectBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'rejeitado'},card);
   card.querySelector('.removeBtn').onclick=()=>quickUpdate(ev.id,{status_publicacao:'removido'},card);
-  card.querySelector('.approveLiberateBtn').onclick=async()=>{await quickUpdate(ev.id,{status_publicacao:'aprovado',status_pagamento: ev.tipo_servico==='divulgacao_gratuita' ? 'dispensado' : 'pago'},card,false); await liberate(ev.id,card);};
+  card.querySelector('.approveLiberateBtn').onclick=async()=>{const body={status_publicacao:'aprovado'}; const regras=window.AUDESC_CONFIG?.servicos.getRegrasEvento(ev); if(!regras?.somenteDivulgacao) body.status_pagamento='pago'; await quickUpdate(ev.id,body,card,false); await liberate(ev.id,card);};
   card.querySelector('.liberateBtn').onclick=()=>liberate(ev.id,card);
+  const regerarOrdemBtn = card.querySelector('.regerarOrdemBtn');
+  if(regerarOrdemBtn) regerarOrdemBtn.onclick=()=>regerarOrdem(ev.id,card);
+  const sincronizarPlanilhaBtn = card.querySelector('.sincronizarPlanilhaBtn');
+  if(sincronizarPlanilhaBtn) sincronizarPlanilhaBtn.onclick=()=>sincronizarPlanilha(ev.id,card);
+  const reenviarEmailBtn = card.querySelector('.reenviarEmailBtn');
+  if(reenviarEmailBtn) reenviarEmailBtn.onclick=()=>reenviarEmailInstrucoes(ev.id,card);
+  const diagnosticoPlanilhaBtn = card.querySelector('.diagnosticoPlanilhaBtn');
+  if(diagnosticoPlanilhaBtn) diagnosticoPlanilhaBtn.onclick=()=>diagnosticarPlanilha(card);
   const deleteBtn = card.querySelector('.deleteBtn');
   if(deleteBtn) deleteBtn.onclick=()=>deleteEvent(ev.id,card);
   return card;
@@ -250,8 +678,9 @@ function escapeHtml(s){return val(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 function attr(s){return escapeHtml(s).replace(/"/g,'&quot;')}
 let allEvents = [];
 
-async function loadEvents(){
-  status('status','Carregando eventos...','');
+async function loadEvents(botaoOrigem){
+  setBotaoOcupado(botaoOrigem,true,'Atualizando...');
+  status('status','Carregando eventos. Aguarde...','');
   const list=document.getElementById('eventsList');
   list.innerHTML='';
   try{
@@ -261,6 +690,8 @@ async function loadEvents(){
     status('status','Eventos carregados com sucesso.','success');
   }catch(e){
     status('status','Erro: '+e.message,'error');
+  }finally{
+    setBotaoOcupado(botaoOrigem,false);
   }
 }
 
@@ -334,32 +765,41 @@ function formatarData(v,timezone){
   if(!v) return '';
   const d = new Date(v);
   if(Number.isNaN(d.getTime())) return '';
-  try{return d.toLocaleString('pt-BR',{timeZone:timezone||undefined});}
-  catch{return d.toLocaleString('pt-BR');}
+  try{
+    return d.toLocaleString('pt-BR',{timeZone:timezone||undefined});
+  }catch{
+    return d.toLocaleString('pt-BR');
+  }
 }
 function valorDataInput(v,timezone){
   if(!v) return '';
   const d = new Date(v);
   if(Number.isNaN(d.getTime())) return '';
   try{
-    const partes=new Intl.DateTimeFormat('sv-SE',{
-      timeZone:timezone||undefined,year:'numeric',month:'2-digit',day:'2-digit',
+    const partes = new Intl.DateTimeFormat('sv-SE',{
+      timeZone:timezone||undefined,
+      year:'numeric',month:'2-digit',day:'2-digit',
       hour:'2-digit',minute:'2-digit',hour12:false
     }).formatToParts(d);
-    const p=Object.fromEntries(partes.filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));
+    const p = Object.fromEntries(
+      partes.filter(x=>x.type!=='literal').map(x=>[x.type,x.value])
+    );
     return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
   }catch{
     return String(v).slice(0,16);
   }
 }
 
-async function saveEvent(id,card){
+async function saveEvent(id,card,botaoOrigem){
+  setBotaoOcupado(botaoOrigem,true,'Salvando...');
   const body={};
   card.querySelectorAll('[data-field]').forEach(el=>body[el.dataset.field]=el.value);
+  body.servicos_solicitados=servicosSelecionadosAdmin(card);
+  body.tipo_servico=window.AUDESC_CONFIG?.servicos.getPrincipalLegado(body.servicos_solicitados) || body.servicos_solicitados[0];
 
   if(body.data_evento){
     // datetime-local representa a hora civil do local do evento.
-    // Não converter com o fuso do navegador; o backend fará isso usando o país/unidade selecionados.
+    // O backend converte para UTC usando pais_codigo/unidade_codigo/timezone.
     body.data_evento = String(body.data_evento).trim();
   } else if(Object.prototype.hasOwnProperty.call(body, 'data_evento')) {
     body.data_evento = null;
@@ -372,9 +812,58 @@ async function saveEvent(id,card){
   if(body.max_ouvintes !== undefined && body.max_ouvintes !== ''){
     body.max_ouvintes = Number(body.max_ouvintes);
   }
+  if(body.max_ouvintes_extra !== undefined && body.max_ouvintes_extra !== ''){
+    body.max_ouvintes_extra = Math.max(0, Number(body.max_ouvintes_extra || 0));
+  } else if(body.max_ouvintes_extra !== undefined) {
+    body.max_ouvintes_extra = 0;
+  }
+  if(body.margem_transmissao_minutos !== undefined && body.margem_transmissao_minutos !== ''){
+    body.margem_transmissao_minutos = Math.max(0, Math.min(180, Number(body.margem_transmissao_minutos || 15)));
+  } else if(body.margem_transmissao_minutos !== undefined) {
+    body.margem_transmissao_minutos = 15;
+  }
+  if(body.exigir_gps_ouvintes !== undefined){
+    body.exigir_gps_ouvintes = String(body.exigir_gps_ouvintes) === 'true';
+  }
+  if(body.gps_raio_metros !== undefined && body.gps_raio_metros !== ''){
+    body.gps_raio_metros = Math.max(10, Math.min(5000, Number(body.gps_raio_metros || 200)));
+  } else if(body.gps_raio_metros !== undefined) {
+    body.gps_raio_metros = 200;
+  }
+  if(body.gps_precisao_max_metros !== undefined && body.gps_precisao_max_metros !== ''){
+    body.gps_precisao_max_metros = Math.max(10, Math.min(5000, Number(body.gps_precisao_max_metros || 500)));
+  } else if(body.gps_precisao_max_metros !== undefined) {
+    body.gps_precisao_max_metros = 500;
+  }
+
+  const ctxLocalizacao=contextoBuscaEnderecoAdmin(card);
+  body.pais_codigo=ctxLocalizacao.paisCodigo || '';
+  body.unidade_codigo=ctxLocalizacao.unidadeCodigo || '';
+  body.cidade=body.cidade || '';
 
   if(body.pais === 'Outros') body.uf = '';
-  await quickUpdate(id,body,card);
+  if(body.pais === 'Internacional') body.uf = '';
+  if(body.pais !== 'Internacional') body.origem_transmissao = '';
+  (window.AUDESC_CONFIG?.catalogo.getCamposParaRegrasPorServico()||[]).filter(campo=>['tipo_evento','divulgar_acesso_ouvintes','duracao_horas','max_ouvintes'].includes(campo)).forEach(campo=>{
+    const regra = regraCampoAdmin(card, campo);
+    if(!regra) return;
+    if(regra.comportamento === 'fixo') body[campo] = regra.valor ?? '';
+    if(regra.comportamento === 'oculto_sem_valor') delete body[campo];
+  });
+  body.categoria_evento=card.querySelector('[data-field="categoria_evento"]')?.value||null;
+  body.classificacao_etaria=card.querySelector('[data-field="classificacao_etaria"]')?.value||null;
+  body.modalidade_evento=card.querySelector('[data-field="modalidade_evento"]')?.value||'presencial';
+  body.abrangencia_divulgacao=card.querySelector('[data-field="abrangencia_divulgacao"]')?.value||null;
+  body.paises_divulgacao=[...card.querySelectorAll('[data-field="pais_divulgacao"]:checked')].map(i=>i.value);
+  const regrasEstruturais=window.AUDESC_CONFIG?.servicos.getRegras(body.servicos_solicitados) || {};
+  if(!regrasEstruturais.visibilidadeEditavel) body.tipo_evento=regrasEstruturais.visibilidadeFixa || 'publico';
+  if(!regrasEstruturais.usaDuracao) delete body.duracao_horas;
+  if(!regrasEstruturais.usaOuvintes){ delete body.max_ouvintes; delete body.max_ouvintes_extra; }
+  try{
+    await quickUpdate(id,body,card);
+  }finally{
+    setBotaoOcupado(botaoOrigem,false);
+  }
 }
 async function quickUpdate(id,body,card,reload=true){
   const st=card.querySelector('.eventStatus');
@@ -396,6 +885,79 @@ async function liberate(id,card){
   }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
 }
 
+async function regerarOrdem(id,card){
+  const st=card.querySelector('.eventStatus');
+  st.textContent='Gerando ou sincronizando ordem de transmissão...'; st.className='status eventStatus';
+  try{
+    const data=await api('/admin/eventos/'+id+'/regerar-ordem',{method:'POST'});
+    const msg = data.mensagem || 'Ordem processada.';
+    st.textContent = msg + (data.senha_transmissor ? (' Senha: '+data.senha_transmissor+' | Sala: '+data.sala_codigo) : '');
+    st.className='status eventStatus success';
+    await loadEvents();
+  }catch(e){st.textContent='Erro: '+e.message; st.className='status eventStatus error'}
+}
+
+async function sincronizarPlanilha(id,card){
+  const st=card.querySelector('.eventStatus');
+  st.textContent='Sincronizando ordem com a planilha Google...'; st.className='status eventStatus';
+  try{
+    const data=await api('/admin/eventos/'+id+'/sincronizar-planilha',{method:'POST'});
+    st.textContent = (data.mensagem || 'Ordem sincronizada com a planilha Google.') + (data.sala_codigo ? (' Sala: '+data.sala_codigo) : '');
+    st.className='status eventStatus success';
+    await loadEvents();
+  }catch(e){
+    st.textContent='Erro na sincronização com Google Sheets: '+e.message;
+    st.className='status eventStatus error';
+  }
+}
+
+function resumoDiagnosticoPlanilha(data){
+  const linhas=[];
+  linhas.push(data.ok ? 'Google Sheets: conexão funcionando.' : 'Google Sheets: conexão com problema.');
+  if(data.configuracao){
+    if(data.configuracao.faltantes && data.configuracao.faltantes.length) linhas.push('Variáveis faltantes: '+data.configuracao.faltantes.join(', ')+'.');
+    linhas.push('Chave privada com formato aparente válido: '+(data.configuracao.private_key_formato_aparente ? 'sim' : 'não')+'.');
+    if(data.configuracao.sheet_name) linhas.push('Aba configurada: '+data.configuracao.sheet_name+'.');
+  }
+  if(data.autenticacao) linhas.push('Autenticação: '+(data.autenticacao.ok ? 'ok' : (data.autenticacao.erro || 'falhou'))+'.');
+  if(data.planilha) linhas.push('Planilha: '+(data.planilha.ok ? ('ok'+(data.planilha.titulo ? ' ('+data.planilha.titulo+')' : '')) : (data.planilha.erro || 'falhou'))+'.');
+  if(data.leitura) linhas.push('Leitura da aba: '+(data.leitura.ok ? 'ok' : (data.leitura.erro || 'falhou'))+'.');
+  if(data.erro) linhas.push('Erro: '+data.erro);
+  return linhas.join(' ');
+}
+
+async function reenviarEmailInstrucoes(id, card){
+  const st=card.querySelector('.eventStatus');
+  st.textContent='Reenviando e-mail de instruções...'; st.className='status eventStatus';
+  try{
+    const data=await api('/admin/eventos/'+id+'/reenviar-email',{method:'POST'});
+    if(data.email_resultado && data.email_resultado.ok){
+      st.textContent='E-mail de instruções reenviado com sucesso.';
+      st.className='status eventStatus success';
+    }else{
+      st.textContent='A tentativa de reenvio foi concluída, mas o e-mail não foi confirmado como enviado.';
+      st.className='status eventStatus error';
+    }
+    await loadEvents();
+  }catch(e){
+    st.textContent='Erro ao reenviar e-mail: '+e.message;
+    st.className='status eventStatus error';
+  }
+}
+
+async function diagnosticarPlanilha(card){
+  const st=card.querySelector('.eventStatus');
+  st.textContent='Testando conexão com Google Sheets...'; st.className='status eventStatus';
+  try{
+    const data=await api('/admin/google-sheets/diagnostico');
+    st.textContent=resumoDiagnosticoPlanilha(data);
+    st.className='status eventStatus success';
+  }catch(e){
+    st.textContent='Diagnóstico Google Sheets: '+e.message;
+    st.className='status eventStatus error';
+  }
+}
+
 async function deleteEvent(id,card){
   const confirmed = confirm('Tem certeza de que deseja excluir definitivamente este evento? Esta ação não poderá ser desfeita.');
   if(!confirmed) return;
@@ -415,15 +977,38 @@ async function deleteEvent(id,card){
   }
 }
 
-document.getElementById('loginBtn').onclick=()=>{
+document.getElementById('loginBtn').onclick=async()=>{
+  const botao=document.getElementById('loginBtn');
   ADMIN_TOKEN=document.getElementById('adminToken').value.trim();
-  if(!ADMIN_TOKEN){status('loginStatus','Informe a senha.','error');return}
-  document.getElementById('loginPanel').style.display='none';
-  document.getElementById('eventsPanel').style.display='block';
-  loadEvents();
+  if(!ADMIN_TOKEN){
+    status('loginStatus','Informe a senha.','error');
+    document.getElementById('adminToken').focus();
+    return;
+  }
+  setBotaoOcupado(botao,true,'Entrando...');
+  status('loginStatus','Entrando. Validando credenciais e carregando configurações...','');
+  try{
+    await carregarConfigFormularioAdmin();
+    const data=await api('/admin/eventos');
+    allEvents=data.eventos||[];
+    document.getElementById('loginPanel').style.display='none';
+    document.getElementById('eventsPanel').style.display='block';
+    renderEventSections();
+    status('status','Configurações e eventos carregados com sucesso.','success');
+    document.getElementById('searchInput')?.focus();
+  }catch(e){
+    status('loginStatus','Não foi possível entrar: '+e.message,'error');
+    document.getElementById('adminToken').focus();
+  }finally{
+    setBotaoOcupado(botao,false);
+  }
 };
-document.getElementById('refreshBtn').onclick=loadEvents;
-document.getElementById('searchInput').addEventListener('input', renderEventSections);
+document.getElementById('refreshBtn').onclick=(e)=>loadEvents(e.currentTarget);
+let timerBuscaAdmin=null;
+document.getElementById('searchInput').addEventListener('input',()=>{
+  clearTimeout(timerBuscaAdmin);
+  timerBuscaAdmin=setTimeout(renderEventSections,180);
+});
 document.getElementById('filterSelect').addEventListener('change', renderEventSections);
 </script>
 </body>
