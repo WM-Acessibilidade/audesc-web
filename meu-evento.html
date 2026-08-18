@@ -41,6 +41,7 @@ let formularioAlterado=false;
 const CAMPOS_CONFIGURAVEIS=window.AUDESC_CONFIG?.catalogo.getCodigosConfiguraveis()||['descricao_original','tipo_evento','divulgar_acesso_ouvintes','data_evento','duracao_horas','max_ouvintes','local_evento','latitude','longitude','site_oficial','link_ingressos','link_inscricao','link_programacao','link_acessibilidade'];
 const CAMPOS_EM_BOX=Object.fromEntries(CAMPOS_CONFIGURAVEIS.map(id=>[id,window.AUDESC_CONFIG?.catalogo.getBoxId(id)||id+'Box']));
 function t(v){return v||'—'}
+function dataHoraLocalEvento(v,tz){if(!v)return '';try{const p=new Intl.DateTimeFormat('sv-SE',{timeZone:tz||undefined,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date(v));const o=Object.fromEntries(p.filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));return `${o.year}-${o.month}-${o.day}T${o.hour}:${o.minute}`}catch{return String(v).slice(0,16)}}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 function attr(s){return esc(s).replace(/"/g,'&quot;')}
 function setMsg(m,c){const e=document.getElementById('status');e.textContent=m;e.className='msg'+(c?' '+c:'')}

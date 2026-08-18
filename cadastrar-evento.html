@@ -515,19 +515,17 @@ document.getElementById('buscarCoordenadasEndereco')?.addEventListener('click',a
 
 
 const AUDESC_TIMEZONES_FRONTEND = {
-  "Brasil": {"default":"America/Sao_Paulo","DF":"America/Sao_Paulo","SP":"America/Sao_Paulo","RJ":"America/Sao_Paulo","MG":"America/Sao_Paulo","ES":"America/Sao_Paulo","PR":"America/Sao_Paulo","SC":"America/Sao_Paulo","RS":"America/Sao_Paulo","GO":"America/Sao_Paulo","BA":"America/Bahia","SE":"America/Maceio","AL":"America/Maceio","PE":"America/Recife","PB":"America/Fortaleza","RN":"America/Fortaleza","CE":"America/Fortaleza","PI":"America/Fortaleza","MA":"America/Fortaleza","PA":"America/Belem","AP":"America/Belem","TO":"America/Araguaina","MT":"America/Cuiaba","MS":"America/Campo_Grande","RO":"America/Porto_Velho","RR":"America/Boa_Vista","AM":"America/Manaus","AC":"America/Rio_Branco"},
-  "Portugal": {"default":"Europe/Lisbon","LIS":"Europe/Lisbon"},
-  "Angola": {"default":"Africa/Luanda"},
-  "Moçambique": {"default":"Africa/Maputo"},
-  "Cabo Verde": {"default":"Atlantic/Cape_Verde"},
-  "Guiné-Bissau": {"default":"Africa/Bissau"},
-  "São Tomé e Príncipe": {"default":"Africa/Sao_Tome"},
-  "Timor-Leste": {"default":"Asia/Dili"}
+ BR:{default:'America/Sao_Paulo',AC:'America/Rio_Branco',AM:'America/Manaus',RO:'America/Porto_Velho',RR:'America/Boa_Vista',MT:'America/Cuiaba',MS:'America/Campo_Grande',BA:'America/Bahia',SE:'America/Maceio',AL:'America/Maceio',PE:'America/Recife',PB:'America/Fortaleza',RN:'America/Fortaleza',CE:'America/Fortaleza',PI:'America/Fortaleza',MA:'America/Fortaleza',PA:'America/Belem',AP:'America/Belem',TO:'America/Araguaina'},
+ PT:{default:'Europe/Lisbon',ACO:'Atlantic/Azores',MAD:'Europe/Lisbon'},AO:{default:'Africa/Luanda'},MZ:{default:'Africa/Maputo'},CV:{default:'Atlantic/Cape_Verde'},GW:{default:'Africa/Bissau'},GQ:{default:'Africa/Malabo'},ST:{default:'Africa/Sao_Tome'},TL:{default:'Asia/Dili'},
+ US:{default:'America/New_York','US-AK':'America/Anchorage','US-AZ':'America/Phoenix','US-CA':'America/Los_Angeles','US-CO':'America/Denver','US-DC':'America/New_York','US-HI':'Pacific/Honolulu','US-IL':'America/Chicago','US-NY':'America/New_York','US-TX':'America/Chicago','US-WA':'America/Los_Angeles'},
+ CA:{default:'America/Toronto','CA-AB':'America/Edmonton','CA-BC':'America/Vancouver','CA-MB':'America/Winnipeg','CA-NL':'America/St_Johns','CA-NS':'America/Halifax','CA-ON':'America/Toronto','CA-QC':'America/Toronto','CA-SK':'America/Regina','CA-YT':'America/Whitehorse'},
+ ES:{default:'Europe/Madrid','ES-CN':'Atlantic/Canary'},FR:{default:'Europe/Paris'},DE:{default:'Europe/Berlin'},GB:{default:'Europe/London'},IT:{default:'Europe/Rome'},NL:{default:'Europe/Amsterdam'},IE:{default:'Europe/Dublin'},CH:{default:'Europe/Zurich'},
+ AU:{default:'Australia/Sydney','AU-NT':'Australia/Darwin','AU-QLD':'Australia/Brisbane','AU-SA':'Australia/Adelaide','AU-TAS':'Australia/Hobart','AU-VIC':'Australia/Melbourne','AU-WA':'Australia/Perth'},NZ:{default:'Pacific/Auckland'},MX:{default:'America/Mexico_City'},AR:{default:'America/Argentina/Buenos_Aires'},CL:{default:'America/Santiago'},CO:{default:'America/Bogota'},JP:{default:'Asia/Tokyo'},KR:{default:'Asia/Seoul'},AE:{default:'Asia/Dubai'}
 };
 function timezonePorLocalFrontend(pais, unidade, origem){
-  const chave = pais;
-  const mapa = AUDESC_TIMEZONES_FRONTEND[chave] || {};
-  return mapa[unidade] || mapa.default || 'America/Sao_Paulo';
+ const codigo=window.AUDESC_CONFIG?.localizacao.getCodigoPais(pais)||'';
+ const mapa=AUDESC_TIMEZONES_FRONTEND[codigo]||{};
+ return mapa[unidade]||mapa.default||'America/Sao_Paulo';
 }
 
 const modalidadeSelect=document.getElementById('modalidade_evento');

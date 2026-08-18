@@ -46,7 +46,8 @@ function ajustarFiltroPorCodigo(paisCodigo,unidadeCodigo,unidadeNome){
 function ajustarFiltroPorLocalizacao(info){const a=info.address||{};return ajustarFiltroPorCodigo(a.country_code,a.state_code||a['ISO3166-2-lvl4'],a.state);}
 
 function esc(s){return String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
-function fmt(v){return v?new Date(v).toLocaleString('pt-BR'):''}
+function fmt(v,e){if(!v)return '';try{return new Date(v).toLocaleString('pt-BR',{timeZone:e?.timezone||undefined})}catch{return new Date(v).toLocaleString('pt-BR')}}
+function indicacaoFuso(e){if(String(e?.abrangencia_divulgacao||'').toLowerCase()!=='internacional')return '';const pais=String(e?.pais||'').trim();const tz=String(e?.timezone||'').trim();return pais?`Horário local de ${pais}${tz?' ('+tz+')':''}`:(tz?`Fuso horário: ${tz}`:'Horário local do país do evento')}
 function isLive(e){if(!e.data_evento||!e.duracao_horas)return false;const st=new Date(e.data_evento).getTime(),end=st+Number(e.duracao_horas)*3600000,now=Date.now();return now>=st&&now<=end}
 function isPast(e){if(!e.data_evento||!e.duracao_horas)return false;return Date.now()>new Date(e.data_evento).getTime()+Number(e.duracao_horas)*3600000}
 function estadoAtual(){
@@ -77,7 +78,7 @@ function item(e){
  const li=document.createElement('li');
  li.id='evento-'+e.id;
  const title=e.titulo_publicado||e.titulo_original||'Evento sem título';
- const d=distanciaEvento(e); li.innerHTML=`<a id="link-evento-${e.id}" href="${detailUrl(e)}" onclick="salvarEstado()">${esc(title)}</a><br><span>${esc(fmt(e.data_evento))}</span> ${isLive(e)?'<span class="badge live-badge">AO VIVO</span>':''}${e.categoria_evento?'<br><span class="categoria-evento">'+esc(window.AUDESC_CATEGORIAS_EVENTO?.nome(e.categoria_evento)||e.categoria_evento)+'</span>':''}${e.local_evento?'<br><span>Local: '+esc(e.local_evento)+'</span>':''}${d!==null?'<br><span>Distância aproximada: '+d.toFixed(1).replace('.',',')+' km</span>':''}`;
+ const d=distanciaEvento(e); li.innerHTML=`<a id="link-evento-${e.id}" href="${detailUrl(e)}" onclick="salvarEstado()">${esc(title)}</a><br><span>${esc(fmt(e.data_evento,e))}</span>${indicacaoFuso(e)?'<br><span>'+esc(indicacaoFuso(e))+'</span>':''} ${isLive(e)?'<span class="badge live-badge">AO VIVO</span>':''}${e.categoria_evento?'<br><span class="categoria-evento">'+esc(window.AUDESC_CATEGORIAS_EVENTO?.nome(e.categoria_evento)||e.categoria_evento)+'</span>':''}${e.local_evento?'<br><span>Local: '+esc(e.local_evento)+'</span>':''}${d!==null?'<br><span>Distância aproximada: '+d.toFixed(1).replace('.',',')+' km</span>':''}`;
  return li;
 }
 function codigoPaisPorNome(nome){return String(window.AUDESC_LOCAIS?.obterCodigoPais?.(nome)||window.AUDESC_LOCAIS?.paises?.find(p=>p.nome===nome)?.codigo||'').toUpperCase();}
