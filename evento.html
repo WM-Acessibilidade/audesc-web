@@ -16,12 +16,12 @@ function configurarVoltar(){
  const id=params.get('id')||'';
  const retorno=params.get('retorno')||id;
  const voltar=new URLSearchParams();
- ['pais','uf','busca'].forEach(k=>{const v=params.get(k);if(v)voltar.set(k,v)});
+ ['pais','uf','busca','categorias'].forEach(k=>{const v=params.get(k);if(v)voltar.set(k,v)});
  if(retorno)voltar.set('retorno',retorno);
  if(retorno)sessionStorage.setItem('audesc_ultimo_evento',retorno);
  const href='eventos.html'+(voltar.toString()?'?'+voltar.toString():'');
  const link=document.getElementById('voltarEventos');
- if(link)link.href=href;
+ if(link){link.href=href;link.addEventListener('click',()=>{if(retorno)sessionStorage.setItem('audesc_ultimo_evento',retorno);});}
 }
 function wa(t,u){window.open('https://api.whatsapp.com/send?text='+encodeURIComponent(t+' '+u),'_blank')}function fb(u){window.open('https://www.facebook.com/sharer/sharer.php?u='+encodeURIComponent(u),'_blank')}function tw(t,u){window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(t)+'&url='+encodeURIComponent(u),'_blank')}function li(u){window.open('https://www.linkedin.com/sharing/share-offsite/?url='+encodeURIComponent(u),'_blank')}async function copy(u){try{await navigator.clipboard.writeText(u);alert('Link copiado.')}catch(e){prompt('Copie o link:',u)}}
 function mapaUrl(e){const lat=Number(e.latitude),lon=Number(e.longitude);if(Number.isFinite(lat)&&Number.isFinite(lon))return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(lat+','+lon);if(e.local_evento)return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(e.local_evento);return ''}

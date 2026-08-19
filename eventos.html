@@ -24,7 +24,7 @@
 <script src="data/paises-disponiveis.js"></script>
 <script src="data/categorias-eventos.js"></script>
 <script>
-const API_URL='https://audesc-events-api.onrender.com';let eventos=[];let usuarioCoords=null;let formularioConfig=null;let categoriasIniciais=[];
+const API_URL='https://audesc-events-api.onrender.com';let eventos=[];let usuarioCoords=null;let formularioConfig=null;let categoriasIniciais=[];let paisesDisponiveisCentrais=[];
 const unidadesAdministrativas=window.AUDESC_UNIDADES_ADMINISTRATIVAS||{};
 window.AUDESC_LOCAIS?.preencherSelectPaises(document.getElementById('paisFiltro'), document.getElementById('paisFiltro')?.value || 'Brasil', {incluirEspeciais:true});
 function criarOpcao(valor,texto){const opt=document.createElement('option');opt.value=valor;opt.textContent=texto||valor;return opt}
@@ -81,11 +81,33 @@ function item(e){
  const d=distanciaEvento(e); li.innerHTML=`<a id="link-evento-${e.id}" href="${detailUrl(e)}" onclick="salvarEstado()">${esc(title)}</a><br><span>${esc(fmt(e.data_evento,e))}</span>${indicacaoFuso(e)?'<br><span>'+esc(indicacaoFuso(e))+'</span>':''} ${isLive(e)?'<span class="badge live-badge">AO VIVO</span>':''}${e.categoria_evento?'<br><span class="categoria-evento">'+esc(window.AUDESC_CATEGORIAS_EVENTO?.nome(e.categoria_evento)||e.categoria_evento)+'</span>':''}${e.local_evento?'<br><span>Local: '+esc(e.local_evento)+'</span>':''}${d!==null?'<br><span>Distância aproximada: '+d.toFixed(1).replace('.',',')+' km</span>':''}`;
  return li;
 }
-function codigoPaisPorNome(nome){return String(window.AUDESC_LOCAIS?.obterCodigoPais?.(nome)||window.AUDESC_LOCAIS?.paises?.find(p=>p.nome===nome)?.codigo||'').toUpperCase();}
+function codigoPaisPorNome(nome){
+ const alvo=normalizarLocalEventos(nome);
+ const central=paisesDisponiveisCentrais.find(p=>normalizarLocalEventos(p.nome)===alvo);
+ return String(central?.codigo_iso||central?.codigo||window.AUDESC_LOCAIS?.obterCodigoPais?.(nome)||window.AUDESC_LOCAIS?.paises?.find(p=>normalizarLocalEventos(p.nome)===alvo)?.codigo||'').toUpperCase();
+}
+function paisPadraoHabilitado(nome,codigo){
+ const n=normalizarLocalEventos(nome),c=String(codigo||'').toUpperCase();
+ return paisesDisponiveisCentrais.some(p=>(c&&String(p.codigo_iso||p.codigo||'').toUpperCase()===c)||normalizarLocalEventos(p.nome)===n);
+}
+function aplicarPaisesCentraisNoFiltro(valorAtual){
+ const select=document.getElementById('paisFiltro');if(!select)return;
+ const atual=valorAtual||select.value||'Brasil';
+ const nomes=paisesDisponiveisCentrais.filter(p=>p.habilitado!==false).map(p=>p.nome).filter(Boolean);
+ if(!nomes.length)return;
+ select.innerHTML='';
+ nomes.forEach(nome=>select.appendChild(criarOpcao(nome,nome)));
+ select.appendChild(criarOpcao('Outros','Outros'));
+ if([...select.options].some(o=>o.value===atual))select.value=atual;
+ else if([...select.options].some(o=>o.value==='Brasil'))select.value='Brasil';
+}
 function paisEquivalente(valor,nome,codigo){const v=String(valor||'').trim(),n=String(nome||'').trim(),c=String(codigo||'').trim().toUpperCase();if(!v)return false;if(v.toUpperCase()===c||v===n)return true;return codigoPaisPorNome(v)===c;}
 function eventoDisponivelNoLocal(e,paisSelecionado,unidadeSelecionada){
- const codigoPaisSelecionado=codigoPaisPorNome(paisSelecionado);
  const codigoPaisEvento=String(e.pais_codigo||codigoPaisPorNome(e.pais)).toUpperCase();
+ if(paisSelecionado==='Outros'){
+  return !paisPadraoHabilitado(e.pais,codigoPaisEvento);
+ }
+ const codigoPaisSelecionado=codigoPaisPorNome(paisSelecionado);
  const abrangencia=String(e.abrangencia_divulgacao||'').toLowerCase();
  if(abrangencia==='internacional'){
   const destinos=Array.isArray(e.paises_divulgacao)?e.paises_divulgacao:[];
@@ -97,17 +119,33 @@ function eventoDisponivelNoLocal(e,paisSelecionado,unidadeSelecionada){
  const unidadeEvento=String(e.unidade_codigo||e.uf||'').toUpperCase();
  return unidadeEvento===String(unidadeSelecionada).toUpperCase();
 }
-function filtered(){const q=document.getElementById('busca').value.toLowerCase().trim(),p=document.getElementById('paisFiltro').value,uf=document.getElementById('ufFiltro').value,cats=new Set([...document.querySelectorAll('input[name="categoria_filtro"]:checked')].map(i=>i.value));let lista=eventos.filter(e=>{const h=[e.titulo_publicado,e.titulo_original,e.descricao_publicada,e.descricao_original,e.pais,e.uf,e.local_evento].join(' ').toLowerCase();return(!q||h.includes(q))&&eventoDisponivelNoLocal(e,p,uf)&&(!cats.size||cats.has(e.categoria_evento))});if(usuarioCoords){lista=lista.slice().sort((a,b)=>(distanciaEvento(a)??999999)-(distanciaEvento(b)??999999));}return lista}
-function render(){const fs=filtered(),live=fs.filter(isLive).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0)),prox=fs.filter(e=>!isLive(e)&&!isPast(e)).sort((a,b)=>new Date(a.data_evento||'2999-01-01')-new Date(b.data_evento||'2999-01-01')),ant=fs.filter(isPast).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0));document.getElementById('summary').textContent=`Total de eventos: ${fs.length}. Futuros: ${prox.length}. Ao vivo: ${live.length}.`;[['listaLive',live],['listaProximos',prox],['listaAnteriores',ant]].forEach(([id,arr])=>{const el=document.getElementById(id);el.innerHTML='';if(!arr.length){el.innerHTML='<li>Nenhum evento nesta seção.</li>';return}arr.forEach(e=>el.appendChild(item(e)))})}
+function filtered(){
+ const digitado=document.getElementById('busca').value.toLowerCase().trim();
+ const q=digitado.length>=3?digitado:'';
+ const p=document.getElementById('paisFiltro').value,uf=document.getElementById('ufFiltro').value,cats=new Set([...document.querySelectorAll('input[name="categoria_filtro"]:checked')].map(i=>i.value));
+ let lista=eventos.filter(e=>{const h=[e.titulo_publicado,e.titulo_original,e.descricao_publicada,e.descricao_original,e.pais,e.uf,e.local_evento].join(' ').toLowerCase();return(!q||h.includes(q))&&eventoDisponivelNoLocal(e,p,uf)&&(!cats.size||cats.has(e.categoria_evento))});
+ if(usuarioCoords){lista=lista.slice().sort((a,b)=>(distanciaEvento(a)??999999)-(distanciaEvento(b)??999999));}
+ return lista;
+}
+function render(){const fs=filtered(),live=fs.filter(isLive).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0)),prox=fs.filter(e=>!isLive(e)&&!isPast(e)).sort((a,b)=>new Date(a.data_evento||'2999-01-01')-new Date(b.data_evento||'2999-01-01')),ant=fs.filter(isPast).sort((a,b)=>new Date(b.data_evento||0)-new Date(a.data_evento||0));const b=document.getElementById('busca').value.trim();document.getElementById('summary').textContent=(b.length>0&&b.length<3?'Digite pelo menos 3 caracteres para iniciar a busca. ':'')+`Total de eventos: ${fs.length}. Futuros: ${prox.length}. Ao vivo: ${live.length}.`;[['listaLive',live],['listaProximos',prox],['listaAnteriores',ant]].forEach(([id,arr])=>{const el=document.getElementById(id);el.innerHTML='';if(!arr.length){el.innerHTML='<li>Nenhum evento nesta seção.</li>';return}arr.forEach(e=>el.appendChild(item(e)))})}
 function codigoPaisFiltro(){return window.AUDESC_LOCAIS?.obterCodigoPais?.(paisFiltro.value)||window.AUDESC_LOCAIS?.paises?.find(p=>p.nome===paisFiltro.value)?.codigo||'';}
 function categoriaAtivaNoLocal(){const padrao=formularioConfig?.padrao?.campos?.categoria_evento||{visivel:true};const pc=String(codigoPaisFiltro()||'').toUpperCase(),uc=String(ufFiltro.value||'').toUpperCase();const regra=(formularioConfig?.regras||[]).find(r=>String(r.pais_codigo||'').toUpperCase()===pc&&String(r.unidade_codigo||'').toUpperCase()===uc);return (regra?.campos?.categoria_evento||padrao).visivel!==false;}
 function atualizarRotuloCategorias(){const quantidade=document.querySelectorAll('input[name="categoria_filtro"]:checked').length;const botao=document.getElementById('alternarCategorias');if(botao)botao.textContent=quantidade?`Categorias (${quantidade})`:'Categorias';}
 function renderCategoriasFiltro(selecionadas=[]){categoriasIniciais=[...selecionadas];const box=document.getElementById('categoriasFiltroBox'),alvo=document.getElementById('categoriasFiltro');const ativa=categoriaAtivaNoLocal();box.hidden=!ativa;if(!ativa){alvo.innerHTML='';atualizarRotuloCategorias();return;}alvo.innerHTML=window.AUDESC_CATEGORIAS_EVENTO?.checks('categoria_filtro',selecionadas)||'';alvo.querySelectorAll('input').forEach(i=>i.addEventListener('change',()=>{atualizarRotuloCategorias();salvarEstado();atualizarUrlFiltros();render();}));atualizarRotuloCategorias();}
 function atualizarUrlFiltros(){const e=estadoAtual(),p=new URLSearchParams(location.search);['pais','uf','busca','categorias'].forEach(k=>p.delete(k));if(e.pais)p.set('pais',e.pais);if(e.uf)p.set('uf',e.uf);if(e.busca)p.set('busca',e.busca);if(e.categorias.length)p.set('categorias',e.categorias.join(','));history.replaceState(null,'',location.pathname+(p.toString()?'?'+p.toString():''));}
-async function load(){try{const [re,rc]=await Promise.all([fetch(API_URL+'/public/eventos'),fetch(API_URL+'/formulario-config')]);const j=await re.json(),cj=await rc.json().catch(()=>({}));if(!re.ok)throw new Error(j.error);eventos=j.eventos||[];formularioConfig=cj.config||null;let estadoSalvo={};try{estadoSalvo=JSON.parse(localStorage.getItem('audesc_eventos_estado')||'{}')}catch(e){}renderCategoriasFiltro(estadoSalvo.categorias||[]);render()}catch(e){document.getElementById('summary').textContent='Erro: '+e.message}}
+async function load(){try{
+ const [re,rc,rp]=await Promise.all([fetch(API_URL+'/public/eventos'),fetch(API_URL+'/formulario-config'),fetch(API_URL+'/paises-disponiveis')]);
+ const j=await re.json(),cj=await rc.json().catch(()=>({})),pj=await rp.json().catch(()=>({}));
+ if(!re.ok)throw new Error(j.error);
+ eventos=j.eventos||[];formularioConfig=cj.config||null;paisesDisponiveisCentrais=Array.isArray(pj.paises)?pj.paises.filter(p=>p.habilitado!==false):[];
+ const paisAtual=document.getElementById('paisFiltro').value;
+ aplicarPaisesCentraisNoFiltro(paisAtual);
+ let estadoSalvo={};try{estadoSalvo=JSON.parse(localStorage.getItem('audesc_eventos_estado')||'{}')}catch(e){}
+ renderCategoriasFiltro(estadoSalvo.categorias||[]);render()
+}catch(e){document.getElementById('summary').textContent='Erro: '+e.message}}
 /*const r=await fetch(API_URL+'/public/eventos'),j=await r.json();if(!r.ok)throw new Error(j.error);eventos=j.eventos||[];render()}catch(e){document.getElementById('summary').textContent='Erro: '+e.message}}
 */
-document.getElementById('busca').addEventListener('input',()=>{salvarEstado();render()});
+document.getElementById('busca').addEventListener('input',()=>{salvarEstado();atualizarUrlFiltros();render()});
 const paisFiltro=document.getElementById('paisFiltro'),ufFiltro=document.getElementById('ufFiltro'),ufFiltroLabel=document.getElementById('ufFiltroLabel');
 const CHAVE_LOCALIZACAO_PREFERIDA='audesc_localizacao_preferida';
 function lerLocalizacaoPreferidaEventos(){try{return JSON.parse(localStorage.getItem(CHAVE_LOCALIZACAO_PREFERIDA)||'null')}catch(e){return null}}

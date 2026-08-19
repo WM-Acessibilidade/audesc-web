@@ -194,6 +194,19 @@ document.getElementById('sendLinkBtn').onclick=async()=>{
 };
 
 const paisSelect=document.getElementById('pais'),ufSelect=document.getElementById('uf'),paisOutroBox=document.getElementById('paisOutroBox'),paisOutroInput=document.getElementById('pais_outro');
+let PAISES_CENTRAIS_CADASTRO=[];
+async function carregarPaisesCentraisCadastro(){
+ try{
+  const r=await fetch(API_URL+'/paises-disponiveis');const j=await r.json().catch(()=>({}));
+  if(!r.ok||!Array.isArray(j.paises))return;
+  PAISES_CENTRAIS_CADASTRO=j.paises.filter(p=>p.habilitado!==false);
+  const atual=paisSelect.value||'Brasil';
+  paisSelect.innerHTML='';
+  PAISES_CENTRAIS_CADASTRO.forEach(p=>paisSelect.appendChild(criarOpcao(p.nome,p.nome)));
+  paisSelect.appendChild(criarOpcao('Outros','Outros'));
+  paisSelect.value=[...paisSelect.options].some(o=>o.value===atual)?atual:'Brasil';
+ }catch(e){console.warn('Não foi possível carregar países disponíveis.',e)}
+}
 const unidadesAdministrativas = window.AUDESC_UNIDADES_ADMINISTRATIVAS || {};
 window.AUDESC_CONFIG?.localizacao.preencherPaises(paisSelect, paisSelect?.value || 'Brasil', {incluirEspeciais:true});
 
@@ -226,14 +239,17 @@ function atualizarLocalizacao(){
   ufSelect.disabled=true;
  }
 
- if(paisOutroBox) paisOutroBox.classList.add('hidden');
- if(paisOutroInput){ paisOutroInput.required=false; paisOutroInput.value=''; }
+ const outro=pais==='Outros';
+ if(paisOutroBox) paisOutroBox.classList.toggle('hidden',!outro);
+ if(paisOutroInput){paisOutroInput.required=outro;if(!outro)paisOutroInput.value='';}
+ if(outro){ufSelect.value='';ufSelect.disabled=true;}
  atualizarOpcoesServico();
  aplicarCamposFormulario();
  ajustarVisibilidade();
  aplicarLimitesTextoFormulario();
 }
 paisSelect.addEventListener('change',atualizarLocalizacao);
+carregarPaisesCentraisCadastro().then(()=>atualizarLocalizacao());
 
 
 function setLocalizacaoStatus(msg, cls){const el=document.getElementById('localizacaoStatus'); if(!el)return; el.textContent=msg; el.className='status'+(cls?' '+cls:'');}
@@ -514,19 +530,6 @@ document.getElementById('buscarCoordenadasEndereco')?.addEventListener('click',a
 
 
 
-const AUDESC_TIMEZONES_FRONTEND = {
- BR:{default:'America/Sao_Paulo',AC:'America/Rio_Branco',AM:'America/Manaus',RO:'America/Porto_Velho',RR:'America/Boa_Vista',MT:'America/Cuiaba',MS:'America/Campo_Grande',BA:'America/Bahia',SE:'America/Maceio',AL:'America/Maceio',PE:'America/Recife',PB:'America/Fortaleza',RN:'America/Fortaleza',CE:'America/Fortaleza',PI:'America/Fortaleza',MA:'America/Fortaleza',PA:'America/Belem',AP:'America/Belem',TO:'America/Araguaina'},
- PT:{default:'Europe/Lisbon',ACO:'Atlantic/Azores',MAD:'Europe/Lisbon'},AO:{default:'Africa/Luanda'},MZ:{default:'Africa/Maputo'},CV:{default:'Atlantic/Cape_Verde'},GW:{default:'Africa/Bissau'},GQ:{default:'Africa/Malabo'},ST:{default:'Africa/Sao_Tome'},TL:{default:'Asia/Dili'},
- US:{default:'America/New_York','US-AK':'America/Anchorage','US-AZ':'America/Phoenix','US-CA':'America/Los_Angeles','US-CO':'America/Denver','US-DC':'America/New_York','US-HI':'Pacific/Honolulu','US-IL':'America/Chicago','US-NY':'America/New_York','US-TX':'America/Chicago','US-WA':'America/Los_Angeles'},
- CA:{default:'America/Toronto','CA-AB':'America/Edmonton','CA-BC':'America/Vancouver','CA-MB':'America/Winnipeg','CA-NL':'America/St_Johns','CA-NS':'America/Halifax','CA-ON':'America/Toronto','CA-QC':'America/Toronto','CA-SK':'America/Regina','CA-YT':'America/Whitehorse'},
- ES:{default:'Europe/Madrid','ES-CN':'Atlantic/Canary'},FR:{default:'Europe/Paris'},DE:{default:'Europe/Berlin'},GB:{default:'Europe/London'},IT:{default:'Europe/Rome'},NL:{default:'Europe/Amsterdam'},IE:{default:'Europe/Dublin'},CH:{default:'Europe/Zurich'},
- AU:{default:'Australia/Sydney','AU-NT':'Australia/Darwin','AU-QLD':'Australia/Brisbane','AU-SA':'Australia/Adelaide','AU-TAS':'Australia/Hobart','AU-VIC':'Australia/Melbourne','AU-WA':'Australia/Perth'},NZ:{default:'Pacific/Auckland'},MX:{default:'America/Mexico_City'},AR:{default:'America/Argentina/Buenos_Aires'},CL:{default:'America/Santiago'},CO:{default:'America/Bogota'},JP:{default:'Asia/Tokyo'},KR:{default:'Asia/Seoul'},AE:{default:'Asia/Dubai'}
-};
-function timezonePorLocalFrontend(pais, unidade, origem){
- const codigo=window.AUDESC_CONFIG?.localizacao.getCodigoPais(pais)||'';
- const mapa=AUDESC_TIMEZONES_FRONTEND[codigo]||{};
- return mapa[unidade]||mapa.default||'America/Sao_Paulo';
-}
 
 const modalidadeSelect=document.getElementById('modalidade_evento');
 const abrangenciaSelect=document.getElementById('abrangencia_divulgacao');
@@ -566,7 +569,6 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  data.pais_codigo=ctxLocalizacao.paisCodigo || '';
  data.unidade_codigo=ctxLocalizacao.unidadeCodigo || '';
  data.cidade='';
- data.timezone = timezonePorLocalFrontend(data.pais, data.uf, '');
  if(data.pais!=='Outros'&&!data.uf){setStatus('status','Selecione a unidade administrativa.','error');btn.disabled=false;return}
  
  const perfilServicos=window.AUDESC_CONFIG?.servicos.getRegras(data.servicos_solicitados)||{};
