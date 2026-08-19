@@ -189,7 +189,10 @@ async function aplicarEstadoInicial(){
  const categorias=(params.get('categorias')||'').split(',').filter(Boolean);estado.categorias=categorias.length?categorias:(estado.categorias||[]);categoriasIniciais=[...estado.categorias];
  document.getElementById('busca').value=busca;salvarEstado();atualizarUrlFiltros();
 }
-function focarEventoRetorno(){
+let retornoFocoPendente=true;
+function focarEventoRetornoUmaVez(){
+ if(!retornoFocoPendente)return;
+ retornoFocoPendente=false;
  const params=new URLSearchParams(location.search);
  const retorno=params.get('retorno')||sessionStorage.getItem('audesc_ultimo_evento');
  if(!retorno)return;
@@ -197,11 +200,18 @@ function focarEventoRetorno(){
  if(link){
   link.focus();
   link.scrollIntoView({block:'center'});
-  sessionStorage.removeItem('audesc_ultimo_evento');
+ }
+ sessionStorage.removeItem('audesc_ultimo_evento');
+ if(params.has('retorno')){
+  params.delete('retorno');
+  history.replaceState(null,'',location.pathname+(params.toString()?'?'+params.toString():''));
  }
 }
 const renderOriginal=render;
-render=function(){renderOriginal();setTimeout(focarEventoRetorno,0)};
+render=function(){
+ renderOriginal();
+ if(retornoFocoPendente)setTimeout(focarEventoRetornoUmaVez,0);
+};
 
 aplicarEstadoInicial().then(load);
 </script>
