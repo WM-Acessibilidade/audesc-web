@@ -902,6 +902,10 @@
     return C.loadState('last-transmitter-room');
   }
 
+  function ehMonitorAdministrativo(identity) {
+    return String(identity || '').startsWith('audesc-admin-monitor-');
+  }
+
   function nomeVisivelOuvinte(identity) {
     const nome = String(receiverDisplayNames.get(identity) || '').trim();
     return nome || 'Ouvinte';
@@ -1043,7 +1047,9 @@
   function updateReceiverList() {
     if (!room) return;
     const list = [];
-    room.remoteParticipants.forEach(p => list.push(p.identity));
+    room.remoteParticipants.forEach(p => {
+      if (!ehMonitorAdministrativo(p.identity)) list.push(p.identity);
+    });
     receiverList = list.sort();
     if (!Array.isArray(selectedReceiver)) selectedReceiver = [];
     selectedReceiver = selectedReceiver.filter(identity => receiverList.includes(identity));
@@ -1186,9 +1192,11 @@
     if (room) { room.disconnect(); room = null; }
     room = C.criarRoom(LK);
     room.on('participantConnected', (participant) => {
+      const identity = participant && participant.identity;
       updateReceiverList();
+      if (ehMonitorAdministrativo(identity)) return;
       broadcastPayload({ type:'transmitter-info', transmitterName, eventName, roomCode, messagesBlocked });
-      verificarLimiteOuvintes(participant && participant.identity);
+      verificarLimiteOuvintes(identity);
     });
     room.on('participantDisconnected', (participant) => {
       if (participant && participant.identity) {
@@ -1207,8 +1215,9 @@
     });
     room.on('disconnected', () => { activeSession = false; pararMonitoramentoJanelaTransmissao(); updateReceiverList(); updateAudioDiagnostics('Sala desconectada.'); });
     room.on('dataReceived', (payload, participant) => {
-      const msg = C.decodePayload(payload); if (!msg) return;
       const fromIdentity = participant ? participant.identity : '';
+      if (ehMonitorAdministrativo(fromIdentity)) return;
+      const msg = C.decodePayload(payload); if (!msg) return;
       // receiver-hello informa o nome humano; a identidade técnica continua sendo usada
       // para seleção e mensagens direcionadas.
       if (msg.type === 'receiver-hello' && fromIdentity) {
