@@ -1,8 +1,8 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Monitoramento de salas — Audesc</title><style>
 body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5;margin:0;background:#f7f7f7;color:#111}header,main{max-width:1100px;margin:auto;padding:16px}.panel,.card{background:#fff;border:1px solid #ccc;border-radius:12px;padding:16px;margin:14px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}.summary{font-weight:700;font-size:1.05rem}button,select,input,textarea{font:inherit;padding:10px;border-radius:8px}button{border:0;background:#111;color:#fff;font-weight:700;margin:5px 8px 5px 0;cursor:pointer}.danger{background:#950000}.secondary{background:#555}.status{padding:10px;border:1px solid #aaa;border-radius:8px;background:#f3f3f3}.ok{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}.small{font-size:.95rem;color:#444}.badge{display:inline-block;border:1px solid #777;border-radius:999px;padding:2px 8px;margin-right:6px}audio{width:100%;margin-top:10px}@media(max-width:650px){button{display:block;width:100%;margin:8px 0}.grid{grid-template-columns:1fr}}
-</style></head><body><header><p><a href="admin.html">Voltar para o painel administrativo</a></p><h1>Monitoramento de salas</h1><p>Visão operacional das transmissões Audesc, incluindo eventos e demonstrações.</p></header><main>
+</style></head><body><header><p><a href="admin.html">Voltar para o painel principal</a></p><h1>Monitoramento de salas</h1><p>Visão operacional das transmissões Audesc, incluindo eventos e demonstrações.</p></header><main>
 <section class="panel" id="loginPanel"><h2>Acesso administrativo</h2><label for="adminToken">Senha administrativa</label><input id="adminToken" type="password"><button id="loginBtn" type="button">Entrar</button><div id="loginStatus" class="status" role="status" aria-live="polite">Informe a senha administrativa.</div></section>
-<section id="monitorPanel" hidden><div class="panel"><h2>Resumo</h2><div id="summary" class="summary">Aguardando atualização.</div><p><label for="tipoFiltro">Filtrar tipo de sala</label> <select id="tipoFiltro"><option value="todos">Todas</option><option value="evento">Eventos</option><option value="demonstracao">Demonstrações</option></select> <button id="refreshBtn" type="button">Atualizar agora</button></p><div id="status" class="status" role="status" aria-live="polite">Aguardando.</div></div><section class="panel" id="alertConfigPanel"><h2>Alertas de novas transmissões</h2><p>Escolha quais salas devem gerar aviso e por quais canais.</p><label><input id="alertAtivo" type="checkbox"> Ativar alertas automáticos</label><fieldset><legend>Tipos de sala</legend><label><input id="alertPublico" type="checkbox"> Eventos públicos</label><br><label><input id="alertRestrito" type="checkbox"> Eventos restritos</label><br><label><input id="alertDemo" type="checkbox"> Salas de demonstração</label></fieldset><fieldset><legend>Canais de alerta</legend><label><input id="alertSom" type="checkbox"> Aviso sonoro com esta página aberta</label><br><label><input id="alertNavegador" type="checkbox"> Notificação do navegador com esta página aberta ou em segundo plano</label><br><label><input id="alertEmail" type="checkbox"> E-mail automático</label></fieldset><label for="alertEmails">Destinatários de e-mail, um por linha ou separados por vírgula</label><textarea id="alertEmails" rows="4" style="width:100%;box-sizing:border-box" placeholder="contato@audesc.com"></textarea><p><button id="saveAlertBtn" type="button">Salvar configuração de alertas</button><button id="permissionBtn" class="secondary" type="button">Autorizar notificações do navegador</button><button id="testSoundBtn" class="secondary" type="button">Testar aviso sonoro</button></p><div id="alertStatus" class="status" role="status" aria-live="polite">Configuração ainda não carregada.</div></section><section class="panel"><h2>Consumo do LiveKit no mês</h2><div id="consumoLiveKit">Consultando disponibilidade dos dados oficiais do LiveKit.</div><p class="small">O saldo exato depende da Analytics API do LiveKit Cloud e da franquia configurada para o plano.</p></section>
+<section id="monitorPanel" hidden><div class="panel"><h2>Resumo</h2><div id="summary" class="summary">Aguardando atualização.</div><p><label for="tipoFiltro">Filtrar tipo de sala</label> <select id="tipoFiltro"><option value="todos">Todas</option><option value="evento">Eventos</option><option value="demonstracao">Demonstrações</option></select> <button id="refreshBtn" type="button">Atualizar agora</button></p><div id="status" class="status" role="status" aria-live="polite">Aguardando.</div></div><section class="panel" id="alertConfigPanel"><h2>Alertas de novas transmissões</h2><p>Escolha quais salas devem gerar aviso e por quais canais.</p><label><input id="alertAtivo" type="checkbox"> Ativar alertas automáticos</label><fieldset><legend>Tipos de sala</legend><label><input id="alertPublico" type="checkbox"> Eventos públicos</label><br><label><input id="alertRestrito" type="checkbox"> Eventos restritos</label><br><label><input id="alertDemo" type="checkbox"> Salas de demonstração</label></fieldset><fieldset><legend>Canais de alerta</legend><label><input id="alertSom" type="checkbox"> Aviso sonoro com esta página aberta</label><br><label><input id="alertNavegador" type="checkbox"> Notificação do navegador com esta página aberta ou em segundo plano</label><br><label><input id="alertEmail" type="checkbox"> E-mail automático</label></fieldset><label for="alertEmails">Destinatários de e-mail, um por linha ou separados por vírgula</label><textarea id="alertEmails" rows="4" style="width:100%;box-sizing:border-box" placeholder="contato@audesc.com"></textarea><p><button id="saveAlertBtn" type="button">Salvar configuração de alertas</button><button id="permissionBtn" class="secondary" type="button">Autorizar notificações do navegador</button><button id="testSoundBtn" class="secondary" type="button">Testar aviso sonoro</button><button id="testEmailBtn" class="secondary" type="button">Enviar e-mail de teste</button></p><div id="alertStatus" class="status" role="status" aria-live="polite">Configuração ainda não carregada.</div></section><section class="panel"><h2>Consumo do LiveKit no mês</h2><div id="consumoLiveKit">Consultando disponibilidade dos dados oficiais do LiveKit.</div><p class="small">O saldo exato depende da Analytics API do LiveKit Cloud e da franquia configurada para o plano.</p></section>
 <section class="panel"><h2>Ao vivo agora</h2><div id="aoVivo"></div></section><section class="panel"><h2>Próximas 24 horas</h2><div id="proximas"></div></section><section class="panel"><h2>Últimas 24 horas</h2><div id="ultimas"></div></section></section></main>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script><script>
 const API='https://audesc-events-api.onrender.com',SESSION='audesc_admin_session_v1';let token='',dados=null,monitorRoom=null,monitorSala='';
@@ -10,10 +10,24 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 function cardAgenda(x){return `<article class="card"><h3>${esc(x.titulo||x.sala_codigo)}</h3><p><span class="badge">${x.tipo_sala==='demonstracao'?'Demonstração':'Evento'}</span></p><div class="grid"><div><strong>Sala:</strong> ${esc(x.sala_codigo)}</div><div><strong>Horário:</strong> ${esc(fmt(x.data_evento))}</div><div><strong>Status:</strong> ${esc(x.status_operacao||'—')}</div></div></article>`}
 function render(){
  if(!dados)return;const f=a=>(a||[]).filter(tipoOk);document.getElementById('summary').textContent=`Salas ao vivo: ${dados.resumo.salas_ao_vivo}. Ouvintes conectados: ${dados.resumo.ouvintes_ao_vivo}. Salas sem transmissor: ${dados.resumo.salas_sem_transmissor}.`;
- const live=f(dados.ao_vivo),aoVivo=document.getElementById('aoVivo');let audioAtivo=null;
- if(monitorSala){const cardAtual=aoVivo.querySelector(`[data-sala="${CSS.escape(monitorSala)}"]`);audioAtivo=cardAtual?.querySelector('.audioBox audio')||null;if(audioAtivo)audioAtivo.remove();}
+ const live=f(dados.ao_vivo),aoVivo=document.getElementById('aoVivo');let audioAtivoBox=null;
+ if(monitorSala){
+   const cardAtual=aoVivo.querySelector(`[data-sala="${CSS.escape(monitorSala)}"]`);
+   const boxAtual=cardAtual?.querySelector('.audioBox')||null;
+   if(boxAtual&&boxAtual.childNodes.length){
+     audioAtivoBox=document.createDocumentFragment();
+     while(boxAtual.firstChild)audioAtivoBox.appendChild(boxAtual.firstChild);
+   }
+ }
  aoVivo.innerHTML=live.length?live.map(x=>`<article class="card" data-sala="${esc(x.sala_codigo)}"><h3>${esc(x.titulo||x.sala_codigo)}</h3><p><span class="badge">${x.tipo_sala==='demonstracao'?'Demonstração':x.tipo_sala==='evento'?'Evento':'Sala'}</span></p><div class="grid"><div><strong>Sala:</strong> ${esc(x.sala_codigo)}</div><div><strong>Ouvintes:</strong> ${x.ouvintes}</div><div><strong>Transmissor:</strong> ${x.transmissor_presente?'presente':'não conectado'}</div><div><strong>Participantes:</strong> ${x.participantes_total}</div></div><p><button type="button" onclick="ouvir('${encodeURIComponent(x.sala_codigo)}',this)">Ouvir transmissão</button><button class="secondary" type="button" onclick="pararOuvir()">Parar monitoramento</button><button class="danger" type="button" onclick="encerrar('${encodeURIComponent(x.sala_codigo)}',this)">Encerrar transmissão</button></p><div class="status salaStatus" role="status" aria-live="polite">${monitorSala===x.sala_codigo?'Monitoramento de áudio ativo.':'Sala em monitoramento operacional.'}</div><div class="audioBox"></div></article>`).join(''):'<p>Nenhuma sala está ao vivo neste momento.</p>';
- if(audioAtivo&&monitorSala){const novoCard=aoVivo.querySelector(`[data-sala="${CSS.escape(monitorSala)}"]`),box=novoCard?.querySelector('.audioBox');if(box){box.appendChild(audioAtivo);audioAtivo.play().catch(()=>{})}else{pararOuvir()}}
+ if(audioAtivoBox&&monitorSala){
+   const novoCard=aoVivo.querySelector(`[data-sala="${CSS.escape(monitorSala)}"]`),box=novoCard?.querySelector('.audioBox');
+   if(box){
+     box.appendChild(audioAtivoBox);
+     const audio=box.querySelector('audio');
+     if(audio)audio.play().catch(()=>{});
+   }else{pararOuvir()}
+ }
  const p=f(dados.proximas_24h),u=f(dados.ultimas_24h);document.getElementById('proximas').innerHTML=p.length?p.map(cardAgenda).join(''):'<p>Nenhuma sala programada para as próximas 24 horas.</p>';document.getElementById('ultimas').innerHTML=u.length?u.map(cardAgenda).join(''):'<p>Nenhuma sala encontrada nas últimas 24 horas.</p>'
 }
 let assinaturaEstado='';
@@ -69,8 +83,48 @@ async function carregarConsumoLiveKit(){
     el.textContent='Não foi possível consultar o consumo do LiveKit: '+e.message;
   }
 }
-async function ouvir(salaEnc,btn){const sala=decodeURIComponent(salaEnc),card=btn.closest('.card'),status=card.querySelector('.salaStatus'),box=card.querySelector('.audioBox');status.textContent='Conectando ao áudio da sala...';try{await pararOuvir();const j=await api('/admin/monitoramento/'+encodeURIComponent(sala)+'/token',{method:'POST'});monitorRoom=new LivekitClient.Room();monitorSala=sala;monitorRoom.on(LivekitClient.RoomEvent.TrackSubscribed,track=>{if(track.kind==='audio'){const el=track.attach();el.autoplay=true;el.controls=true;box.innerHTML='';box.appendChild(el);el.play().catch(()=>{});status.textContent='Monitoramento de áudio ativo.'}});await monitorRoom.connect(j.livekit_url,j.token,{autoSubscribe:true});status.textContent='Conectado à sala. Aguardando áudio do transmissor.'}catch(e){status.textContent='Erro ao monitorar: '+e.message;await pararOuvir()}}
-async function pararOuvir(){if(monitorRoom){try{monitorRoom.disconnect()}catch{}monitorRoom=null;monitorSala=''}document.querySelectorAll('.audioBox').forEach(x=>x.innerHTML='')}
+let monitorAudioTimer=null;
+function formatarTempoAudio(segundos){
+  const s=Math.max(0,Math.floor(Number(segundos)||0));
+  const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;
+  return h>0?`${h}:${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`:`${m}:${String(ss).padStart(2,'0')}`;
+}
+function montarControlesMonitorAudio(box,el){
+  box.innerHTML='';
+  el.autoplay=true;el.controls=false;el.hidden=true;el.setAttribute('aria-hidden','true');
+  box.appendChild(el);
+  const controles=document.createElement('div');
+  controles.className='monitor-audio-controls';
+  controles.innerHTML=`<div><strong>Tempo de escuta:</strong> <span class="monitorAudioTime">0:00</span></div>
+  <div class="grid">
+    <div><button type="button" class="secondary monitorMuteBtn" aria-pressed="false">Silenciar</button></div>
+    <div><label>Volume <input class="monitorVolume" type="range" min="0" max="100" value="100" aria-label="Volume do monitoramento"></label></div>
+  </div>`;
+  box.appendChild(controles);
+  const tempo=controles.querySelector('.monitorAudioTime'),mute=controles.querySelector('.monitorMuteBtn'),volume=controles.querySelector('.monitorVolume');
+  const inicio=Date.now();
+  clearInterval(monitorAudioTimer);
+  monitorAudioTimer=setInterval(()=>{if(tempo)tempo.textContent=formatarTempoAudio((Date.now()-inicio)/1000)},1000);
+  mute.addEventListener('click',()=>{el.muted=!el.muted;mute.textContent=el.muted?'Ativar áudio':'Silenciar';mute.setAttribute('aria-pressed',el.muted?'true':'false')});
+  volume.addEventListener('input',()=>{el.volume=Math.max(0,Math.min(1,Number(volume.value)/100));if(el.volume>0&&el.muted){el.muted=false;mute.textContent='Silenciar';mute.setAttribute('aria-pressed','false')}});
+}
+async function ouvir(salaEnc,btn){
+  const sala=decodeURIComponent(salaEnc),card=btn.closest('.card'),status=card.querySelector('.salaStatus'),box=card.querySelector('.audioBox');
+  status.textContent='Conectando ao áudio da sala...';
+  try{
+    await pararOuvir();
+    const j=await api('/admin/monitoramento/'+encodeURIComponent(sala)+'/token',{method:'POST'});
+    monitorRoom=new LivekitClient.Room();monitorSala=sala;
+    monitorRoom.on(LivekitClient.RoomEvent.TrackSubscribed,track=>{if(track.kind==='audio'){const el=track.attach();montarControlesMonitorAudio(box,el);el.play().catch(()=>{});status.textContent='Monitoramento de áudio ativo.'}});
+    await monitorRoom.connect(j.livekit_url,j.token,{autoSubscribe:true});
+    status.textContent='Conectado à sala. Aguardando áudio do transmissor.';
+  }catch(e){status.textContent='Erro ao monitorar: '+e.message;await pararOuvir()}
+}
+async function pararOuvir(){
+  clearInterval(monitorAudioTimer);monitorAudioTimer=null;
+  if(monitorRoom){try{monitorRoom.disconnect()}catch{}monitorRoom=null;monitorSala=''}
+  document.querySelectorAll('.audioBox').forEach(x=>x.innerHTML='')
+}
 async function encerrar(salaEnc,btn){const sala=decodeURIComponent(salaEnc);if(!confirm('Confirma o encerramento da transmissão da sala '+sala+'? Todos os participantes serão desconectados.'))return;const card=btn.closest('.card'),status=card.querySelector('.salaStatus');btn.disabled=true;status.textContent='Encerrando transmissão...';try{if(monitorSala===sala)await pararOuvir();await api('/admin/monitoramento/'+encodeURIComponent(sala)+'/encerrar',{method:'POST'});status.textContent='Transmissão encerrada pelo administrador.';setTimeout(carregar,500)}catch(e){status.textContent='Erro: '+e.message;btn.disabled=false}}
 let alertConfig=null,salasConhecidasAlertas=null,audioCtxAlert=null;
 function emailsDoCampo(){return [...new Set(String(document.getElementById('alertEmails').value||'').split(/[\\n,;]+/).map(x=>x.trim().toLowerCase()).filter(Boolean))]}
@@ -84,6 +138,17 @@ function beepNovaSala(){try{audioCtxAlert=audioCtxAlert||new (window.AudioContex
 async function pedirPermissaoNotificacao(){if(!('Notification' in window)){st('alertStatus','Este navegador não oferece notificações do sistema.','error',true);return}try{const p=await Notification.requestPermission();st('alertStatus',p==='granted'?'Notificações do navegador autorizadas.':'Notificações do navegador não foram autorizadas.',p==='granted'?'ok':'error',true)}catch(e){st('alertStatus','Não foi possível solicitar permissão de notificação.','error',true)}}
 function dispararAlertasLocais(novas){if(!alertConfig?.ativo||!novas.length)return;const elegiveis=novas.filter(salaHabilitadaAlerta);if(!elegiveis.length)return;if(alertConfig.canais?.som)beepNovaSala();if(alertConfig.canais?.navegador&&'Notification' in window&&Notification.permission==='granted'){for(const s of elegiveis){try{new Notification('Audesc: transmissão iniciada',{body:(s.titulo||s.sala_codigo)+' — sala '+s.sala_codigo,tag:'audesc-'+s.sala_codigo})}catch(e){}}}}
 function detectarNovasSalas(d){const atuais=new Map((d?.ao_vivo||[]).map(x=>[String(x.sala_codigo),x]));if(salasConhecidasAlertas===null){salasConhecidasAlertas=new Set(atuais.keys());return}const novas=[...atuais.entries()].filter(([codigo])=>!salasConhecidasAlertas.has(codigo)).map(([,x])=>x);salasConhecidasAlertas=new Set(atuais.keys());if(novas.length)dispararAlertasLocais(novas)}
+
+async function testarEmailAlerta(){
+  const btn=document.getElementById('testEmailBtn'),emails=emailsDoCampo();
+  if(!emails.length){st('alertStatus','Informe pelo menos um endereço de e-mail válido para testar.','error',true);return}
+  btn.disabled=true;st('alertStatus','Enviando e-mail de teste...','',true);
+  try{
+    const j=await api('/admin/monitoramento/testar-email',{method:'POST',body:JSON.stringify({emails})});
+    st('alertStatus','E-mail de teste enviado pelo Resend para: '+emails.join(', ')+'.','ok',true);
+  }catch(e){st('alertStatus','Erro no teste de e-mail: '+e.message,'error',true)}
+  finally{btn.disabled=false}
+}
 async function entrar(){token=token||document.getElementById('adminToken').value.trim();if(!token){st('loginStatus','Informe a senha.','error');return}st('loginStatus','Validando acesso...');try{dados=await api('/admin/monitoramento');assinaturaEstado=assinaturaMonitoramento(dados);salasConhecidasAlertas=new Set((dados.ao_vivo||[]).map(x=>String(x.sala_codigo)));sessionStorage.setItem(SESSION,JSON.stringify({token}));document.getElementById('loginPanel').hidden=true;document.getElementById('monitorPanel').hidden=false;render();st('status','Monitoramento carregado. Atualizações automáticas serão silenciosas.','ok',true);carregarConsumoLiveKit();carregarAlertConfig()}catch(e){token='';st('loginStatus','Acesso não autorizado ou erro: '+e.message,'error')}}
-document.getElementById('loginBtn').onclick=entrar;document.getElementById('refreshBtn').onclick=()=>{carregar();carregarConsumoLiveKit()};document.getElementById('tipoFiltro').onchange=render;document.getElementById('saveAlertBtn').onclick=salvarAlertConfig;document.getElementById('permissionBtn').onclick=pedirPermissaoNotificacao;document.getElementById('testSoundBtn').onclick=()=>{beepNovaSala();st('alertStatus','Aviso sonoro testado.','ok',true)};try{const s=JSON.parse(sessionStorage.getItem(SESSION)||'null');if(s?.token)token=s.token}catch{}if(token)entrar();setInterval(()=>{if(!document.getElementById('monitorPanel').hidden)carregar({silencioso:true})},30000);
+document.getElementById('loginBtn').onclick=entrar;document.getElementById('refreshBtn').onclick=()=>{carregar();carregarConsumoLiveKit()};document.getElementById('tipoFiltro').onchange=render;document.getElementById('saveAlertBtn').onclick=salvarAlertConfig;document.getElementById('permissionBtn').onclick=pedirPermissaoNotificacao;document.getElementById('testSoundBtn').onclick=()=>{beepNovaSala();st('alertStatus','Aviso sonoro testado.','ok',true)};document.getElementById('testEmailBtn').onclick=testarEmailAlerta;try{const s=JSON.parse(sessionStorage.getItem(SESSION)||'null');if(s?.token)token=s.token}catch{}if(token)entrar();setInterval(()=>{if(!document.getElementById('monitorPanel').hidden)carregar({silencioso:true})},30000);
 </script></body></html>
