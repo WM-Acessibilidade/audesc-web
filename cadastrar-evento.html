@@ -40,6 +40,7 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <input id="titulo_original" name="titulo_original" type="text" required maxlength="150" minlength="10" aria-describedby="titulo_original_contador"><div id="titulo_original_contador" class="small" role="status" aria-live="polite">0 de 150 caracteres utilizados.</div>
 <label for="descricao_original">Descrição do evento</label>
 <textarea id="descricao_original" name="descricao_original" maxlength="1500" minlength="100" aria-describedby="descricao_original_contador"></textarea><div id="descricao_original_contador" class="small" role="status" aria-live="polite">0 de 1500 caracteres utilizados.</div>
+<div id="imagemEventoBox"><fieldset><legend>Imagem do evento</legend><p class="small">Opcional. Selecione uma foto, cartaz ou logotipo em JPEG, PNG ou WebP. Também é possível arrastar o arquivo para a área abaixo.</p><div id="imagemDropZone" tabindex="0" role="group" aria-label="Área para selecionar ou arrastar imagem do evento" style="border:2px dashed #888;border-radius:10px;padding:14px;margin-top:8px"><label for="imagem_evento_arquivo">Selecionar imagem</label><input id="imagem_evento_arquivo" type="file" accept="image/jpeg,image/png,image/webp"><p class="small">Tamanho máximo: 1,5 MB.</p></div><div id="imagemPreviewBox" class="hidden"><p><strong>Pré-visualização</strong></p><img id="imagemPreview" alt="" style="max-width:100%;max-height:300px;object-fit:contain;border:1px solid #ccc;border-radius:8px"></div><label for="imagem_evento_alt">Texto alternativo da imagem</label><input id="imagem_evento_alt" type="text" maxlength="300" aria-describedby="imagemAltAjuda"><p id="imagemAltAjuda" class="small">Descreva de forma curta e objetiva o conteúdo essencial da imagem. Se precisar de uma descrição longa, use a descrição do evento.</p><button id="removerImagemSelecionada" type="button" class="secondary hidden">Remover imagem selecionada</button></fieldset></div>
 <div id="categoriaEventoBox"><label for="categoria_evento">Categoria do evento</label><select id="categoria_evento" name="categoria_evento"></select></div>
 <div id="classificacaoEtariaBox"><label for="classificacao_etaria">Classificação etária</label><select id="classificacao_etaria" name="classificacao_etaria"></select></div>
 
@@ -547,6 +548,34 @@ document.getElementById('selecionarTodosPaises')?.addEventListener('click',()=>{
 document.getElementById('limparPaises')?.addEventListener('click',()=>{document.querySelectorAll('input[name="paises_divulgacao"]').forEach(i=>i.checked=false);atualizarRotuloPaises();});
 renderizarPaisesDivulgacao();atualizarModalidade();
 
+
+let imagemEventoArquivo=null;
+function configurarImagemCadastro(){
+ const input=document.getElementById('imagem_evento_arquivo'),drop=document.getElementById('imagemDropZone'),previewBox=document.getElementById('imagemPreviewBox'),preview=document.getElementById('imagemPreview'),remover=document.getElementById('removerImagemSelecionada');
+ if(!input||!drop)return;
+ function selecionar(file){
+  if(!file)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)){setStatus('status','Use uma imagem JPEG, PNG ou WebP.','error');return}
+  if(file.size>1572864){setStatus('status','A imagem não pode ultrapassar 1,5 MB.','error');return}
+  imagemEventoArquivo=file;
+  preview.src=URL.createObjectURL(file);preview.alt='Pré-visualização da imagem selecionada';previewBox.classList.remove('hidden');remover.classList.remove('hidden');
+ }
+ input.addEventListener('change',()=>selecionar(input.files&&input.files[0]));
+ ['dragenter','dragover'].forEach(evt=>drop.addEventListener(evt,e=>{e.preventDefault();drop.style.background='#eee'}));
+ ['dragleave','drop'].forEach(evt=>drop.addEventListener(evt,e=>{e.preventDefault();drop.style.background=''}));
+ drop.addEventListener('drop',e=>selecionar(e.dataTransfer?.files?.[0]));
+ remover.addEventListener('click',()=>{imagemEventoArquivo=null;input.value='';preview.removeAttribute('src');previewBox.classList.add('hidden');remover.classList.add('hidden');document.getElementById('imagem_evento_alt').value=''});
+}
+function arquivoParaDataUrl(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result||''));r.onerror=()=>reject(new Error('Não foi possível ler a imagem.'));r.readAsDataURL(file)})}
+async function enviarImagemEventoCadastro(eventoId){
+ if(!imagemEventoArquivo)return null;
+ const alt=document.getElementById('imagem_evento_alt').value.trim();if(!alt)throw new Error('Informe o texto alternativo da imagem.');
+ const data_url=await arquivoParaDataUrl(imagemEventoArquivo);
+ const r=await fetch(API_URL+'/eventos/'+encodeURIComponent(eventoId)+'/imagem',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify({data_url,alt})});
+ const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'Não foi possível enviar a imagem.');return j;
+}
+configurarImagemCadastro();
+
 document.getElementById('eventoForm').onsubmit=async(e)=>{
  e.preventDefault();
  const form=e.target;
@@ -556,7 +585,7 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  accessToken=session.access_token;
  const btn=document.getElementById('submitBtn');btn.disabled=true;setStatus('status','Enviando solicitação...','');
  const camposCfgEnvio=camposConfigFormulario(); const categoriaCfg=camposCfgEnvio.categoria_evento||{visivel:true,obrigatorio:true}; const categoriaSelect=form.querySelector('#categoria_evento'); if(categoriaCfg.visivel!==false&&categoriaCfg.obrigatorio&&!categoriaSelect?.value){categoriaSelect?.focus();btn.disabled=false;setStatus('status','Selecione a categoria do evento.','error');return;} const classificacaoCfg=camposCfgEnvio.classificacao_etaria||{visivel:true,obrigatorio:false}; const classificacaoSelect=form.querySelector('#classificacao_etaria'); if(classificacaoCfg.visivel!==false&&classificacaoCfg.obrigatorio&&!classificacaoSelect?.value){classificacaoSelect?.focus();btn.disabled=false;setStatus('status','Selecione a classificação etária.','error');return;}
- const data=Object.fromEntries(new FormData(form).entries());
+ const imagemCfg=camposConfigFormulario().imagem_evento||{visivel:true,obrigatorio:false};if(imagemCfg.visivel!==false&&imagemCfg.obrigatorio&&!imagemEventoArquivo){setStatus('status','Selecione a imagem do evento.','error');btn.disabled=false;return}if(imagemEventoArquivo&&!document.getElementById('imagem_evento_alt').value.trim()){setStatus('status','Informe o texto alternativo da imagem.','error');document.getElementById('imagem_evento_alt').focus();btn.disabled=false;return}const data=Object.fromEntries(new FormData(form).entries());
  data.paises_divulgacao=paisesDivulgacaoSelecionados();
  if(window.AUDESC_MODALIDADES_EVENTO?.temTransmissao(data.modalidade_evento)&&!data.abrangencia_divulgacao){setStatus('status','Selecione a abrangência da divulgação.','error');btn.disabled=false;return;}
  if(data.abrangencia_divulgacao==='internacional'&&!data.paises_divulgacao.length){setStatus('status','Selecione pelo menos um país para a divulgação internacional.','error');btn.disabled=false;return;}
@@ -584,10 +613,11 @@ document.getElementById('eventoForm').onsubmit=async(e)=>{
  try{
   const r=await fetch(API_URL+'/criar-evento',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+accessToken},body:JSON.stringify(data)});
   const j=await r.json();if(!r.ok)throw new Error(j.error||'Erro ao enviar solicitação.');
+  if(imagemEventoArquivo&&j.evento?.id) await enviarImagemEventoCadastro(j.evento.id);
   const status = document.getElementById('status');
   status.className = 'status success';
   status.innerHTML = 'Evento recebido. Você pode continuar cadastrando eventos. Assim que terminar, acesse <a href="meus-eventos.html">Meus Eventos</a> para efetuar o pagamento.';
-  form.reset();atualizarOpcoesServico();atualizarLocalizacao();atualizarModalidade();aplicarLimitesTextoFormulario();
+  form.reset();imagemEventoArquivo=null;document.getElementById('imagemPreviewBox')?.classList.add('hidden');document.getElementById('removerImagemSelecionada')?.classList.add('hidden');atualizarOpcoesServico();atualizarLocalizacao();atualizarModalidade();aplicarLimitesTextoFormulario();
   status.focus();
  }catch(err){setStatus('status','Erro: '+(err.message||'não foi possível enviar.'),'error')}
  finally{btn.disabled=false}
@@ -697,7 +727,7 @@ function setCampoVisivel(id, visivel, obrigatorio){
  if(id === 'paises_divulgacao') visivel = visivel && !!window.AUDESC_MODALIDADES_EVENTO?.temTransmissao(modalidadeSelect?.value) && abrangenciaSelect?.value === 'internacional';
  const el = document.getElementById(id);
  const label = document.querySelector('label[for="'+id+'"]');
- const boxMap = {categoria_evento:'categoriaEventoBox',classificacao_etaria:'classificacaoEtariaBox',modalidade_evento:'modalidadeEventoBox',abrangencia_divulgacao:'abrangenciaDivulgacaoBox',paises_divulgacao:'paisesDivulgacaoBox',tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox',local_evento:'localEventoBox',latitude:'latitudeBox',longitude:'longitudeBox'};
+ const boxMap = {imagem_evento:'imagemEventoBox',categoria_evento:'categoriaEventoBox',classificacao_etaria:'classificacaoEtariaBox',modalidade_evento:'modalidadeEventoBox',abrangencia_divulgacao:'abrangenciaDivulgacaoBox',paises_divulgacao:'paisesDivulgacaoBox',tipo_evento:'visibilidadeBox',divulgar_acesso_ouvintes:'acessoOuvintesBox',duracao_horas:'duracaoBox',max_ouvintes:'ouvintesBox',local_evento:'localEventoBox',latitude:'latitudeBox',longitude:'longitudeBox'};
  const box = boxMap[id] ? document.getElementById(boxMap[id]) : null;
  [el,label,box].filter(Boolean).forEach(x=>x.classList.toggle('hidden', !visivel));
  if(el){

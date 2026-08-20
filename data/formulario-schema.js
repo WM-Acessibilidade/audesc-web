@@ -8,6 +8,7 @@
     {codigo:'abrangencia_divulgacao',nome:'Abrangência da divulgação',grupo:'localizacao',tipo:'select',configuravel:true,boxId:'abrangenciaDivulgacaoBox'},
     {codigo:'paises_divulgacao',nome:'Países de divulgação internacional',grupo:'localizacao',tipo:'multiselect',configuravel:true,boxId:'paisesDivulgacaoBox'},
     {codigo:'descricao_original',nome:'Descrição do evento',grupo:'identificacao',tipo:'textarea',configuravel:true,limites:{minimo:100,maximo:1500}},
+    {codigo:'imagem_evento',nome:'Imagem do evento e texto alternativo',grupo:'identificacao',tipo:'imagem',configuravel:true,boxId:'imagemEventoBox'},
     {codigo:'tipo_evento',nome:'Visibilidade pública ou restrita',grupo:'identificacao',tipo:'select',configuravel:true,regraPorServico:true,boxId:'tipoEventoBox'},
     {codigo:'divulgar_acesso_ouvintes',nome:'Permitir acesso de ouvintes pela página pública',grupo:'identificacao',tipo:'booleano',configuravel:true,regraPorServico:true,boxId:'acessoOuvintesBox'},
     {codigo:'data_evento',nome:'Data e horário do evento',grupo:'data_capacidade',tipo:'datetime',configuravel:true,boxId:'dataEventoBox'},
