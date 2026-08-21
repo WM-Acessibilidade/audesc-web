@@ -14,6 +14,10 @@ textarea{min-height:140px}.grid{display:grid;gap:16px;grid-template-columns:repe
 button{margin-top:20px;padding:14px 18px;border:0;border-radius:10px;cursor:pointer;font-weight:700;background:#111;color:#fff}
 button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top:16px;padding:12px;border-radius:8px;border:1px solid #aaa;background:#f0f0f0}
 .success{border-color:#237a3b;background:#e8f6ec}.error{border-color:#a40000;background:#fff0f0}.hidden{display:none}.sugestoes-local{border:1px solid #aaa;border-radius:8px;margin-top:6px;padding:6px;background:#fff}.sugestoes-local button{display:block;width:100%;text-align:left;margin:4px 0;background:#fff;color:#111;border:1px solid #bbb;font-weight:400}.sugestoes-local button:focus{outline:3px solid #111}.sugestoes-local[hidden]{display:none}
+
+.otp-panel{margin-top:16px;padding:14px;border:1px solid #bbb;border-radius:10px;background:#fafafa}
+.otp-panel input{max-width:180px;letter-spacing:.18em;font-weight:700}
+
 </style>
 </head>
 <body>
@@ -26,9 +30,19 @@ button.secondary{background:#555}button[disabled]{opacity:.55}.status{margin-top
 <h2>Confirmar e-mail</h2>
 <label for="email">E-mail do responsável</label>
 <input id="email" type="email" autocomplete="email" required>
-<button id="sendLinkBtn" type="button">Enviar link de validação</button>
+<button id="sendLinkBtn" type="button">Enviar link e código de validação</button>
 <button id="logoutBtn" type="button" class="secondary hidden">Usar outro e-mail</button>
-<div id="emailStatus" class="status" role="status" aria-live="polite">Informe o e-mail para receber o link.</div>
+<div id="emailStatus" class="status" role="status" aria-live="polite">Informe o e-mail para receber o link e o código.</div>
+<div id="otpCadastroPanel" class="otp-panel hidden">
+<h3>Confirmar com código</h3>
+<p>Enviamos um link de confirmação e um código de 6 dígitos. Você pode usar a opção que preferir.</p>
+<label for="otpCadastro">Código de 6 dígitos</label>
+<input id="otpCadastro" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" aria-describedby="otpCadastroAjuda">
+<p id="otpCadastroAjuda" class="small">Digite somente os seis números recebidos por e-mail.</p>
+<button id="validarOtpCadastro" type="button">Validar código</button>
+<button id="reenviarOtpCadastro" type="button" class="secondary">Reenviar link e código</button>
+<div id="otpCadastroStatus" class="status" role="status" aria-live="polite">Aguardando código.</div>
+</div>
 </section>
 
 <section class="panel hidden" id="formStep">
@@ -160,12 +174,12 @@ async function checkSession(){
   const {data,error}=await sb.auth.getSession();
   if(error) throw error;
   const session=data?.session;
-  if(!session){showEmailStep('Informe o e-mail para receber o link de validação.','');return false}
+  if(!session){showEmailStep('Informe o e-mail para receber o link e o código de validação.','');return false}
   accessToken=session.access_token;
   showForm(session.user.email);
   return true;
  }catch(e){
-  showEmailStep('Não foi possível confirmar a sessão. Abra novamente o link de validação ou solicite um novo link.','error');
+  showEmailStep('Não foi possível confirmar a sessão. Use o link recebido ou solicite um novo link e código.','error');
   return false;
  }
 }
@@ -180,18 +194,72 @@ sb.auth.onAuthStateChange((_event,session)=>{
  }
 });
 
-document.getElementById('logoutBtn').onclick=async()=>{await sb.auth.signOut();accessToken='';document.getElementById('logoutBtn').classList.add('hidden');showEmailStep('Sessão encerrada. Informe o e-mail que deseja validar.','')};
+document.getElementById('logoutBtn').onclick=async()=>{await sb.auth.signOut();accessToken='';emailPendenteCadastro='';document.getElementById('otpCadastroPanel').classList.add('hidden');document.getElementById('otpCadastro').value='';document.getElementById('logoutBtn').classList.add('hidden');showEmailStep('Sessão encerrada. Informe o e-mail que deseja validar.','')};
 
-document.getElementById('sendLinkBtn').onclick=async()=>{
- const email=document.getElementById('email').value.trim();
- if(!email||!email.includes('@')){setStatus('emailStatus','Informe um e-mail válido.','error');return}
- document.getElementById('sendLinkBtn').disabled=true;setStatus('emailStatus','Enviando link de validação...','');
+let emailPendenteCadastro='';
+
+function statusOtpCadastro(m,c){
+ const el=document.getElementById('otpCadastroStatus');
+ el.textContent=m;
+ el.className='status'+(c?' '+c:'');
+}
+function mostrarOtpCadastro(){
+ document.getElementById('otpCadastroPanel').classList.remove('hidden');
+ setTimeout(()=>document.getElementById('otpCadastro').focus(),0);
+}
+async function enviarOtpCadastro(email){
+ const {error}=await sb.auth.signInWithOtp({
+  email,
+  options:{shouldCreateUser:true,emailRedirectTo:location.origin+location.pathname}
+ });
+ if(error)throw error;
+}
+document.getElementById('otpCadastro').addEventListener('input',e=>{
+ e.target.value=String(e.target.value||'').replace(/\D/g,'').slice(0,6);
+});
+document.getElementById('validarOtpCadastro').onclick=async()=>{
+ const btn=document.getElementById('validarOtpCadastro');
+ const token=String(document.getElementById('otpCadastro').value||'').replace(/\D/g,'');
+ if(!emailPendenteCadastro){
+  statusOtpCadastro('Informe o e-mail novamente e solicite a validação.','error');return;
+ }
+ if(token.length!==6){
+  statusOtpCadastro('Digite os seis números do código recebido.','error');
+  document.getElementById('otpCadastro').focus();return;
+ }
+ btn.disabled=true;statusOtpCadastro('Validando código...','');
  try{
-  const {error}=await sb.auth.signInWithOtp({email,options:{shouldCreateUser:true,emailRedirectTo:location.origin+location.pathname}});
+  const {data,error}=await sb.auth.verifyOtp({email:emailPendenteCadastro,token,type:'email'});
   if(error)throw error;
-  setStatus('emailStatus','Link de validação enviado. Abra o e-mail e clique no link para continuar. Caso o e-mail não chegue em um prazo de três minutos, verifique sua caixa de Spam antes de realizar uma nova solicitação.','success');
- }catch(e){setStatus('emailStatus','Erro ao enviar link: '+(e.message||'falha desconhecida.'),'error')}
- finally{document.getElementById('sendLinkBtn').disabled=false}
+  if(!data.session)throw new Error('O Supabase não retornou uma sessão válida.');
+  accessToken=data.session.access_token;
+  statusOtpCadastro('Código confirmado. E-mail validado.','success');
+  showForm(data.session.user?.email||emailPendenteCadastro);
+ }catch(e){
+  statusOtpCadastro('Erro: '+(e.message||'código inválido ou expirado.'),'error');
+ }finally{btn.disabled=false}
+};
+document.getElementById('reenviarOtpCadastro').onclick=async()=>{
+ const btn=document.getElementById('reenviarOtpCadastro');
+ if(!emailPendenteCadastro){statusOtpCadastro('Informe novamente o e-mail antes de reenviar.','error');return}
+ btn.disabled=true;statusOtpCadastro('Solicitando novo link e código...','');
+ try{await enviarOtpCadastro(emailPendenteCadastro);statusOtpCadastro('Novo e-mail enviado. Verifique sua caixa de entrada.','success')}
+ catch(e){statusOtpCadastro('Erro: '+(e.message||'não foi possível reenviar.'),'error')}
+ finally{btn.disabled=false}
+};
+document.getElementById('sendLinkBtn').onclick=async()=>{
+ const email=document.getElementById('email').value.trim().toLowerCase();
+ if(!email||!email.includes('@')){setStatus('emailStatus','Informe um e-mail válido.','error');return}
+ const btn=document.getElementById('sendLinkBtn');btn.disabled=true;
+ setStatus('emailStatus','Enviando link e código de validação...','');
+ try{
+  await enviarOtpCadastro(email);
+  emailPendenteCadastro=email;
+  mostrarOtpCadastro();
+  setStatus('emailStatus','Enviamos um e-mail com um link e um código de 6 dígitos. Use a opção que preferir. Caso não chegue em alguns minutos, verifique a caixa de Spam.','success');
+  statusOtpCadastro('Digite o código recebido ou, se preferir, use o link do mesmo e-mail.','');
+ }catch(e){setStatus('emailStatus','Erro ao enviar validação: '+(e.message||'falha desconhecida.'),'error')}
+ finally{btn.disabled=false}
 };
 
 const paisSelect=document.getElementById('pais'),ufSelect=document.getElementById('uf'),paisOutroBox=document.getElementById('paisOutroBox'),paisOutroInput=document.getElementById('pais_outro');

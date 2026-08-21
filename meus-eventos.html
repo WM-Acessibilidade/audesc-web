@@ -16,6 +16,10 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 .error{border-color:#a40000;background:#fff0f0}
 .small{font-size:.95rem;color:#444}
 .toplink{margin-bottom:16px}.skiplinks a{display:inline-block;margin-right:12px}.card h3 a{color:#0645ad}.filtros-eventos{border:1px solid #ccc;border-radius:8px;padding:12px;margin:16px 0;background:#fff}.filtros-eventos label{display:block;margin:8px 0}
+
+.otp-panel{margin-top:16px;padding:14px;border:1px solid #bbb;border-radius:10px;background:#fafafa}
+.otp-panel input{max-width:180px;letter-spacing:.18em;font-weight:700}
+
 </style>
 </head>
 <body>
@@ -24,14 +28,24 @@ button{cursor:pointer;border-radius:8px;border:1px solid #333}
 <h1>Meus Eventos</h1>
 
 <section id="loginBox">
-<p>Informe seu e-mail para receber um link de acesso aos seus eventos.</p>
+<p>Informe seu e-mail para receber um link de acesso e um código de 6 dígitos.</p>
 <p>Por questão de segurança, clique em Sair ou feche o navegador quando terminar.</p>
 
 <label for="email">E-mail</label><br>
-<input id="email" type="email" placeholder="seuemail@exemplo.com" style="width:100%;max-width:420px">
-<button id="enviarLink" type="button">Enviar link de acesso</button>
+<input id="email" type="email" autocomplete="email" placeholder="seuemail@exemplo.com" style="width:100%;max-width:420px">
+<button id="enviarLink" type="button">Enviar link e código de acesso</button>
 
 <div id="loginStatus" class="msg" role="status" aria-live="polite" aria-atomic="true">Aguardando e-mail.</div>
+<div id="otpMeusPanel" class="otp-panel" hidden>
+<h2>Entrar com código</h2>
+<p>Você pode clicar no link recebido ou digitar aqui o código de 6 dígitos.</p>
+<label for="otpMeus">Código de 6 dígitos</label><br>
+<input id="otpMeus" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" aria-describedby="otpMeusAjuda">
+<p id="otpMeusAjuda" class="small">Digite somente os seis números recebidos por e-mail.</p>
+<button id="validarOtpMeus" type="button">Validar código</button>
+<button id="reenviarOtpMeus" type="button">Reenviar link e código</button>
+<div id="otpMeusStatus" class="msg" role="status" aria-live="polite" aria-atomic="true">Aguardando código.</div>
+</div>
 </section>
 
 <section id="eventosBox" hidden>
@@ -148,36 +162,60 @@ function ocultarEventoLocalmente(eventoId){
  carregarEventos();
 }
 
+let emailPendenteMeus='';
+
+function statusOtpMeus(m,c){setMsg('otpMeusStatus',m,c||'')}
+async function solicitarAcessoMeus(email){
+ const {error}=await sb.auth.signInWithOtp({
+  email,
+  options:{shouldCreateUser:true,emailRedirectTo:location.origin+location.pathname}
+ });
+ if(error)throw error;
+}
 async function enviarLink(){
  const email=document.getElementById('email').value.trim().toLowerCase();
-
- if(!email || !email.includes('@')){
-  setMsg('loginStatus','Informe um e-mail válido.','error');
-  return;
- }
-
- const btn=document.getElementById('enviarLink');
- btn.disabled=true;
- setMsg('loginStatus','Enviando link de acesso.','');
-
+ if(!email || !email.includes('@')){setMsg('loginStatus','Informe um e-mail válido.','error');return}
+ const btn=document.getElementById('enviarLink');btn.disabled=true;
+ setMsg('loginStatus','Enviando link e código de acesso.','');
  try{
-  const {error}=await sb.auth.signInWithOtp({
-   email,
-   options:{
-    shouldCreateUser:true,
-    emailRedirectTo:location.origin+location.pathname
-   }
-  });
-
-  if(error) throw error;
-
-  setMsg('loginStatus','Link de acesso enviado. Abra o e-mail e clique no link para acessar seus eventos. Caso não chegue em três minutos, verifique a caixa de Spam.','success');
+  await solicitarAcessoMeus(email);
+  emailPendenteMeus=email;
+  document.getElementById('otpMeusPanel').hidden=false;
+  setMsg('loginStatus','Enviamos um e-mail com um link e um código de 6 dígitos. Use a opção que preferir. Caso não chegue em alguns minutos, verifique a caixa de Spam.','success');
+  statusOtpMeus('Digite o código recebido ou use o link do mesmo e-mail.','');
+  setTimeout(()=>document.getElementById('otpMeus').focus(),0);
  }catch(e){
-  setMsg('loginStatus','Erro ao enviar link: '+(e.message||'falha desconhecida.'),'error');
- }finally{
-  btn.disabled=false;
- }
+  setMsg('loginStatus','Erro ao enviar acesso: '+(e.message||'falha desconhecida.'),'error');
+ }finally{btn.disabled=false}
 }
+
+
+document.getElementById('otpMeus').addEventListener('input',e=>{
+ e.target.value=String(e.target.value||'').replace(/\D/g,'').slice(0,6);
+});
+document.getElementById('validarOtpMeus').onclick=async()=>{
+ const btn=document.getElementById('validarOtpMeus');
+ const token=String(document.getElementById('otpMeus').value||'').replace(/\D/g,'');
+ if(!emailPendenteMeus){statusOtpMeus('Informe o e-mail novamente e solicite o acesso.','error');return}
+ if(token.length!==6){statusOtpMeus('Digite os seis números do código recebido.','error');document.getElementById('otpMeus').focus();return}
+ btn.disabled=true;statusOtpMeus('Validando código...','');
+ try{
+  const {data,error}=await sb.auth.verifyOtp({email:emailPendenteMeus,token,type:'email'});
+  if(error)throw error;
+  if(!data.session)throw new Error('O Supabase não retornou uma sessão válida.');
+  statusOtpMeus('Código confirmado. Acessando seus eventos.','success');
+  await carregarEventos();
+ }catch(e){statusOtpMeus('Erro: '+(e.message||'código inválido ou expirado.'),'error')}
+ finally{btn.disabled=false}
+};
+document.getElementById('reenviarOtpMeus').onclick=async()=>{
+ const btn=document.getElementById('reenviarOtpMeus');
+ if(!emailPendenteMeus){statusOtpMeus('Informe o e-mail novamente antes de reenviar.','error');return}
+ btn.disabled=true;statusOtpMeus('Solicitando novo link e código...','');
+ try{await solicitarAcessoMeus(emailPendenteMeus);statusOtpMeus('Novo e-mail enviado.','success')}
+ catch(e){statusOtpMeus('Erro: '+(e.message||'não foi possível reenviar.'),'error')}
+ finally{btn.disabled=false}
+};
 
 function mostrarLogin(){
  document.getElementById('loginBox').hidden=false;
@@ -307,7 +345,7 @@ configurarFiltrosEventos();
 document.getElementById('sair').addEventListener('click', async()=>{
  await sb.auth.signOut();
  mostrarLogin();
- setMsg('loginStatus','Sessão encerrada. Informe o e-mail para receber novo link.','');
+ emailPendenteMeus='';document.getElementById('otpMeusPanel').hidden=true;document.getElementById('otpMeus').value='';setMsg('loginStatus','Sessão encerrada. Informe o e-mail para receber novo link e código.','');
 });
 
 carregarEventos();
