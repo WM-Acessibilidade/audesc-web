@@ -6,7 +6,7 @@
 <style>body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5;margin:0;background:#f7f7f7;color:#111}header,main{max-width:1000px;margin:0 auto;padding:20px}.panel,.card{background:#fff;border:1px solid #ddd;border-radius:12px;padding:18px;margin-top:16px}label{display:block;font-weight:700;margin-top:12px}input,select,button{font:inherit}input,select{width:100%;box-sizing:border-box;padding:11px;margin-top:6px;border:1px solid #999;border-radius:8px}button,.button-link{display:inline-block;margin:8px 8px 0 0;padding:11px 14px;border:0;border-radius:8px;cursor:pointer;font-weight:700;background:#111;color:#fff;text-decoration:none}.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.status{margin-top:12px;padding:10px;border-radius:8px;border:1px solid #aaa;background:#f0f0f0}.event-list{list-style:none;padding-left:0}.event-list li{padding:14px 0;border-bottom:1px solid #ddd}.event-list a{font-weight:700}.event-item{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start}.event-thumb{width:112px;height:84px;object-fit:cover;border-radius:9px;border:1px solid #ccc}.event-info{min-width:0}@media(max-width:560px){.event-item{grid-template-columns:1fr}.event-thumb{width:100%;max-width:260px;height:auto}}.small{font-size:.95rem;color:#444}.badge{display:inline-block;padding:3px 8px;border-radius:999px;background:#eee;margin-right:6px;font-size:.9rem}.live-badge{background:#dff6e8;color:#064d20}.hidden{display:none}.filtro-expansivel{margin-top:16px}.filtro-expansivel-conteudo{margin-top:8px;padding:14px;border:1px solid #aaa;border-radius:8px}.filtro-expansivel-conteudo[hidden]{display:none}.categorias-opcoes label{font-weight:400;margin-top:8px}.categorias-opcoes input{width:auto;margin-right:8px}</style>
 </head>
 <body>
-<header><h1>Eventos acessíveis</h1><p>Encontre eventos acessíveis, conheça o Audesc e descubra recursos para ampliar a participação de todas as pessoas.</p></header>
+<header><h1>Eventos acessíveis</h1><p>Encontre eventos que respeitam a diversidade e promovem a inclusão. Conheça o Audesc e descubra recursos para ampliar a participação de todas as pessoas.</p></header>
 <main>
 <nav class="panel" aria-labelledby="navegacaoPrincipalTitulo">
 <h2 id="navegacaoPrincipalTitulo">Navegação principal</h2>
@@ -41,10 +41,23 @@ function normalizarLocalEventos(v){return String(v||'').normalize('NFD').replace
 function ajustarFiltroPorCodigo(paisCodigo,unidadeCodigo,unidadeNome){
  const pais=(window.AUDESC_LOCAIS?.paises||[]).find(p=>String(p.codigo).toLowerCase()===String(paisCodigo||'').toLowerCase())?.nome;
  if(!pais||!paisFiltro.querySelector(`option[value="${CSS.escape(pais)}"]`))return false;
- paisFiltro.value=pais;preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);
- const codigo=String(unidadeCodigo||'').split('-').pop().toUpperCase(),nome=normalizarLocalEventos(unidadeNome);
- const opcao=[...ufFiltro.options].find(o=>String(o.value).toUpperCase()===codigo||(nome&&normalizarLocalEventos(o.textContent)===nome));
+ paisFiltro.value=pais;
+ preencherUnidadeAdministrativa(paisFiltro,ufFiltro,ufFiltroLabel);
+ const codigoCompleto=String(unidadeCodigo||'').toUpperCase();
+ const codigoCurto=codigoCompleto.split('-').pop();
+ const nome=normalizarLocalEventos(unidadeNome);
+ const opcao=[...ufFiltro.options].find(o=>{
+  const texto=String(o.textContent||'').replace(/\s*\([^)]*\)\s*$/,'').trim();
+  const codigoCatalogo=String(window.AUDESC_LOCAIS?.codigoUnidade?.(pais,o.value,texto)||'').toUpperCase();
+  return String(o.value).toUpperCase()===codigoCompleto||
+         String(o.value).toUpperCase()===codigoCurto||
+         codigoCatalogo===codigoCompleto||
+         codigoCatalogo===codigoCurto||
+         (nome&&normalizarLocalEventos(texto)===nome);
+ });
  if(opcao)ufFiltro.value=opcao.value;
+ // Se a localização por IP não conseguir conciliar a unidade,
+ // permanece a unidade padrão do país (normalmente a região da capital).
  return true;
 }
 function ajustarFiltroPorLocalizacao(info){const a=info.address||{};return ajustarFiltroPorCodigo(a.country_code,a.state_code||a['ISO3166-2-lvl4'],a.state);}
