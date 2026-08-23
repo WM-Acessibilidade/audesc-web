@@ -25,7 +25,7 @@ button.secondary{background:#555}.danger{background:#9b0000}.ok{background:#126b
 </head>
 <body>
 <header>
-<a href="admin.html">Voltar ao painel administrativo</a>
+<a href="admin.html">Voltar para o Painel Principal</a>
 <h1>Gerenciar e-mails</h1>
 <p>Controle e-mails de organizadores de eventos e de usuários cadastrados para receber notificações.</p>
 </header>
@@ -88,6 +88,7 @@ button.secondary{background:#555}.danger{background:#9b0000}.ok{background:#126b
 
 <script>
 const API_URL='https://audesc-events-api.onrender.com';
+const SESSION_KEY='audesc_admin_session_v1';
 let ADMIN_TOKEN='';
 let emails=[];
 
@@ -201,17 +202,28 @@ async function enviarMensagem(){
 }
 document.getElementById('busca').addEventListener('input',render);
 document.getElementById('filtro').addEventListener('change',render);
-document.getElementById('loginBtn').onclick=async()=>{
- ADMIN_TOKEN=document.getElementById('adminToken').value.trim();
+async function entrar(){
+ if(!ADMIN_TOKEN) ADMIN_TOKEN=document.getElementById('adminToken').value.trim();
  if(!ADMIN_TOKEN){status('loginStatus','Informe a senha.','error');return}
  try{
   status('loginStatus','Validando...','');
   await api('/admin/emails');
+  sessionStorage.setItem(SESSION_KEY,JSON.stringify({token:ADMIN_TOKEN}));
   document.getElementById('loginPanel').style.display='none';
   document.getElementById('contentPanel').style.display='';
   await carregar();
- }catch(e){status('loginStatus','Erro: '+e.message,'error')}
-};
+ }catch(e){
+  ADMIN_TOKEN='';
+  sessionStorage.removeItem(SESSION_KEY);
+  status('loginStatus','Erro: '+e.message,'error');
+ }
+}
+document.getElementById('loginBtn').onclick=entrar;
+try{
+ const s=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null');
+ if(s?.token) ADMIN_TOKEN=s.token;
+}catch{}
+if(ADMIN_TOKEN) entrar();
 </script>
 </body>
 </html>
