@@ -35,7 +35,7 @@ button.secondary{background:#555}.danger{background:#9b0000}.ok{background:#126b
 <label for="adminToken">Senha administrativa</label>
 <input id="adminToken" type="password">
 <button id="loginBtn" type="button">Entrar</button>
-<div id="loginStatus" class="status">Informe a senha administrativa.</div>
+<div id="loginStatus" class="status" role="status" aria-live="polite" aria-atomic="true">Informe a senha administrativa.</div>
 </section>
 
 <section class="panel" id="contentPanel" style="display:none">
@@ -46,7 +46,19 @@ button.secondary{background:#555}.danger{background:#9b0000}.ok{background:#126b
 <input id="busca" type="search" placeholder="Digite e-mail ou status">
 </div>
 <div>
-<label for="filtro">Filtro</label>
+<label for="filtroPais">País do primeiro cadastro</label>
+<select id="filtroPais">
+<option value="todos">Todos os países</option>
+</select>
+</div>
+<div>
+<label for="filtroUnidade">Unidade administrativa do primeiro cadastro</label>
+<select id="filtroUnidade" disabled>
+<option value="todos">Todas as unidades administrativas</option>
+</select>
+</div>
+<div>
+<label for="filtro">Situação / origem</label>
 <select id="filtro">
 <option value="todos">Todos</option>
 <option value="comum">Comuns</option>
@@ -82,7 +94,7 @@ button.secondary{background:#555}.danger{background:#9b0000}.ok{background:#126b
 <button type="button" onclick="enviarMensagem()">Enviar mensagem</button>
 </div>
 
-<div id="status" class="status">Pronto.</div>
+<div id="status" class="status" role="status" aria-live="polite" aria-atomic="true">Pronto.</div>
 </section>
 </main>
 
@@ -92,7 +104,7 @@ const SESSION_KEY='audesc_admin_session_v1';
 let ADMIN_TOKEN='';
 let emails=[];
 
-function status(id,msg,cls){const el=document.getElementById(id);el.textContent=msg;el.className='status'+(cls?' '+cls:'')}
+function status(id,msg,cls){const el=document.getElementById(id);if(!el)return;el.className='status'+(cls?' '+cls:'');el.textContent='';requestAnimationFrame(()=>{el.textContent=msg})}
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
 async function api(path, options={}){
  const headers=Object.assign({'Content-Type':'application/json','x-admin-token':ADMIN_TOKEN}, options.headers||{});
@@ -103,12 +115,38 @@ async function api(path, options={}){
 }
 
 function selecionados(){return [...document.querySelectorAll('.emailCheck:checked')].map(c=>c.value)}
+function chavePais(e){return String(e.primeiro_pais_codigo||e.primeiro_pais||'').trim()}
+function chaveUnidade(e){return String(e.primeira_unidade_codigo||e.primeira_unidade||'').trim()}
+function nomePais(e){return String(e.primeiro_pais||e.primeiro_pais_codigo||'Não informado').trim()}
+function nomeUnidade(e){return String(e.primeira_unidade||e.primeira_unidade_codigo||'Não informada').trim()}
+function atualizarFiltroPaises(){
+ const sel=document.getElementById('filtroPais'),atual=sel.value;
+ const mapa=new Map();
+ emails.forEach(e=>{const k=chavePais(e);if(k&&!mapa.has(k))mapa.set(k,nomePais(e))});
+ sel.innerHTML='<option value="todos">Todos os países</option>'+[...mapa.entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR')).map(([k,n])=>`<option value="${esc(k)}">${esc(n)}</option>`).join('');
+ if([...sel.options].some(o=>o.value===atual))sel.value=atual;
+ atualizarFiltroUnidades(false);
+}
+function atualizarFiltroUnidades(anunciar=true){
+ const pais=document.getElementById('filtroPais').value,sel=document.getElementById('filtroUnidade'),atual=sel.value;
+ const mapa=new Map();
+ emails.filter(e=>pais==='todos'||chavePais(e)===pais).forEach(e=>{const k=chaveUnidade(e);if(k&&!mapa.has(k))mapa.set(k,nomeUnidade(e))});
+ sel.innerHTML='<option value="todos">Todas as unidades administrativas</option>'+[...mapa.entries()].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR')).map(([k,n])=>`<option value="${esc(k)}">${esc(n)}</option>`).join('');
+ sel.disabled=pais==='todos';
+ if(!sel.disabled&&[...sel.options].some(o=>o.value===atual))sel.value=atual;else sel.value='todos';
+ if(anunciar)status('resumo',pais==='todos'?'Filtro de país removido. Exibindo todos os países.':'País selecionado. Escolha uma unidade administrativa se desejar refinar o filtro.','');
+ render();
+}
 function filtrar(){
  const q=(document.getElementById('busca').value||'').toLowerCase().trim();
  const f=document.getElementById('filtro').value;
+ const pais=document.getElementById('filtroPais').value;
+ const unidade=document.getElementById('filtroUnidade').value;
  return emails.filter(e=>{
-  const texto=[e.email,e.status,e.observacao].join(' ').toLowerCase();
+  const texto=[e.email,e.status,e.observacao,e.primeiro_pais,e.primeira_unidade].join(' ').toLowerCase();
   if(q && !texto.includes(q)) return false;
+  if(pais!=='todos'&&chavePais(e)!==pais) return false;
+  if(unidade!=='todos'&&chaveUnidade(e)!==unidade) return false;
   if(f==='todos') return true;
   if(f==='eventos') return e.origem_eventos;
   if(f==='notificacoes') return e.origem_notificacoes;
@@ -118,6 +156,7 @@ function filtrar(){
 function renderResumo(){
  document.getElementById('resumo').textContent=`Total: ${emails.length}. Exibidos: ${filtrar().length}. Selecionados: ${selecionados().length}.`;
 }
+function atualizarSelecao(c){renderResumo();status('status',c.checked?'E-mail selecionado.':'E-mail removido da seleção.','success')}
 function render(){
  const lista=filtrar();
  const root=document.getElementById('listaEmails');
@@ -129,7 +168,7 @@ function render(){
   div.className='email-item';
   div.innerHTML=`
    <label>
-    <input class="emailCheck" type="checkbox" value="${esc(e.email)}" onchange="renderResumo()">
+    <input class="emailCheck" type="checkbox" value="${esc(e.email)}" onchange="atualizarSelecao(this)">
     ${esc(e.email)}
    </label>
    <p>
@@ -138,6 +177,8 @@ function render(){
     ${e.origem_notificacoes?'<span class="badge">notificações</span>':''}
    </p>
    <p class="small">
+    País do primeiro cadastro: ${esc(nomePais(e))}<br>
+    Unidade administrativa do primeiro cadastro: ${esc(nomeUnidade(e))}<br>
     Eventos cadastrados: ${e.total_eventos||0}<br>
     Notificações ativas: ${e.notificacoes_ativas?'sim':'não'}<br>
     Notificações validadas: ${e.notificacoes_validadas?'sim':'não'}<br>
@@ -154,22 +195,23 @@ async function carregar(){
  status('status','Carregando e-mails...','');
  const data=await api('/admin/emails');
  emails=data.emails||[];
+ atualizarFiltroPaises();
  render();
  status('status','E-mails carregados.','success');
 }
-function selecionarTodos(){document.querySelectorAll('.emailCheck').forEach(c=>c.checked=true);renderResumo()}
-function limparSelecao(){document.querySelectorAll('.emailCheck').forEach(c=>c.checked=false);renderResumo()}
+function selecionarTodos(){document.querySelectorAll('.emailCheck').forEach(c=>c.checked=true);renderResumo();status('status','Todos os e-mails exibidos foram selecionados.','success')}
+function limparSelecao(){document.querySelectorAll('.emailCheck').forEach(c=>c.checked=false);renderResumo();status('status','Seleção de e-mails limpa.','success')}
 async function alterarStatus(novoStatus){
  const lista=selecionados();
  if(!lista.length){status('status','Selecione ao menos um e-mail.','error');return}
- try{await api('/admin/emails/status',{method:'PATCH',body:JSON.stringify({emails:lista,status:novoStatus})});await carregar();status('status','Status atualizado.','success')}
+ try{await api('/admin/emails/status',{method:'PATCH',body:JSON.stringify({emails:lista,status:novoStatus})});await carregar();const rotulo=novoStatus==='confiavel'?'confiável':novoStatus==='bloqueado'?'bloqueado':'comum';status('status',`${lista.length} e-mail${lista.length===1?'':'s'} classificado${lista.length===1?'':'s'} como ${rotulo} com sucesso.`,'success')}
  catch(e){status('status','Erro: '+e.message,'error')}
 }
 async function excluirSelecionados(){
  const lista=selecionados();
  if(!lista.length){status('status','Selecione ao menos um e-mail.','error');return}
  if(!confirm('Excluir os e-mails selecionados das notificações e da lista de controle? Eventos já cadastrados serão preservados.')) return;
- try{await api('/admin/emails',{method:'DELETE',body:JSON.stringify({emails:lista})});await carregar();status('status','E-mails excluídos da base de controle/notificações.','success')}
+ try{await api('/admin/emails',{method:'DELETE',body:JSON.stringify({emails:lista})});await carregar();status('status',`${lista.length} e-mail${lista.length===1?'':'s'} excluído${lista.length===1?'':'s'} da base de controle e notificações com sucesso.`,'success')}
  catch(e){status('status','Erro: '+e.message,'error')}
 }
 function arquivoParaBase64(file){
@@ -197,11 +239,13 @@ async function enviarMensagem(){
   status('status','Preparando envio...','');
   const anexos=await coletarAnexos();
   await api('/admin/emails/enviar-mensagem',{method:'POST',body:JSON.stringify({emails:lista,assunto,mensagem,anexos})});
-  status('status','Mensagem enviada.','success');
+  status('status',`Mensagem enviada com sucesso para ${lista.length} e-mail${lista.length===1?'':'s'}.`,'success');
  }catch(e){status('status','Erro ao enviar: '+e.message,'error')}
 }
 document.getElementById('busca').addEventListener('input',render);
-document.getElementById('filtro').addEventListener('change',render);
+document.getElementById('filtro').addEventListener('change',()=>{render();status('status','Filtro de situação ou origem aplicado.','success')});
+document.getElementById('filtroPais').addEventListener('change',()=>atualizarFiltroUnidades(true));
+document.getElementById('filtroUnidade').addEventListener('change',()=>{render();status('status',document.getElementById('filtroUnidade').value==='todos'?'Filtro de unidade administrativa removido.':'Filtro de unidade administrativa aplicado.','success')});
 async function entrar(){
  if(!ADMIN_TOKEN) ADMIN_TOKEN=document.getElementById('adminToken').value.trim();
  if(!ADMIN_TOKEN){status('loginStatus','Informe a senha.','error');return}
