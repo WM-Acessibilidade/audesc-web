@@ -11,7 +11,56 @@ function distancia(a,b,c,d){const R=6371,p=Math.PI/180,x=(c-a)*p,y=(d-b)*p,z=Mat
 function filtrados(){const q=norm(busca.value),cats=[...document.querySelectorAll('.cat:checked')].map(x=>x.value);let a=repositorios.filter(r=>(!q||norm([r.titulo,r.descricao,r.nome_local,r.endereco].join(' ')).includes(q))&&(!pais.value||r.pais===pais.value)&&(!uf.value||r.unidade_codigo===uf.value||r.unidade_administrativa===uf.value)&&(!cats.length||cats.includes(r.categoria)));if(coords)a=a.map(r=>({...r,_dist:Number.isFinite(Number(r.latitude))&&Number.isFinite(Number(r.longitude))?distancia(coords.lat,coords.lon,Number(r.latitude),Number(r.longitude)):null})).sort((x,y)=>(x._dist??1e12)-(y._dist??1e12));return a}
 function render(){const a=filtrados(),root=document.getElementById('lista');document.getElementById('summary').textContent=`${a.length} repositório${a.length===1?'':'s'} exibido${a.length===1?'':'s'}.`;root.innerHTML=a.length?a.map(r=>`<li class="repo"><div>${r.imagem_url?`<img src="${esc(r.imagem_url)}" alt="${esc(r.imagem_alt||'')}">`:''}</div><div><h3><a id="repo-${esc(r.id)}" href="repositorio.html?id=${encodeURIComponent(r.id)}" data-id="${esc(r.id)}">${esc(r.titulo)}</a></h3><p><span class="badge">${esc(window.AUDIRE_CATEGORIAS?.nome(r.categoria)||r.categoria)}</span></p>${r.nome_local?`<p>${esc(r.nome_local)}</p>`:''}${r._dist!=null?`<p class="small">Aproximadamente ${r._dist.toFixed(1).replace('.',',')} km da sua localização.</p>`:''}</div></li>`).join(''):'<li>Nenhum repositório encontrado.</li>';root.querySelectorAll('a[data-id]').forEach(a=>a.addEventListener('click',()=>sessionStorage.setItem(FOCUS_KEY,a.dataset.id)));restaurarFoco()}
 function restaurarFoco(){const id=sessionStorage.getItem(FOCUS_KEY);if(!id)return;const el=document.getElementById('repo-'+CSS.escape(id));if(el){sessionStorage.removeItem(FOCUS_KEY);setTimeout(()=>el.focus(),0)}}
-async function aproximarPorIp(){try{const r=await fetch(API+'/localizacao-aproximada'),j=await r.json().catch(()=>({}));if(!r.ok||!j.ok)return;const loc=j.localizacao||j;const p=(window.AUDESC_LOCAIS?.paises||[]).find(x=>String(x.codigo).toUpperCase()===String(loc.pais_codigo||loc.country_code||'').toUpperCase());if(!p||![...pais.options].some(o=>o.value===p.nome))return;pais.value=p.nome;preencherUf();const cod=String(loc.unidade_codigo||loc.uf||'');const nome=norm(loc.unidade_nome||'');const op=[...uf.options].find(o=>String(o.value).toUpperCase()===cod.toUpperCase()||norm(o.textContent).replace(/\s*\([^)]*\)\s*$/,'')===nome);if(op)uf.value=op.value;document.getElementById('geoStatus').textContent='Localização aproximada identificada automaticamente. País e unidade administrativa foram selecionados quando identificados. Você pode alterar os filtros.';render()}catch(e){console.warn('Localização aproximada por IP indisponível.',e)}}
+function localizarPaisPorCodigo(codigo){return (window.AUDESC_LOCAIS?.paises||[]).find(x=>String(x.codigo||'').toUpperCase()===String(codigo||'').toUpperCase())||null}
+function selecionarUnidadeAproximada(loc){
+  const codigo=String(loc?.unidade_codigo||loc?.region_code||loc?.uf||'').toUpperCase();
+  const nome=norm(loc?.unidade_nome||loc?.region||'');
+  if(!codigo&&!nome)return false;
+  const op=[...uf.options].find(o=>{
+    const valor=String(o.value||'').toUpperCase();
+    const texto=norm(String(o.textContent||'').replace(/\s*\([^)]*\)\s*$/,''));
+    const codigoNoTexto=(String(o.textContent||'').match(/\(([^)]+)\)\s*$/)||[])[1]||'';
+    return (codigo&&(valor===codigo||String(codigoNoTexto).toUpperCase()===codigo||valor.endsWith('-'+codigo))) || (nome&&texto===nome);
+  });
+  if(op){uf.value=op.value;return true}
+  return false;
+}
+function aplicarLocalizacaoAproximada(loc,fonte){
+  const p=localizarPaisPorCodigo(loc?.pais_codigo||loc?.country_code||loc?.country);
+  if(!p)return {ok:false,motivo:'pais_desconhecido'};
+  if(![...pais.options].some(o=>o.value===p.nome))return {ok:false,motivo:'pais_desabilitado',pais:p.nome};
+  pais.value=p.nome;preencherUf();
+  const unidade=selecionarUnidadeAproximada(loc);
+  render();
+  return {ok:true,pais:p.nome,unidade,fonte};
+}
+async function buscarLocalizacaoNoNavegador(){
+  const tentativas=[
+    async()=>{const r=await fetch('https://ipapi.co/json/',{headers:{Accept:'application/json'}});const j=await r.json();if(!r.ok||j.error)throw new Error('ipapi');return {pais_codigo:j.country_code||j.country,unidade_codigo:j.region_code,unidade_nome:j.region}},
+    async()=>{const r=await fetch('https://ipwho.is/',{headers:{Accept:'application/json'}});const j=await r.json();if(!r.ok||j.success===false)throw new Error('ipwhois');return {pais_codigo:j.country_code,unidade_codigo:j.region_code,unidade_nome:j.region}}
+  ];
+  for(const tentativa of tentativas){try{const loc=await tentativa();if(loc?.pais_codigo)return loc}catch(e){}}
+  return null;
+}
+async function aproximarPorIp(){
+  const st=document.getElementById('geoStatus');
+  st.textContent='Identificando automaticamente sua localização aproximada...';
+  let aplicado=null;
+  try{
+    const r=await fetch(API+'/localizacao-aproximada',{cache:'no-store'}),j=await r.json().catch(()=>({}));
+    if(r.ok&&j.ok)aplicado=aplicarLocalizacaoAproximada(j.localizacao||j,'backend');
+  }catch(e){console.warn('Localização aproximada pelo backend indisponível.',e)}
+  if(!aplicado?.ok){
+    try{const loc=await buscarLocalizacaoNoNavegador();if(loc)aplicado=aplicarLocalizacaoAproximada(loc,'navegador')}catch(e){console.warn('Localização aproximada no navegador indisponível.',e)}
+  }
+  if(aplicado?.ok){
+    st.textContent='Localização aproximada identificada automaticamente: '+aplicado.pais+(aplicado.unidade?' e unidade administrativa correspondente.':'. A unidade administrativa não pôde ser determinada automaticamente.')+' Você pode alterar os filtros.';
+  }else if(aplicado?.motivo==='pais_desabilitado'){
+    st.textContent='Sua localização aproximada foi identificada em '+aplicado.pais+', mas esse país não está habilitado atualmente no Audire. Exibindo todos os países disponíveis.';
+  }else{
+    st.textContent='Não foi possível identificar automaticamente país e unidade administrativa por IP. Você pode selecioná-los manualmente ou usar sua localização precisa pelo botão abaixo.';
+  }
+}
 async function carregar(){try{const r=await fetch(API+'/audire/public/repositorios'),j=await r.json();if(!r.ok)throw new Error(j.error||'Erro na API');repositorios=j.repositorios||[];config=j.config||config;initLocais();render();await aproximarPorIp()}catch(e){document.getElementById('summary').textContent='Erro: '+e.message}}
 pais.addEventListener('change',()=>{preencherUf();render()});uf.addEventListener('change',render);busca.addEventListener('input',render);document.getElementById('categoriasFiltro').addEventListener('change',render);document.getElementById('usarLocalizacao').onclick=()=>{if(!navigator.geolocation){document.getElementById('geoStatus').textContent='Geolocalização não disponível.';return}document.getElementById('geoStatus').textContent='Obtendo localização...';navigator.geolocation.getCurrentPosition(p=>{coords={lat:p.coords.latitude,lon:p.coords.longitude};document.getElementById('geoStatus').textContent='Localização utilizada para ordenar por proximidade.';render()},e=>document.getElementById('geoStatus').textContent='Não foi possível obter a localização: '+e.message,{enableHighAccuracy:true,timeout:12000})};document.getElementById('limparFiltros').onclick=()=>{busca.value='';pais.value='';preencherUf();document.querySelectorAll('.cat').forEach(c=>c.checked=false);coords=null;document.getElementById('geoStatus').textContent='Filtros e localização foram limpos.';render()};initCategorias();carregar();
 </script></body></html>
